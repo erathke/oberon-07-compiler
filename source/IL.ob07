@@ -17,6 +17,7 @@ CONST
     call_sysv*  = 2;
     call_fast1* = 3;
     call_fast2* = 4;
+    call_extern*= 5;
 
     begin_loop* = 1; end_loop* = 2;
 
@@ -83,7 +84,7 @@ CONST
     opSAVE16C* = 213; (*opWCHR* = 214;*) opHANDLER* = 215;
 
     opSYSVCALL* = 216; opSYSVCALLI* = 217; opSYSVCALLP* = 218; opFNAME* = 219; opFASTCALL* = 220;
-
+	opCALLEXT* = 222;
 
     opSADR_PARAM* = -1; opLOAD64_PARAM* = -2; opLLOAD64_PARAM* = -3; opGLOAD64_PARAM* = -4;
     opVADR_PARAM* = -5; opCONST_PARAM* = -6; opGLOAD32_PARAM* = -7; opLLOAD32_PARAM* = -8;
@@ -162,6 +163,10 @@ TYPE
 
         label*: INTEGER;
         name*:  SCAN.IDSTR
+    
+    END;
+    
+    EXTERN_PROC* = POINTER TO RECORD (EXPORT_PROC)
 
     END;
 
@@ -190,6 +195,7 @@ TYPE
         commands*:  LISTS.LIST;
         export*:    LISTS.LIST;
         _import*:   LISTS.LIST;
+        extern*:    LISTS.LIST;
         types*:     CHL.INTLIST;
         data*:      CHL.BYTELIST;
         dmin*:      INTEGER;
@@ -858,9 +864,18 @@ BEGIN
     |call_stack: AddCmd0(opCALLP)
     |call_win64: AddCmd(opWIN64CALLP, fparams)
     |call_sysv:  AddCmd(opSYSVCALLP, fparams)
-    END
+    END;
 END CallP;
 
+PROCEDURE CallExt*(label: INTEGER);
+VAR
+	cmd: COMMAND;
+BEGIN
+    cmd := NewCmd();
+    cmd.opcode := opCALLEXT;
+    cmd.param1 := label;
+    insert(codes.last, cmd)
+END CallExt;
 
 PROCEDURE AssignProc* (proc: INTEGER);
 BEGIN
@@ -1105,6 +1120,18 @@ BEGIN
 END AddExp;
 
 
+PROCEDURE AddExt* (label: INTEGER; name: SCAN.IDSTR);
+VAR
+    ext: EXTERN_PROC;
+
+BEGIN
+    NEW(ext);
+    ext.label := label;
+    ext.name  := name;
+    LISTS.push(codes.extern, ext)
+END AddExt;
+
+
 PROCEDURE AddImp* (dll, proc: SCAN.TEXTSTR): IMPORT_PROC;
 VAR
     lib: IMPORT_LIB;
@@ -1175,6 +1202,7 @@ BEGIN
     codes.endcall.top := -1;
     codes.commands := LISTS.create(NIL);
     codes.export   := LISTS.create(NIL);
+    codes.extern   := LISTS.create(NIL);
     codes._import  := LISTS.create(NIL);
     codes.types    := CHL.CreateIntList();
     codes.data     := CHL.CreateByteList();

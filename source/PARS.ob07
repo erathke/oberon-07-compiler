@@ -16,7 +16,7 @@ CONST
     eCONST*   =  1;  eTYPE*   =  2;  eVAR*     =  3;  eEXPR*    =  4;
     eVREC*    =  5;  ePROC*   =  6;  eVPAR*    =  7;  ePARAM*   =  8;
     eSTPROC*  =  9;  eSTFUNC* = 10;  eSYSFUNC* = 11;  eSYSPROC* = 12;
-    eIMP*     = 13;
+    eIMP*     = 13;  eEXTPROC* = 14;
 
 
 TYPE
@@ -558,6 +558,8 @@ BEGIN
         sf := PROG.sf_fastcall
     ELSIF parser.lex.ident.s = "noalign" THEN
         sf := PROG.sf_noalign
+    ELSIF parser.lex.ident.s = "extern" THEN
+        sf := PROG.sf_extcall
     ELSE
         check1(FALSE, parser, 124)
     END;
@@ -609,6 +611,8 @@ BEGIN
         ELSIF TARGETS.OS = TARGETS.osLINUX64 THEN
             res := PROG.systemv
         END
+    |PROG.sf_extcall:
+        res := PROG.extcall
     |PROG.sf_noalign:
         res := PROG.noalign
     END
@@ -617,7 +621,7 @@ BEGIN
 END sysflag;
 
 
-PROCEDURE procflag (parser: PARSER; VAR _import: IL.IMPORT_PROC; isProc: BOOLEAN): INTEGER;
+PROCEDURE procflag (parser: PARSER; VAR _import: IL.IMPORT_PROC; VAR extid: SCAN.IDSTR; isProc: BOOLEAN): INTEGER;
 VAR
     call: INTEGER;
     dll, proc: SCAN.TEXTSTR;
@@ -641,7 +645,6 @@ VAR
         END
     END getStr;
 
-
 BEGIN
     _import := NIL;
 
@@ -656,14 +659,24 @@ BEGIN
             INC(call)
         END;
 
-        IF isProc & (parser.sym = SCAN.lxCOMMA) THEN
-            Next(parser);
-            getStr(parser, dll);
-            STRINGS.UpCase(dll);
-            checklex(parser, SCAN.lxCOMMA);
-            Next(parser);
-            getStr(parser, proc);
-            _import := IL.AddImp(dll, proc)
+        IF isProc THEN
+			
+			IF call = PROG.extcall THEN
+				checklex(parser, SCAN.lxCOMMA);
+				Next(parser);
+				getStr(parser, proc);
+				check1(LENGTH(proc) > 0, parser, 22); (* FIXME: better error *)
+				COPY(proc, extid);
+				
+			ELSIF parser.sym = SCAN.lxCOMMA THEN
+				Next(parser);
+				getStr(parser, dll);
+				STRINGS.UpCase(dll);
+				checklex(parser, SCAN.lxCOMMA);
+				Next(parser);
+				getStr(parser, proc);
+				_import := IL.AddImp(dll, proc)
+			END;
         END;
 
         checklex(parser, SCAN.lxRSQUARE);
@@ -709,6 +722,7 @@ VAR
     a, b:       INTEGER;
     RecFlag:    INTEGER;
     _import:     IL.IMPORT_PROC;
+    extid: SCAN.IDSTR;
 
 BEGIN
     unit := parser.unit;
@@ -862,7 +876,7 @@ BEGIN
         NextPos(parser, pos);
         t := PROG.enterType(PROG.tPROCEDURE, TARGETS.AdrSize, 0, unit);
         t.align := TARGETS.AdrSize;
-        t.call := procflag(parser, _import, FALSE);
+        t.call := procflag(parser, _import, extid, FALSE);
         FormalParameters(parser, t)
     ELSE
         check1(FALSE, parser, 49)
@@ -990,14 +1004,15 @@ VAR
         codeProc,
         handler:    BOOLEAN;
         line:       INTEGER;
-
+		extid: SCAN.IDSTR;
+		
     BEGIN
         endmod := FALSE;
         handler := FALSE;
 
         unit := parser.unit;
 
-        call := procflag(parser, _import, TRUE);
+        call := procflag(parser, _import, extid, TRUE);
 
         getpos(parser, pos);
         pos1 := pos;
@@ -1011,6 +1026,9 @@ VAR
                 COPY(name.s, _import.name)
             END;
             PROG.program.procs.last(PROG.PROC)._import := _import
+        ELSIF call = PROG.extcall THEN
+			proc := IdentDef(parser, PROG.idEXTPROC, name);
+			proc.extern := TRUE
         ELSE
             proc := IdentDef(parser, PROG.idPROC, name)
         END;
@@ -1092,13 +1110,26 @@ VAR
         Next(parser);
 
         IF _import = NIL THEN
-
-            IF parser.main & proc.export & TARGETS.Dll THEN
-                IF TARGETS.target = TARGETS.KolibriOSDLL THEN
-                    check((proc.name.s # "lib_init") & (proc.name.s # "version"), pos, 114)
+			
+            IF parser.main  THEN
+				IF proc.export & TARGETS.Dll & (~proc.extern) THEN
+					IF TARGETS.target = TARGETS.KolibriOSDLL THEN
+						check((proc.name.s # "lib_init") & (proc.name.s # "version"), pos, 114)
+					END;
+					
+					IL.AddExp(label, proc.name.s);
+					proc.proc.used := TRUE
+				
                 END;
-                IL.AddExp(label, proc.name.s);
-                proc.proc.used := TRUE
+                IF proc.extern THEN
+					IL.AddExt(label, extid);
+					proc.proc.used := TRUE
+				END;
+            ELSE
+				IF proc.extern THEN
+					IL.AddExt(label, extid);
+					proc.proc.used := TRUE
+				END;
             END;
 
             IF ~codeProc THEN
@@ -1116,8 +1147,8 @@ VAR
 
             ELSIF call IN {PROG.fastcall, PROG._fastcall} THEN
                 enter := IL.Enter(label, proc._type.parSize)
-            ELSE
-                enter := IL.Enter(label, 0)
+            ELSIF call # PROG.extcall THEN
+				enter := IL.Enter(label, 0)
             END;
             proc.proc.enter := enter;
 
@@ -1126,18 +1157,20 @@ VAR
                 parser.StatSeq(parser)
             END;
 
-            IF ~codeProc & (t.base # NIL) THEN
-                checklex(parser, SCAN.lxRETURN);
-                NextPos(parser, pos);
-                parser.expression(parser, e);
-                check(parser.chkreturn(parser, e, t.base, pos), pos, 87)
+            IF ~codeProc & (t.base # NIL) & (call # PROG.extcall) THEN
+				checklex(parser, SCAN.lxRETURN);
+				NextPos(parser, pos);
+				parser.expression(parser, e);
+				check(parser.chkreturn(parser, e, t.base, pos), pos, 87)				
             END;
 
             IF ~codeProc THEN
-                proc.proc.leave := IL.Leave(t.base # NIL, (t.base # NIL) & (t.base.typ = PROG.tREAL), PROG.program.locsize,
-                    t.parSize * ORD((t.call IN PROG.callee_clean_up) OR (t.call IN {PROG.systemv, PROG._systemv})));
-                enter.param2 := PROG.program.locsize;
-                checklex(parser, SCAN.lxEND)
+				IF call # PROG.extcall THEN
+					proc.proc.leave := IL.Leave(t.base # NIL, (t.base # NIL) & (t.base.typ = PROG.tREAL), PROG.program.locsize,
+						t.parSize * ORD((t.call IN PROG.callee_clean_up) OR (t.call IN {PROG.systemv, PROG._systemv})));
+					enter.param2 := PROG.program.locsize;
+				END;
+				checklex(parser, SCAN.lxEND)
             ELSE
                 proc.proc.leave := IL.LeaveC()
             END;
@@ -1176,6 +1209,7 @@ VAR
                 checklex(parser, SCAN.lxIDENT)
             END
         END;
+        
 
         PROG.closeScope(unit);
 

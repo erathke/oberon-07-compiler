@@ -30,6 +30,7 @@ CONST
     RVM64I*       = 15;
     KolibriOSKer* = 16;
     KolibriOSDrv* = 17;
+    Linux32O*     = 18;
 
     cpuX86* = 0; cpuAMD64* = 1; cpuMSP430* = 2; cpuTHUMB* = 3;
     cpuRVM32I* = 4; cpuRVM64I* = 5;
@@ -59,7 +60,7 @@ TYPE
 
 VAR
 
-    Targets*: ARRAY 18 OF TARGET;
+    Targets*: ARRAY 19 OF TARGET;
 
     CPUs: ARRAY 6 OF
         RECORD
@@ -111,7 +112,7 @@ BEGIN
         Import := (OS IN {osWIN32, osWIN64, osKOS}) & (target # KolibriOSKer);
         Dispose := ~(target IN noDISPOSE);
         RTL := ~(target IN noRTL);
-        Dll := target IN {Linux32SO, Linux64SO, Win32DLL, Win64DLL, KolibriOSDLL, KolibriOSDrv};
+        Dll := target IN {Linux32SO, Linux32O, Linux64SO, Win32DLL, Win64DLL, KolibriOSDLL, KolibriOSDrv};
         WinLin := OS IN {osWIN32, osLINUX32, osWIN64, osLINUX64};
         WordSize := BitDepth DIV 8;
         AdrSize  := WordSize
@@ -148,6 +149,7 @@ BEGIN
     Enter( Win64DLL,      cpuAMD64,   8,  osWIN64,    "win64dll",    "Windows",   ".dll");
     Enter( Linux32,       cpuX86,     8,  osLINUX32,  "linux32exe",  "Linux",     "");
     Enter( Linux32SO,     cpuX86,     8,  osLINUX32,  "linux32so",   "Linux",     ".so");
+    Enter( Linux32O,     cpuX86,     8,  osLINUX32,  "linux32o",   "Linux",     ".xo");
     Enter( Linux64,       cpuAMD64,   8,  osLINUX64,  "linux64exe",  "Linux",     "");
     Enter( Linux64SO,     cpuAMD64,   8,  osLINUX64,  "linux64so",   "Linux",     ".so");
     Enter( STM32CM3,      cpuTHUMB,   4,  osNONE,     "stm32cm3",    "STM32CM3",  ".hex");

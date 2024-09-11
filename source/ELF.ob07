@@ -7,7 +7,7 @@
 
 MODULE ELF;
 
-IMPORT BIN, WR := WRITER, CHL := CHUNKLISTS, LISTS, PE32, UTILS, STRINGS;
+IMPORT BIN, WR := WRITER, CHL := CHUNKLISTS, LISTS, PE32, UTILS, STRINGS, SCAN, Out;
 
 
 CONST
@@ -588,5 +588,415 @@ BEGIN
     UTILS.chmod(FileName)
 END write;
 
+
+PROCEDURE writeo* (program: BIN.PROGRAM; FileName: ARRAY OF CHAR; fini: INTEGER; so, amd64: BOOLEAN);
+CONST
+    
+    ET_REL = 1;
+    
+	SH_NUM = 7;
+	SH_SIZE = 28H;
+	SYM_SIZE = 16;
+	
+	SH_IDX_TEXT = 1;
+	SH_IDX_DATA = 2;
+	SH_IDX_BSS = 3;
+	SH_IDX_STRTAB = 4;
+	SH_IDX_SYMTAB = 5;
+	SH_IDX_RELTEXT = 6;
+	
+	(* s_type *)
+	SHT_NULL = 0H;
+	SHT_PROGBITS = 1H;
+	SHT_SYMTAB = 2H;
+	SHT_STRTAB = 3H;
+	SHT_NOBITS = 8H;
+	SHT_REL = 9H;
+	
+	(* s_flags *)
+	SHF_WRITE = 1H;
+	SHF_ALLOC = 2H;
+	SHF_EXECINSTR = 4H;
+	
+	SHN_UNDEF = 0;
+	
+	(* Symbol table constants *)
+	(* bindings *)
+	STB_LOCAL = 0;
+	STB_GLOBAL = 1;
+	(* types *)
+	STT_NOTYPE = 0;
+	STT_OBJECT = 1;
+	STT_FUNC = 2;
+	STT_SECTION = 3;
+	
+	(* Relocation table constants *)
+	(* types *)
+	RTT_R_386_NONE = 0; // No relocation
+	RTT_R_386_32 = 1; // Symbol + Offset
+	RTT_R_386_PC32 = 2; // Symbol + Offset - Section Offset
+	RTT_R_386_GOT32 = 3;
+	RTT_R_386_PLT32 = 4;
+	
+	TEXT_SYMBOL_VALUE = 0;
+	DATA_SYMBOL_VALUE = 3;
+	BSS_SYMBOL_VALUE  = 0;
+
+TYPE 
+	Elf32_Shdr = RECORD
+	
+		s_name, 
+		s_type, 
+		s_flags,
+		s_addr,
+		s_offset,
+		s_size,
+		s_link,
+		s_info,
+		s_addralign,
+		s_entsize : INTEGER
+		
+	END;
+	
+	Elf32_Rel = POINTER TO RECORD (LISTS.ITEM)
+        offset, info: INTEGER
+    END;
+
+VAR
+    ehdr: Elf32_Ehdr;
+    
+	shdr: ARRAY SH_NUM OF Elf32_Shdr;
+
+    i: INTEGER;
+
+    SizeOf: RECORD header, text, data, strtab, symtab, reltext, bss: INTEGER END;
+    
+    Offset: RECORD text, data, strtab, symtab, reltext, bss: INTEGER END;
+
+    Name: ARRAY 2048 OF CHAR;
+    
+    item: LISTS.ITEM;
+    
+    reltab:  LISTS.LIST;
+    
+    localSymCount, symtabCount, relCount: INTEGER;
+    
+    StrPos: RECORD text, reltext, data, symtab, strtab, bss: INTEGER END;
+    
+    symidx: INTEGER;
+    
+    reloc: BIN.RELOC;
+
+	PROCEDURE WriteSH(shdr: Elf32_Shdr);
+	BEGIN
+		WR.Write32LE(shdr.s_name);
+		WR.Write32LE(shdr.s_type);
+		WR.Write32LE(shdr.s_flags);
+		WR.Write32LE(shdr.s_addr);
+		WR.Write32LE(shdr.s_offset);
+		WR.Write32LE(shdr.s_size);
+		WR.Write32LE(shdr.s_link);
+		WR.Write32LE(shdr.s_info);
+		WR.Write32LE(shdr.s_addralign);
+		WR.Write32LE(shdr.s_entsize)
+	END WriteSH;
+
+
+	PROCEDURE WriteEH(ehdr: Elf32_Ehdr; amd64: BOOLEAN);
+	VAR
+		i: INTEGER;
+	BEGIN
+		FOR i := 0 TO EI_NIDENT - 1 DO
+			WR.WriteByte(ehdr.e_ident[i])
+		END;
+
+		Write16(ehdr.e_type);
+		Write16(ehdr.e_machine);
+
+		WR.Write32LE(ehdr.e_version);
+		IF amd64 THEN
+			WR.Write64LE(ehdr.e_entry);
+			WR.Write64LE(ehdr.e_phoff);
+			WR.Write64LE(ehdr.e_shoff)
+		ELSE
+			WR.Write32LE(ehdr.e_entry);
+			WR.Write32LE(ehdr.e_phoff);
+			WR.Write32LE(ehdr.e_shoff)
+		END;
+		WR.Write32LE(ehdr.e_flags);
+
+		Write16(ehdr.e_ehsize);
+		Write16(ehdr.e_phentsize);
+		Write16(ehdr.e_phnum);
+		Write16(ehdr.e_shentsize);
+		Write16(ehdr.e_shnum);
+		Write16(ehdr.e_shstrndx);
+
+		IF amd64 THEN
+			WR.Write64LE(0);
+			WR.Write64LE(0)
+		ELSE
+			WR.Write32LE(0);
+			WR.Write32LE(0)
+		END;
+	END WriteEH;
+	
+	PROCEDURE NewRel (reltab: LISTS.LIST; offset, info: INTEGER);
+	VAR
+		rel: Elf32_Rel;
+	BEGIN
+		NEW(rel);
+		rel.offset := offset;
+		rel.info := info;
+		LISTS.push(reltab, rel)
+	END NewRel;
+	
+	PROCEDURE FindSymbolIdx(sym: LISTS.LIST; name: SCAN.IDSTR; VAR idx: INTEGER): BOOLEAN;
+	VAR
+		item: LISTS.ITEM;
+		found: BOOLEAN;
+		symname: SCAN.IDSTR;
+		i: INTEGER;
+	BEGIN
+		item := sym.first;
+		WHILE (item # NIL) & (~ found) DO
+			ASSERT(CHL.GetStr(strtab, item(Elf32_Sym).name, symname));
+			IF symname = name THEN
+				found := TRUE;
+				idx := i;
+			END;
+			item := item.next;
+			INC(i);
+		END;
+		RETURN found
+	END;
+
+BEGIN
+	dynamic := LISTS.create(NIL);
+	symtab  := LISTS.create(NIL);
+	reltab  := LISTS.create(NIL);
+    strtab  := CHL.CreateByteList();
+    i := CHL.PushStr(strtab, "");
+    StrPos.text := CHL.PushStr(strtab, ".text");
+    StrPos.reltext := CHL.PushStr(strtab, ".rel.text");
+    StrPos.data := CHL.PushStr(strtab, ".data");
+    StrPos.symtab := CHL.PushStr(strtab, ".symtab");
+    StrPos.strtab := CHL.PushStr(strtab, ".strtab");
+    StrPos.bss := CHL.PushStr(strtab, ".bss");
+    
+    SizeOf.text := CHL.Length(program.code);
+    SizeOf.data := CHL.Length(program.data);
+    SizeOf.bss := program.bss;
+    
+    ehdr.e_ident[0] := 7FH;
+    ehdr.e_ident[1] := ORD("E");
+    ehdr.e_ident[2] := ORD("L");
+    ehdr.e_ident[3] := ORD("F");
+    IF amd64 THEN
+        ehdr.e_ident[4] := ELFCLASS64
+    ELSE
+        ehdr.e_ident[4] := ELFCLASS32
+    END;
+    ehdr.e_ident[5] := ELFDATA2LSB;
+    ehdr.e_ident[6] := 1;
+    ehdr.e_ident[7] := 3;
+    FOR i := 8 TO EI_NIDENT - 1 DO
+        ehdr.e_ident[i] := 0
+    END;
+
+	ehdr.e_type := WCHR(ET_REL);
+	
+    ehdr.e_version := 1;
+    
+    ehdr.e_flags := 0;
+    ehdr.e_shnum := WCHR(SH_NUM);
+    ehdr.e_shstrndx := WCHR(SH_IDX_STRTAB);
+    ehdr.e_phnum := WCHR(0);
+    
+	ehdr.e_machine := WCHR(EM_386);
+	ehdr.e_phoff := 0H;
+	ehdr.e_ehsize := WCHR(34H);
+	ehdr.e_phentsize := WCHR(0H);
+	ehdr.e_shentsize := WCHR(28H);
+	SizeOf.header := ORD(ehdr.e_ehsize) + 8;
+	
+	Offset.text := SizeOf.header;
+	Offset.data := Offset.text + SizeOf.text;
+	Offset.bss := Offset.data + SizeOf.data;
+	
+	(* Initial symbols *)
+	
+	NewSym(0, 0, 0, CHR(LSL(STB_LOCAL, 4) + STT_NOTYPE), 0X, WCHR(SHN_UNDEF));
+	NewSym(StrPos.text, TEXT_SYMBOL_VALUE, 0, CHR(LSL(STB_LOCAL, 4) + STT_SECTION), 0X, WCHR(SH_IDX_TEXT));
+	NewSym(StrPos.data, DATA_SYMBOL_VALUE, 0, CHR(LSL(STB_LOCAL, 4) + STT_SECTION), 0X, WCHR(SH_IDX_DATA));
+	NewSym(StrPos.bss, BSS_SYMBOL_VALUE, 0, CHR(LSL(STB_LOCAL, 4) + STT_SECTION), 0X, WCHR(SH_IDX_BSS));
+	
+	localSymCount := 4;
+	symtabCount := localSymCount;
+	
+	item := program.exp_list.first;
+	i := CHL.PushStr(strtab, "");
+	WHILE item # NIL DO
+		ASSERT(CHL.GetStr(program.export, item(BIN.EXPRT).nameoffs, Name));
+		i := CHL.PushStr(strtab, Name);
+		NewSym(i, item(BIN.EXPRT).label, 0, CHR(LSL(STB_GLOBAL, 4) + STT_FUNC), 0X, WCHR(SH_IDX_TEXT));
+		INC(symtabCount);
+		item := item.next;
+	END;
+	ASSERT(CHL.GetStr(program.data, program.modname, Name));
+	
+	(* Creating relocations *)
+	
+	reloc := program.rel_list.first(BIN.RELOC);
+	WHILE reloc # NIL DO
+
+	CASE reloc.opcode OF
+		|BIN.PICDATA:
+			NewRel(reltab, reloc.offset, LSL(SH_IDX_DATA, 8) + RTT_R_386_PC32);
+			INC(relCount);
+
+		|BIN.PICCODE:
+			NewRel(reltab, reloc.offset, LSL(SH_IDX_TEXT, 8) + RTT_R_386_PC32);
+			INC(relCount);
+
+		|BIN.PICBSS:
+			NewRel(reltab, reloc.offset, LSL(SH_IDX_BSS, 8) + RTT_R_386_PC32);
+			INC(relCount);
+
+		|BIN.PICIMP:
+			ASSERT(FALSE);
+		END;
+		
+		reloc := reloc.next(BIN.RELOC);
+	END;
+	
+	
+	item := program.ext_list.first;
+	symidx := 0;
+	WHILE item # NIL DO
+		i := CHL.PushStr(strtab, item(BIN.EXPRT).name);
+		IF FindSymbolIdx(symtab, item(BIN.EXPRT).name, symidx) THEN
+			NewRel(reltab, item(BIN.EXPRT).offset, LSL(symidx, 8) + RTT_R_386_PC32);
+			INC(relCount);
+		ELSE
+			NewSym(i, 0, 0, CHR(LSL(STB_GLOBAL, 4) + STT_NOTYPE), 0X, WCHR(0));
+			NewRel(reltab, item(BIN.EXPRT).offset, LSL(symtabCount, 8) + RTT_R_386_PC32);
+			INC(relCount);
+			INC(symtabCount);
+		END;
+		item := item.next;
+	END;
+	
+	SizeOf.strtab := CHL.Length(strtab);
+	SizeOf.symtab := symtabCount * (16 + 8 * ORD(amd64));
+	SizeOf.reltext := relCount * 8;
+	
+	ehdr.e_shoff := SizeOf.header + SizeOf.text + SizeOf.data 
+		+ SizeOf.strtab + SizeOf.symtab + SizeOf.reltext;
+	
+	Offset.strtab := Offset.data + SizeOf.data; 
+	Offset.symtab := Offset.strtab + SizeOf.strtab;
+	Offset.reltext := Offset.symtab + SizeOf.symtab;
+	
+	(* File *)
+    WR.Create(FileName);
+	
+	(* EHDR Header *)
+    WriteEH(ehdr, amd64);
+    
+    (* Text *)
+    CHL.WriteToFile(program.code);
+    
+    (* Data *)
+    CHL.WriteToFile(program.data);
+    CHL.WriteToFile(strtab);
+   
+    (* Symbols *)
+	item := symtab.first;
+	WHILE item # NIL DO
+		WR.Write32LE(item(Elf32_Sym).name);
+		WR.Write32LE(item(Elf32_Sym).value);
+		WR.Write32LE(item(Elf32_Sym).size);
+		WR.WriteByte(ORD(item(Elf32_Sym).info));
+		WR.WriteByte(ORD(item(Elf32_Sym).other));
+		Write16(item(Elf32_Sym).shndx);
+		item := item.next
+	END;
+	
+	(* Relocations *)
+    IF relCount > 0 THEN
+		item := reltab.first;
+		WHILE item # NIL DO
+			WR.Write32LE(item(Elf32_Rel).offset);
+			WR.Write32LE(item(Elf32_Rel).info);
+			item := item.next
+		END;
+	END;
+	
+	
+	(* SHDR HEADERS *)
+    
+    shdr[0].s_name := 0;
+    shdr[0].s_type := SHT_NULL;
+    shdr[0].s_size := 0;
+    
+    (* .text *)
+    shdr[SH_IDX_TEXT].s_name := StrPos.text;
+    shdr[SH_IDX_TEXT].s_type := SHT_PROGBITS;
+    shdr[SH_IDX_TEXT].s_size := SizeOf.text;
+    shdr[SH_IDX_TEXT].s_offset := Offset.text;
+    shdr[SH_IDX_TEXT].s_flags := 6H; (* SHF_ALLOC, SHF_EXECINSTR *)
+    shdr[SH_IDX_TEXT].s_addralign := 4H;
+    
+    (* .data *)
+    shdr[SH_IDX_DATA].s_name := StrPos.data;
+    shdr[SH_IDX_DATA].s_type := SHT_PROGBITS;
+    shdr[SH_IDX_DATA].s_size := SizeOf.data;
+    shdr[SH_IDX_DATA].s_offset := Offset.data;
+    shdr[SH_IDX_DATA].s_flags := 3H; (* SHF_ALLOC, SHF_WRITE *)
+    shdr[SH_IDX_DATA].s_addralign := 4H;
+    
+    (* .strtab *)
+    shdr[SH_IDX_STRTAB].s_name := StrPos.strtab;
+    shdr[SH_IDX_STRTAB].s_type := SHT_STRTAB;
+    shdr[SH_IDX_STRTAB].s_size := SizeOf.strtab;
+    shdr[SH_IDX_STRTAB].s_offset := Offset.strtab;
+    shdr[SH_IDX_STRTAB].s_addralign := 1H;
+    
+    (* .bss  *)
+    shdr[SH_IDX_BSS].s_name := StrPos.bss;
+    shdr[SH_IDX_BSS].s_type := SHT_NOBITS;
+    shdr[SH_IDX_BSS].s_size := SizeOf.bss;
+    shdr[SH_IDX_BSS].s_offset := Offset.bss;
+    shdr[SH_IDX_BSS].s_flags := 3H; (* SHF_ALLOC, SHF_WRITE *)
+    shdr[SH_IDX_BSS].s_addralign := 4H;
+    
+    (* .symtab *)
+    shdr[SH_IDX_SYMTAB].s_name := StrPos.symtab;
+    shdr[SH_IDX_SYMTAB].s_type := SHT_SYMTAB;
+    shdr[SH_IDX_SYMTAB].s_size := SizeOf.symtab;
+    shdr[SH_IDX_SYMTAB].s_offset := Offset.symtab;
+    shdr[SH_IDX_SYMTAB].s_addralign := 4H;
+    shdr[SH_IDX_SYMTAB].s_info := localSymCount;
+    shdr[SH_IDX_SYMTAB].s_link := SH_IDX_STRTAB;
+    shdr[SH_IDX_SYMTAB].s_entsize := 16;
+    
+    (* .rel.text *)
+    shdr[SH_IDX_RELTEXT].s_name := StrPos.reltext;
+    shdr[SH_IDX_RELTEXT].s_type := SHT_REL;
+    shdr[SH_IDX_RELTEXT].s_size := SizeOf.reltext;
+    shdr[SH_IDX_RELTEXT].s_offset := Offset.reltext;
+    shdr[SH_IDX_RELTEXT].s_addralign := 4H;
+    shdr[SH_IDX_RELTEXT].s_info := 1;
+    shdr[SH_IDX_RELTEXT].s_link := SH_IDX_SYMTAB;
+    shdr[SH_IDX_RELTEXT].s_entsize := 8;
+    
+    FOR i := 0 TO SH_NUM - 1  DO
+		WriteSH(shdr[i]);
+    END;
+	
+    WR.Close
+    
+END writeo;
 
 END ELF.

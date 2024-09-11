@@ -240,6 +240,7 @@ BEGIN
         OutTargetItem(TARGETS.Win32DLL, "Windows32 DLL");
         OutTargetItem(TARGETS.Linux32, "Linux32 Exec");
         OutTargetItem(TARGETS.Linux32SO, "Linux32 SO");
+        OutTargetItem(TARGETS.Linux32O, "Linux32 Relocatable");
         OutTargetItem(TARGETS.KolibriOS, "KolibriOS Exec");
         OutTargetItem(TARGETS.KolibriOSDLL, "KolibriOS DLL");
         OutTargetItem(TARGETS.MSP430, "MSP430x{1,2}xx microcontrollers");

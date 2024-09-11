@@ -10,7 +10,7 @@ MODULE STATEMENTS;
 IMPORT
 
     PARS, PROG, SCAN, ARITH, STRINGS, LISTS, IL, X86, AMD64, MSP430, THUMB, RVMxI,
-    ERRORS, UTILS, AVL := AVLTREES, CONSOLE, C := COLLECTIONS, TARGETS;
+    ERRORS, UTILS, AVL := AVLTREES, CONSOLE, C := COLLECTIONS, TARGETS, Out;
 
 
 CONST
@@ -1324,9 +1324,10 @@ BEGIN
         e.obj   := eVAR;
         e._type := ident._type;
         e.readOnly := imp
-    |PROG.idPROC:
+    |PROG.idPROC, PROG.idEXTPROC:
         e.obj   := ePROC;
-        e._type := ident._type
+        e._type := ident._type;
+        e.ident.extern := ident.typ = PROG.idEXTPROC
     |PROG.idIMP:
         e.obj   := eIMP;
         e._type := ident._type
@@ -1661,25 +1662,33 @@ BEGIN
     IL.setlast(begcall);
     IL.AddCmd(IL.opPRECALL, ORD(isfloat));
 
-    IF cconv IN {PROG._ccall, PROG.ccall} THEN
+    IF cconv IN {PROG._ccall, PROG.ccall, PROG.extcall} THEN
         IL.AddCmd(IL.opALIGN16, parSize)
     ELSIF cconv IN {PROG._win64, PROG.win64} THEN
         IL.AddCmd(IL.opWIN64ALIGN16, parSize)
     ELSIF cconv IN {PROG._systemv, PROG.systemv} THEN
         IL.AddCmd(IL.opSYSVALIGN16, parSize + stk_par)
+    (*
+    ELSIF cconv = PROG.extcall THEN
+		IL.AddCmd0(IL.opALIGNEXT)
+	*)
     END;
     IL.setlast(endcall.prev(IL.COMMAND));
 
     IF e.obj = eIMP THEN
         IL.CallImp(e.ident._import, callconv, fparSize)
     ELSIF e.obj = ePROC THEN
-        IL.Call(e.ident.proc.label, callconv, fparSize)
+		IF e.ident.extern THEN
+			IL.CallExt(e.ident.proc.label)
+		ELSE
+			IL.Call(e.ident.proc.label, callconv, fparSize)
+        END;
     ELSIF isExpr(e) THEN
         deref(pos, e, CallStat, errPROC);
         IL.CallP(callconv, fparSize)
     END;
 
-    IF cconv IN {PROG._ccall, PROG.ccall} THEN
+    IF cconv IN {PROG._ccall, PROG.ccall, PROG.extcall} THEN
         IL.AddCmd(IL.opCLEANUP, parSize);
         IL.AddCmd0(IL.opPOPSP)
     ELSIF cconv IN {PROG._win64, PROG.win64} THEN

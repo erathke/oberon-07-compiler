@@ -7,7 +7,7 @@
 
 MODULE BIN;
 
-IMPORT LISTS, CHL := CHUNKLISTS, ARITH, UTILS;
+IMPORT LISTS, CHL := CHUNKLISTS, ARITH, UTILS, SCAN;
 
 
 CONST
@@ -42,8 +42,9 @@ TYPE
     EXPRT* = POINTER TO RECORD (LISTS.ITEM)
 
         nameoffs*: INTEGER;
-        label*:    INTEGER
-
+        label*:    INTEGER;
+        offset*: INTEGER;
+        name*: SCAN.IDSTR
     END;
 
     PROGRAM* = POINTER TO RECORD
@@ -60,7 +61,8 @@ TYPE
         export*:    CHL.BYTELIST;
         rel_list*:  LISTS.LIST;
         imp_list*:  LISTS.LIST;
-        exp_list*:  LISTS.LIST
+        exp_list*:  LISTS.LIST;
+        ext_list*: LISTS.LIST
 
     END;
 
@@ -83,6 +85,7 @@ BEGIN
     program.rel_list := LISTS.create(NIL);
     program.imp_list := LISTS.create(NIL);
     program.exp_list := LISTS.create(NIL);
+    program.ext_list := LISTS.create(NIL);
 
     program.data    := CHL.CreateByteList();
     program.code    := CHL.CreateByteList();
@@ -215,7 +218,7 @@ END PutCode16LE;
 
 PROCEDURE SetLabel* (program: PROGRAM; label, offset: INTEGER);
 BEGIN
-    CHL.SetInt(program.labels, label, offset)
+	CHL.SetInt(program.labels, label, offset)	
 END SetLabel;
 
 
@@ -264,7 +267,7 @@ BEGIN
     NEW(exp);
     exp.label := CHL.GetInt(program.labels, label);
     exp.nameoffs := CHL.PushStr(program.export, name);
-
+    
     cur := program.exp_list.first(EXPRT);
     WHILE (cur # NIL) & less(program.export, cur, exp) DO
         cur := cur.next(EXPRT)
@@ -281,6 +284,19 @@ BEGIN
     END
 
 END Export;
+
+PROCEDURE Extern* (program: PROGRAM; label, offset: INTEGER; name: SCAN.IDSTR);
+VAR
+    exp: EXPRT;
+
+BEGIN
+    NEW(exp);
+    exp.label := CHL.GetInt(program.labels, label);
+    exp.offset := offset;
+    exp.name := name;
+	LISTS.push(program.ext_list, exp)
+    
+END Extern;
 
 
 PROCEDURE GetIProc* (program: PROGRAM; n: INTEGER): IMPRT;

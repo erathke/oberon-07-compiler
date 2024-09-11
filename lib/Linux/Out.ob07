@@ -19,11 +19,18 @@ VAR
 
     fmt: ARRAY 8 OF CHAR;
 
+$IF (linux32exe)
     printf1: PROCEDURE [linux] (fmt: INTEGER; x: INTEGER);
     printf2: PROCEDURE [linux] (fmt: INTEGER; width, x: INTEGER);
     printf3: PROCEDURE [linux] (fmt: INTEGER; width, precision: INTEGER; x: REAL);
     printf4: PROCEDURE [linux] (fmt: INTEGER; width, precision: INTEGER; x: INTEGER);
 
+$ELSE
+PROCEDURE [extern, "printf"] printf1 (fmt: INTEGER; x: INTEGER); END printf1;
+PROCEDURE [extern, "printf"] printf2 (fmt: INTEGER; width, x: INTEGER); END printf2;
+PROCEDURE [extern, "printf"] printf3 (fmt: INTEGER; width, precision: INTEGER; x: REAL); END printf3;
+PROCEDURE [extern, "printf"] printf4 (fmt: INTEGER; width, precision: INTEGER; x: INTEGER);  END printf4;
+$END
 
 PROCEDURE Char* (x: CHAR);
 BEGIN
@@ -69,9 +76,8 @@ BEGIN
 END FixReal;
 
 
-PROCEDURE Open*;
-END Open;
 
+$IF (linux32exe)
 
 PROCEDURE init;
 VAR
@@ -90,6 +96,27 @@ BEGIN
     SYSTEM.PUT(SYSTEM.ADR(printf3), printf);
     SYSTEM.PUT(SYSTEM.ADR(printf4), printf);
 END init;
+
+PROCEDURE Open*;
+END Open;
+
+$ELSE
+
+PROCEDURE init;
+BEGIN
+    IF bit_depth = 32 THEN
+        fmt := "%*d"
+    ELSE
+        fmt := "%*lld"
+    END;
+END init;
+
+PROCEDURE Open*;
+BEGIN
+	init
+END Open;
+
+$END
 
 
 BEGIN

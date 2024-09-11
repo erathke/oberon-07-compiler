@@ -19,7 +19,7 @@ CONST
     idNONE*    =  0;  idGUARD   =  1;  idMODULE* =  2;  idCONST*   =  3;
     idTYPE*    =  4;  idSTFUNC* =  5;  idSTPROC* =  6;  idVAR*     =  7;
     idPROC*    =  8;  idVPAR*   =  9;  idPARAM*  = 10;  idSYSFUNC* = 11;
-    idSYSPROC* = 12;  idIMP*    = 13;
+    idSYSPROC* = 12;  idIMP*    = 13;  idEXTPROC*= 14;
 
     tINTEGER* =  1;  tBYTE*      =  2;  tCHAR*   =  3;  tSET*    =  4;
     tBOOLEAN* =  5;  tREAL*      =  6;  tARRAY*  =  7;  tRECORD* =  8;
@@ -53,6 +53,7 @@ CONST
     default16* = 16;  _default16* = default16 + 1;
     code*      = 18;  _code*      = code + 1;
     fastcall*  = 20;  _fastcall*  = fastcall + 1;
+    extcall*   = 24;  _extcall*   = extcall + 1;
 
     noalign* = 22;
 
@@ -60,10 +61,10 @@ CONST
 
     sf_stdcall* =  0; sf_oberon*    = 1; sf_cdecl*   = 2; sf_ccall*  = 3;
     sf_win64*   =  4; sf_systemv*   = 5; sf_windows* = 6; sf_linux*  = 7;
-    sf_code*    =  8; sf_fastcall*  = 9;
+    sf_code*    =  8; sf_fastcall*  = 9; sf_extcall* = 12;
     sf_noalign* = 10;
 
-    proc_flags* = {sf_stdcall, sf_cdecl, sf_ccall, sf_win64, sf_systemv, sf_windows, sf_linux, sf_code, sf_oberon, sf_fastcall};
+    proc_flags* = {sf_stdcall, sf_cdecl, sf_ccall, sf_win64, sf_systemv, sf_windows, sf_linux, sf_code, sf_oberon, sf_fastcall, sf_extcall};
     rec_flags*  = {sf_noalign};
 
     STACK_FRAME = 2;
@@ -183,7 +184,8 @@ TYPE
         scopeLvl*:   INTEGER;
         offset*:     INTEGER;
         proc*:       PROC;
-        pos*:        SCAN.POSITION
+        pos*:        SCAN.POSITION;
+        extern*:	 BOOLEAN
 
     END;
 
@@ -353,7 +355,7 @@ BEGIN
         item.scopeLvl := unit.scopeLvl;
         item.offset := -1;
 
-        IF item.typ IN {idPROC, idIMP} THEN
+        IF item.typ IN {idPROC, idIMP, idEXTPROC} THEN
             NEW(proc);
             proc._import := NIL;
             proc.label := 0;
@@ -1198,8 +1200,10 @@ BEGIN
 
     WHILE proc # NIL DO
         IF ~proc.used THEN
-            IF proc._import = NIL THEN
-                IL.delete2(proc.enter, proc.leave)
+            IF (proc._import = NIL) THEN
+                IF (proc.enter # NIL) & (proc.leave # NIL) THEN (* FIXME: enter and leave for extern? *)
+					IL.delete2(proc.enter, proc.leave)
+                END;
             ELSE
                 DelImport(proc._import)
             END
@@ -1228,7 +1232,7 @@ BEGIN
 
     CASE TARGETS.OS OF
     |TARGETS.osWIN32:    program.sysflags := {sf_oberon, sf_windows, sf_stdcall, sf_cdecl, sf_ccall, sf_fastcall, sf_noalign}
-    |TARGETS.osLINUX32:  program.sysflags := {sf_oberon, sf_linux, sf_stdcall, sf_cdecl, sf_ccall, sf_fastcall, sf_noalign}
+    |TARGETS.osLINUX32:  program.sysflags := {sf_oberon, sf_linux, sf_stdcall, sf_cdecl, sf_ccall, sf_fastcall, sf_extcall, sf_noalign}
     |TARGETS.osKOS:      program.sysflags := {sf_oberon, sf_stdcall, sf_cdecl, sf_ccall, sf_fastcall, sf_noalign}
     |TARGETS.osWIN64:    program.sysflags := {sf_oberon, sf_windows, sf_win64, sf_systemv, sf_ccall, sf_noalign}
     |TARGETS.osLINUX64:  program.sysflags := {sf_oberon, sf_linux, sf_win64, sf_systemv, sf_ccall, sf_noalign}

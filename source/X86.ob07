@@ -1,4 +1,4 @@
-﻿(*
+(*
     BSD 2-Clause License
 
     Copyright (c) 2018-2023, Anton Krotov
@@ -8,7 +8,7 @@
 MODULE X86;
 
 IMPORT IL, REG, UTILS, LISTS, BIN, PE32, KOS, MSCOFF, ELF, PROG,
-       CHL := CHUNKLISTS, PATHS, TARGETS, ERRORS;
+       CHL := CHUNKLISTS, PATHS, TARGETS, ERRORS, SCAN;
 
 
 CONST
@@ -77,6 +77,12 @@ TYPE
 
     CALL = POINTER TO RECORD (JUMP)
 
+    END;
+    
+    CALLEXT = POINTER TO RECORD (JUMP)
+		
+		value: INTEGER
+		
     END;
 
     RELOC = POINTER TO RECORD (ANYCODE)
@@ -471,6 +477,17 @@ BEGIN
     LISTS.push(CodeList, c)
 END call;
 
+PROCEDURE callext (label: INTEGER);
+VAR
+    c: CALLEXT;
+    
+BEGIN
+    NEW(c);
+    c.label := label;
+    LISTS.push(CodeList, c);
+    
+END callext;
+
 
 PROCEDURE Pic (reg, opcode, value: INTEGER);
 BEGIN
@@ -542,6 +559,7 @@ BEGIN
             |JMP:    IF code.short THEN INC(count, 2) ELSE INC(count, 5) END; code.offset := count
             |JCC:    IF code.short THEN INC(count, 2) ELSE INC(count, 6) END; code.offset := count
             |CALL:   INC(count, 5); code.offset := count
+            |CALLEXT: INC(count, 5); code.offset := count
             |RELOC:  INC(count, 4)
             END;
 
@@ -587,23 +605,28 @@ BEGIN
                 END
 
         |JCC:
-                IF code.short THEN
-                    BIN.PutCode(program, code.jmp - 16);
-                    BIN.PutCode(program, code.diff MOD 256)
-                ELSE
-                    BIN.PutCode(program, 0FH);
-                    BIN.PutCode(program, code.jmp);
-                    BIN.PutCode32LE(program, code.diff)
-                END
+				IF code.short THEN
+					BIN.PutCode(program, code.jmp - 16);
+					BIN.PutCode(program, code.diff MOD 256)
+				ELSE
+					BIN.PutCode(program, 0FH);
+					BIN.PutCode(program, code.jmp);
+					BIN.PutCode32LE(program, code.diff)
+				END
 
         |CALL:
                 BIN.PutCode(program, 0E8H);
                 BIN.PutCode32LE(program, code.diff)
-
+                
+        |CALLEXT:
+				BIN.PutCode(program, 0E8H);
+                BIN.PutCode32LE(program, -4);
+                code.value := CHL.Length(program.code) - 4;
+                
         |RELOC:
                 BIN.PutReloc(program, code.op);
-                BIN.PutCode32LE(program, code.value)
-
+				BIN.PutCode32LE(program, code.value)
+				
         END;
 
         code := code.next(ANYCODE)
@@ -785,7 +808,7 @@ VAR
     opcode, param1, param2: INTEGER;
 
     float: REAL;
-
+   
 BEGIN
     cmd := IL.codes.commands.first(COMMAND);
 
@@ -887,33 +910,33 @@ BEGIN
             ASSERT(R.top = -1);
 
             SetLabel(param1);
+		
+			IF cmd.param3 > 0 THEN
+				pop(eax);
+				IF cmd.param3 >= 2 THEN
+					push(edx)
+				END;
+				push(ecx);
+				push(eax)
+			END;
 
-            IF cmd.param3 > 0 THEN
-                pop(eax);
-                IF cmd.param3 >= 2 THEN
-                    push(edx)
-                END;
-                push(ecx);
-                push(eax)
-            END;
+			push(ebp);
+			mov(ebp, esp);
 
-            push(ebp);
-            mov(ebp, esp);
-
-            n := param2;
-            IF n > 4 THEN
-                movrc(ecx, n);
-                pushc(0);             (* L: push 0 *)
-                OutByte2(0E2H, 0FCH)  (* loop L    *)
-            ELSE
-                WHILE n > 0 DO
-                    pushc(0);
-                    DEC(n)
-                END
-            END;
-            SetLabel(NewLabel());
-            FltConstLabel := CodeList.last(LABEL);
-            LocVarSize := param2 * 4
+			n := param2;
+			IF n > 4 THEN
+				movrc(ecx, n);
+				pushc(0);             (* L: push 0 *)
+				OutByte2(0E2H, 0FCH)  (* loop L    *)
+			ELSE
+				WHILE n > 0 DO
+					pushc(0);
+					DEC(n)
+				END
+			END;
+			SetLabel(NewLabel());
+			FltConstLabel := CodeList.last(LABEL);
+			LocVarSize := param2 * 4
 
         |IL.opLEAVE, IL.opLEAVER, IL.opLEAVEF:
             IF opcode = IL.opLEAVER THEN
@@ -2275,8 +2298,11 @@ BEGIN
 
         |IL.opFNAME:
             fname := cmd(IL.FNAMECMD).fname
+        
+        |IL.opCALLEXT:
+			callext(param1);
 
-        END;
+		END;
 
         cmd := cmd.next(COMMAND)
     END;
@@ -2377,8 +2403,10 @@ PROCEDURE epilog (pic: BOOLEAN; modname: ARRAY OF CHAR; target, stack, ver, dlli
 VAR
     exp:  IL.EXPORT_PROC;
     path, name, ext: PATHS.PATH;
+    code: ANYCODE;
 
     dcount, i: INTEGER;
+    expname: SCAN.IDSTR;
 
 
     PROCEDURE _import (imp: LISTS.LIST);
@@ -2401,6 +2429,21 @@ VAR
 
     END _import;
 
+	PROCEDURE FindNameByLabel(list: LISTS.LIST; label: INTEGER; VAR name: SCAN.IDSTR): BOOLEAN;
+	VAR
+		ext: IL.EXTERN_PROC;
+		found: BOOLEAN;
+	BEGIN
+		ext := list.first(IL.EXTERN_PROC);
+		WHILE (ext # NIL) & (~ found) DO
+			IF ext.label = label THEN
+				name := ext.name;
+				found := TRUE;
+			END;
+			ext := ext.next(IL.EXTERN_PROC)
+		END;
+		RETURN found
+	END FindNameByLabel;
 
 BEGIN
 
@@ -2459,8 +2502,17 @@ BEGIN
 
     exp := IL.codes.export.first(IL.EXPORT_PROC);
     WHILE exp # NIL DO
-        BIN.Export(program, exp.name, exp.label);
+		BIN.Export(program, exp.name, exp.label);
         exp := exp.next(IL.EXPORT_PROC)
+    END;
+    
+    code := CodeList.first(ANYCODE);
+    WHILE code # NIL DO
+		IF code IS CALLEXT THEN
+			ASSERT(FindNameByLabel(IL.codes.extern, code(CALLEXT).label, expname));
+			BIN.Extern(program, code(CALLEXT).label, code(CALLEXT).value, expname);			
+		END;
+		code := code.next(ANYCODE);
     END;
 
     _import(IL.codes._import);
@@ -2496,7 +2548,7 @@ BEGIN
 
     opt := options;
     CodeList := LISTS.create(NIL);
-
+    
     program := BIN.create(IL.codes.lcount);
 
     dllret  := NewLabel();
@@ -2530,7 +2582,11 @@ BEGIN
     ELSIF target = TARGETS.KolibriOSDLL THEN
         MSCOFF.write(program, outname, opt.version)
     ELSIF TARGETS.OS = TARGETS.osLINUX32 THEN
-        ELF.write(program, outname, sofinit, target = TARGETS.Linux32SO, FALSE)
+		IF target = TARGETS.Linux32O THEN
+			ELF.writeo(program, outname, sofinit, FALSE, FALSE)
+		ELSE
+			ELF.write(program, outname, sofinit, target = TARGETS.Linux32SO, FALSE)
+        END;
     END
 END CodeGen;
 
