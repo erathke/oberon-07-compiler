@@ -686,6 +686,8 @@ VAR
     symidx: INTEGER;
     
     reloc: BIN.RELOC;
+    
+    L, delta: INTEGER;
 
 	PROCEDURE WriteSH(shdr: Elf32_Shdr);
 	BEGIN
@@ -828,7 +830,7 @@ BEGIN
 	
 	NewSym(0, 0, 0, CHR(LSL(STB_LOCAL, 4) + STT_NOTYPE), 0X, WCHR(SHN_UNDEF));
 	NewSym(StrPos.text, TEXT_SYMBOL_VALUE, 0, CHR(LSL(STB_LOCAL, 4) + STT_SECTION), 0X, WCHR(SH_IDX_TEXT));
-	NewSym(StrPos.data, DATA_SYMBOL_VALUE, 0, CHR(LSL(STB_LOCAL, 4) + STT_SECTION), 0X, WCHR(SH_IDX_DATA));
+	NewSym(StrPos.data,DATA_SYMBOL_VALUE, 0, CHR(LSL(STB_LOCAL, 4) + STT_SECTION), 0X, WCHR(SH_IDX_DATA));
 	NewSym(StrPos.bss, BSS_SYMBOL_VALUE, 0, CHR(LSL(STB_LOCAL, 4) + STT_SECTION), 0X, WCHR(SH_IDX_BSS));
 	
 	localSymCount := 4;
@@ -856,7 +858,13 @@ BEGIN
 			INC(relCount);
 
 		|BIN.PICCODE:
-			NewRel(reltab, reloc.offset, LSL(SH_IDX_TEXT, 8) + RTT_R_386_PC32);
+			IF TRUE THEN
+				L := BIN.get32le(program.code, reloc.offset);
+				delta := BIN.GetLabel(program, L);
+				BIN.put32le(program.code, reloc.offset, delta);
+			ELSE
+			END;
+			NewRel(reltab, reloc.offset, LSL(SH_IDX_TEXT, 8) + RTT_R_386_32);
 			INC(relCount);
 
 		|BIN.PICBSS:

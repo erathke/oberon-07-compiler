@@ -1241,7 +1241,15 @@ BEGIN
             UnOp(reg1);
             IF pic THEN
                 reg2 := GetAnyReg();
-                Pic(reg2, BIN.PICCODE, param2);
+                
+                IF target IN {TARGETS.Linux32O} THEN
+					xor(reg2, reg2);
+					OutByte2(081H, 0C0H + reg2);  (* add reg, ... *)
+					Reloc(BIN.PICCODE, param2);
+                ELSE
+					Pic(reg2, BIN.PICCODE, param2);
+                END;
+                
                 movmr(reg1, 0, reg2);
                 drop
             ELSE
