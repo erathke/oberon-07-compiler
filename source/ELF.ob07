@@ -661,6 +661,10 @@ TYPE
 	Elf32_Rel = POINTER TO RECORD (LISTS.ITEM)
         offset, info: INTEGER
     END;
+    
+    SYMLABEL = POINTER TO RECORD (LISTS.ITEM)
+        label, idx: INTEGER
+    END;
 
 VAR
     ehdr: Elf32_Ehdr;
@@ -683,11 +687,13 @@ VAR
     
     StrPos: RECORD text, reltext, data, symtab, strtab, bss: INTEGER END;
     
-    symidx: INTEGER;
+    symidx, symlbl, relidx: INTEGER;
     
     reloc: BIN.RELOC;
     
     L, delta: INTEGER;
+    
+    symlabels: LISTS.LIST;
 
 	PROCEDURE WriteSH(shdr: Elf32_Shdr);
 	BEGIN
@@ -753,7 +759,7 @@ VAR
 		LISTS.push(reltab, rel)
 	END NewRel;
 	
-	PROCEDURE FindSymbolIdx(sym: LISTS.LIST; name: SCAN.IDSTR; VAR idx: INTEGER): BOOLEAN;
+	PROCEDURE FindSymbolIdx(sym: LISTS.LIST; name: SCAN.IDSTR; VAR idx, lbl: INTEGER): BOOLEAN;
 	VAR
 		item: LISTS.ITEM;
 		found: BOOLEAN;
@@ -766,18 +772,51 @@ VAR
 			IF symname = name THEN
 				found := TRUE;
 				idx := i;
+				lbl := item(Elf32_Sym).value;
 			END;
 			item := item.next;
 			INC(i);
 		END;
 		RETURN found
 	END;
+	
+	
+	PROCEDURE NewSymLabel (symlabel: LISTS.LIST; label, idx: INTEGER);
+	VAR
+		syml: SYMLABEL;
+	BEGIN
+		NEW(syml);
+		syml.label := label;
+		syml.idx := idx;
+		LISTS.push(symlabel, syml)
+	END NewSymLabel;
+	
+	
+	PROCEDURE FindRelocIdx(sym: LISTS.LIST; label: INTEGER; VAR idx: INTEGER): BOOLEAN;
+	VAR
+		item: LISTS.ITEM;
+		found: BOOLEAN;
+		i: INTEGER;
+	BEGIN
+		item := sym.first;
+		WHILE (item # NIL) & (~ found) DO
+			IF item(SYMLABEL).label = label THEN
+				found := TRUE;
+				idx := item(SYMLABEL).idx;
+			END;
+			item := item.next;
+			INC(i);
+		END;
+		RETURN found
+	END FindRelocIdx;
 
 BEGIN
 	dynamic := LISTS.create(NIL);
 	symtab  := LISTS.create(NIL);
 	reltab  := LISTS.create(NIL);
-    strtab  := CHL.CreateByteList();
+    strtab  := CHL.CreateByteList();    
+    symlabels := LISTS.create(NIL);
+    
     i := CHL.PushStr(strtab, "");
     StrPos.text := CHL.PushStr(strtab, ".text");
     StrPos.reltext := CHL.PushStr(strtab, ".rel.text");
@@ -849,23 +888,57 @@ BEGIN
 	
 	(* Creating relocations *)
 	
+	item := program.ext_list.first;
+	symidx := 0;
+	WHILE item # NIL DO
+		IF FindSymbolIdx(symtab, item(BIN.EXPRT).name, symidx, symlbl) THEN
+			NewRel(reltab, item(BIN.EXPRT).offset, LSL(symidx, 8) + RTT_R_386_PC32);
+			NewSymLabel(symlabels, symlbl, symidx);
+			INC(relCount);
+		ELSE
+			i := CHL.PushStr(strtab, item(BIN.EXPRT).name);
+			NewSym(i, 0, 0, CHR(LSL(STB_GLOBAL, 4) + STT_NOTYPE), 0X, WCHR(0));
+			NewRel(reltab, item(BIN.EXPRT).offset, LSL(symtabCount, 8) + RTT_R_386_PC32);
+			NewSymLabel(symlabels, item(BIN.EXPRT).label, symtabCount);
+			INC(relCount);
+			INC(symtabCount);
+		END;
+		item := item.next;
+	END;
+	
 	reloc := program.rel_list.first(BIN.RELOC);
+	symidx := 0;
 	WHILE reloc # NIL DO
 
-	CASE reloc.opcode OF
+		CASE reloc.opcode OF
 		|BIN.PICDATA:
 			NewRel(reltab, reloc.offset, LSL(SH_IDX_DATA, 8) + RTT_R_386_PC32);
 			INC(relCount);
 
 		|BIN.PICCODE:
-			IF TRUE THEN
-				L := BIN.get32le(program.code, reloc.offset);
-				delta := BIN.GetLabel(program, L);
+			L := BIN.get32le(program.code, reloc.offset);
+			delta := BIN.GetLabel(program, L);
+			//Out.String("reloc: offset="); Out.Int(reloc.offset, 0);
+			//Out.String(", delta="); Out.Int(delta, 0);
+			//Out.String(", L="); Out.Int(L, 0);
+			//sOut.Ln;
+			IF delta # 0 THEN
+				(* local symbols *)
+				NewRel(reltab, reloc.offset, LSL(SH_IDX_TEXT, 8) + RTT_R_386_32);
+				INC(relCount);
 				BIN.put32le(program.code, reloc.offset, delta);
 			ELSE
+				(* external symbols *)
+				IF (FindRelocIdx(symlabels, L, relidx)) THEN
+					NewRel(reltab, reloc.offset, LSL(relidx, 8) + RTT_R_386_32);
+					INC(relCount);
+					BIN.put32le(program.code, reloc.offset, delta);
+				ELSE
+					(* external symbols in no main modules *)
+					NewRel(reltab, reloc.offset, LSL(SH_IDX_TEXT, 8) + RTT_R_386_PC32);
+					INC(relCount);
+				END;
 			END;
-			NewRel(reltab, reloc.offset, LSL(SH_IDX_TEXT, 8) + RTT_R_386_32);
-			INC(relCount);
 
 		|BIN.PICBSS:
 			NewRel(reltab, reloc.offset, LSL(SH_IDX_BSS, 8) + RTT_R_386_PC32);
@@ -876,23 +949,6 @@ BEGIN
 		END;
 		
 		reloc := reloc.next(BIN.RELOC);
-	END;
-	
-	
-	item := program.ext_list.first;
-	symidx := 0;
-	WHILE item # NIL DO
-		i := CHL.PushStr(strtab, item(BIN.EXPRT).name);
-		IF FindSymbolIdx(symtab, item(BIN.EXPRT).name, symidx) THEN
-			NewRel(reltab, item(BIN.EXPRT).offset, LSL(symidx, 8) + RTT_R_386_PC32);
-			INC(relCount);
-		ELSE
-			NewSym(i, 0, 0, CHR(LSL(STB_GLOBAL, 4) + STT_NOTYPE), 0X, WCHR(0));
-			NewRel(reltab, item(BIN.EXPRT).offset, LSL(symtabCount, 8) + RTT_R_386_PC32);
-			INC(relCount);
-			INC(symtabCount);
-		END;
-		item := item.next;
 	END;
 	
 	SizeOf.strtab := CHL.Length(strtab);

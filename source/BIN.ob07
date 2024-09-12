@@ -291,10 +291,10 @@ VAR
 
 BEGIN
     NEW(exp);
-    exp.label := CHL.GetInt(program.labels, label);
+    exp.label := label; //CHL.GetInt(program.labels, label);
     exp.offset := offset;
     exp.name := name;
-	LISTS.push(program.ext_list, exp)
+    LISTS.push(program.ext_list, exp)
     
 END Extern;
 
