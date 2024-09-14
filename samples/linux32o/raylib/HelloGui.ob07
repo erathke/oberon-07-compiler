@@ -68,8 +68,7 @@ BEGIN
 	RL.InitWindow(800, 600, "HelloGui");
 	
 	//ctx := RNK.InitNuklear(fontSize);
-	ctx := RNK.InitNuklearEx("./resources/DejaVuSansMono-Bold.ttf", FLT(fontSize));
-	//ctx := RNK.InitNuklearEx("./resources/anonymous_pro_bold.ttf", FLT(fontSize));
+	ctx := RNK.InitNuklearEx("./resources/anonymous_pro_bold.ttf", FLT(fontSize));
 	
 	WHILE ~ RL.WindowShouldClose() DO
 		

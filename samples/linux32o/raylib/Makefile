@@ -1,5 +1,5 @@
 CC=cc
-MACHINE=`uname -m`
+MACHINE?=`uname -m`
 LIBS=./lib/libraylib-$(MACHINE).a
 INCLUDE=./include
 CFLAGS=-m32 -no-pie
@@ -14,7 +14,7 @@ exe: $(OBJC) $(OBJO)
 	$(CC) $(CFLAGS) -o $(EXE) $^ $(LIBS) -lm
 
 glue.o: $(SRCC)
-	$(CC) -c $^ -o $@ -I$(INCLUDE)
+	$(CC) $(CFLAGS) -c $^ -o $@ -I$(INCLUDE)
 
 HelloGui.xo: $(SRCO)
 	$(OBC) $^ linux32o -out $@
