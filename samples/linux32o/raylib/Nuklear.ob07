@@ -1,0 +1,66 @@
+MODULE Nuklear;
+IMPORT SYSTEM, Out;
+
+CONST
+	WINDOW_BORDER*            = {0};
+    WINDOW_MOVABLE*           = {1};
+    WINDOW_SCALABLE*          = {2};
+    WINDOW_CLOSABLE*          = {3};
+    WINDOW_MINIMIZABLE*       = {4};
+    WINDOW_NO_SCROLLBAR*      = {5};
+    WINDOW_TITLE*             = {6};
+    WINDOW_SCROLL_AUTO_HIDE*  = {7};
+    WINDOW_BACKGROUND*        = {8};
+    WINDOW_SCALE_LEFT*        = {9};
+    WINDOW_NO_INPUT*          = {10};
+
+TYPE
+	Context* = INTEGER;
+	Rect* = RECORD
+		x*, y*, w*, h*: INTEGER
+	END;
+	ADDRESS = INTEGER;
+
+PROCEDURE [extern, "_nk_begin"] nk_begin(ctx: Context; title: ADDRESS; rect: ADDRESS; flags: INTEGER): INTEGER; END;
+PROCEDURE [extern, "_nk_layout_row_static"] nk_layout_row_static(ctx: Context; h: REAL; w, cols: INTEGER); END;
+PROCEDURE [extern, "nk_button_label"] nk_button_label(ctx: Context; label: ADDRESS): INTEGER; END;
+PROCEDURE [extern, "_nk_layout_row_dynamic"] nk_layout_row_dynamic(ctx: Context; h: REAL; cols: INTEGER); END;
+PROCEDURE [extern, "nk_option_label"] nk_option_label(ctx: Context; label: ADDRESS; selected: BOOLEAN): INTEGER; END;
+PROCEDURE [extern, "nk_end"] nk_end(ctx: Context); END;
+
+PROCEDURE Begin*(ctx: Context; title: ARRAY OF CHAR; rect: Rect; flags: SET): BOOLEAN;
+BEGIN
+	RETURN nk_begin(ctx, SYSTEM.ADR(title[0]), SYSTEM.ADR(rect), ORD(flags)) > 0
+END Begin;
+
+
+PROCEDURE End*(ctx: Context);
+BEGIN
+	nk_end(ctx)
+END End;
+
+
+PROCEDURE LayoutRowStatic*(ctx: Context; h: REAL; w, cols: INTEGER);
+BEGIN
+	nk_layout_row_static(ctx, h, w, cols)
+END LayoutRowStatic;
+
+
+PROCEDURE ButtonLabel*(ctx: Context; label: ARRAY OF CHAR): BOOLEAN;
+BEGIN
+	RETURN nk_button_label(ctx, SYSTEM.ADR(label[0])) > 0
+END ButtonLabel;
+
+
+PROCEDURE LayoutRowDynamic*(ctx: Context; h: REAL; cols: INTEGER);
+BEGIN
+	nk_layout_row_dynamic(ctx, h, cols)
+END LayoutRowDynamic;
+
+
+PROCEDURE OptionLabel*(ctx: Context; label: ARRAY OF CHAR; selected: BOOLEAN): BOOLEAN;
+BEGIN
+	RETURN nk_option_label(ctx, SYSTEM.ADR(label[0]), selected) > 0
+END OptionLabel;
+
+END Nuklear.
