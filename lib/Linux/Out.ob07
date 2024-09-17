@@ -7,8 +7,11 @@
 
 MODULE Out;
 
+$IF (linux32exe)
 IMPORT SYSTEM, Libdl, API;
-
+$ELSE
+IMPORT SYSTEM, API;
+$END
 
 CONST
 
