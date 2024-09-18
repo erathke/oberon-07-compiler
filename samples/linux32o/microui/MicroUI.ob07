@@ -1,0 +1,143 @@
+MODULE MicroUI;
+IMPORT SYSTEM;
+
+CONST 
+	OPT_NONE*		  = {};
+	OPT_ALIGNCENTER*  = {0};
+	OPT_ALIGNRIGHT*   = {1};
+	OPT_NOINTERACT*   = {2};
+	OPT_NOFRAME*      = {3};
+	OPT_NORESIZE*     = {4};
+	OPT_NOSCROLL*     = {5};
+	OPT_NOCLOSE*      = {6};
+	OPT_NOTITLE*      = {7};
+	OPT_HOLDFOCUS*    = {8};
+	OPT_AUTOSIZE*     = {9};
+	OPT_POPUP*        = {10};
+	OPT_CLOSED*       = {11};
+	OPT_EXPANDED*     = {12};
+
+	SLIDER_FMT* = "%.2f";
+
+TYPE
+	ADDRESS = INTEGER;
+	Context* = ADDRESS;
+	
+	Rect* = POINTER TO RECORD
+		x, y, w, h: INTEGER
+	END;
+	
+
+PROCEDURE [extern, "_mu_destroy"] Destroy*(ctx: Context); END;
+PROCEDURE [extern, "mu_begin"] Begin*(ctx: Context); END;
+PROCEDURE [extern, "mu_end"] End*(ctx: Context); END;
+PROCEDURE [extern, "mu_end_window"] EndWindow*(ctx: Context); END;
+PROCEDURE [extern, "mu_end_popup"] EndPopup*(ctx: Context); END;
+
+PROCEDURE [extern, "_mu_create_ctx"] _mu_create_ctx(): Context; END;
+PROCEDURE [extern, "mu_init"] _mu_init(ctx: Context); END;
+PROCEDURE [extern, "_mu_begin_window_ex"] _mu_begin_window_ex(ctx: Context; title: ADDRESS; rect: Rect; opt: INTEGER): INTEGER; END;
+PROCEDURE [extern, "mu_button_ex"] _mu_button_ex(ctx: Context; title: ADDRESS; icon, opt: INTEGER): INTEGER; END;
+PROCEDURE [extern, "mu_label"] _mu_label(ctx: Context; text: ADDRESS); END;
+PROCEDURE [extern, "mu_text"] _mu_text(ctx: Context; text: ADDRESS); END;
+PROCEDURE [extern, "mu_textbox_ex"] _mu_textbox_ex(ctx: Context; buf: ADDRESS; bufsize, opt: INTEGER): INTEGER; END;
+PROCEDURE [extern, "mu_open_popup"] _mu_open_popup(ctx: Context; name: ADDRESS); END;
+PROCEDURE [extern, "mu_begin_popup"] _mu_begin_popup(ctx: Context; name: ADDRESS): INTEGER; END;
+PROCEDURE [extern, "mu_layout_row"] _mu_layout_row(ctx: Context; items: INTEGER; widths: ADDRESS; height: INTEGER); END;
+PROCEDURE [extern, "mu_slider_ex"] _mu_slider_ex(ctx: Context; VAR value: REAL; low, high, step: REAL; fmt: ADDRESS; opt: INTEGER): INTEGER; END;
+
+PROCEDURE ToRect*(x, y, w, h: INTEGER): Rect;
+VAR
+	rect: Rect;
+BEGIN
+	NEW(rect);
+	rect.x := x; rect.y := y;
+	rect.w := w; rect.h := h;
+	RETURN rect
+END ToRect;
+
+
+PROCEDURE Init*(VAR ctx: Context);
+BEGIN
+	ctx := _mu_create_ctx();
+	_mu_init(ctx);
+END Init;
+
+PROCEDURE BeginWindowEx*(ctx: Context; title: ARRAY OF CHAR; rect: Rect; opt: SET): BOOLEAN; 
+BEGIN
+	RETURN _mu_begin_window_ex(ctx, SYSTEM.ADR(title[0]), rect, ORD(opt)) > 0
+END BeginWindowEx;
+
+
+PROCEDURE BeginWindow*(ctx: Context; title: ARRAY OF CHAR; rect: Rect): BOOLEAN; 
+BEGIN
+	RETURN _mu_begin_window_ex(ctx, SYSTEM.ADR(title[0]), rect, 0) > 0
+END BeginWindow;
+
+
+PROCEDURE ButtonEx*(ctx: Context; title: ARRAY OF CHAR; icon: INTEGER; opt: SET): BOOLEAN; 
+BEGIN
+	RETURN _mu_button_ex(ctx, SYSTEM.ADR(title[0]), icon, ORD(opt)) > 0
+END ButtonEx;
+
+
+PROCEDURE Button*(ctx: Context; title: ARRAY OF CHAR): BOOLEAN; 
+BEGIN
+	RETURN _mu_button_ex(ctx, SYSTEM.ADR(title[0]), 0, ORD(OPT_ALIGNCENTER)) > 0
+END Button;
+
+
+PROCEDURE Label*(ctx: Context; text: ARRAY OF CHAR); 
+BEGIN
+	_mu_label(ctx, SYSTEM.ADR(text[0]))
+END Label;
+
+
+PROCEDURE Text*(ctx: Context; text: ARRAY OF CHAR); 
+BEGIN
+	_mu_text(ctx, SYSTEM.ADR(text[0]))
+END Text;
+
+
+PROCEDURE TextboxEx*(ctx: Context; VAR buf: ARRAY OF CHAR; size: INTEGER; opt: SET): BOOLEAN; 
+BEGIN
+	RETURN _mu_textbox_ex(ctx, SYSTEM.ADR(buf[0]), size, ORD(opt)) > 0
+END TextboxEx;
+
+
+PROCEDURE Textbox*(ctx: Context; VAR buf: ARRAY OF CHAR; size: INTEGER): BOOLEAN; 
+BEGIN
+	RETURN _mu_textbox_ex(ctx, SYSTEM.ADR(buf[0]), size, 0) > 0
+END Textbox;
+
+
+PROCEDURE OpenPopup*(ctx: Context; name: ARRAY OF CHAR); 
+BEGIN
+	_mu_open_popup(ctx, SYSTEM.ADR(name[0]))
+END OpenPopup;
+
+
+PROCEDURE BeginPopup*(ctx: Context; name: ARRAY OF CHAR): BOOLEAN; 
+BEGIN
+	RETURN _mu_begin_popup(ctx, SYSTEM.ADR(name[0])) > 0
+END BeginPopup;
+
+
+PROCEDURE LayoutRow*(ctx: Context; items: INTEGER; widths: ARRAY OF INTEGER; height: INTEGER); 
+BEGIN
+	_mu_layout_row(ctx, items, SYSTEM.ADR(widths[0]), height);
+END LayoutRow;
+
+
+PROCEDURE SliderEx*(ctx: Context; VAR value: REAL; low, high, step: REAL; fmt: ARRAY OF CHAR; opt: SET): BOOLEAN; 
+BEGIN
+	RETURN _mu_slider_ex(ctx, value, low, high, step, SYSTEM.ADR(fmt[0]), ORD(opt)) > 0
+END SliderEx;
+
+
+PROCEDURE Slider*(ctx: Context; VAR value: REAL; low, high: REAL): BOOLEAN; 
+BEGIN
+	RETURN _mu_slider_ex(ctx, value, low, high, 0.0, SYSTEM.SADR(SLIDER_FMT), ORD(OPT_ALIGNCENTER)) > 0
+END Slider;
+
+END MicroUI.

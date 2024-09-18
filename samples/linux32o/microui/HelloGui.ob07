@@ -1,0 +1,88 @@
+MODULE HelloGui;
+IMPORT SYSTEM, 
+	//Out,
+	RL IN "./Raylib.ob07",
+	MUI IN "./MicroUI.ob07",
+	MURL IN "./MURL.ob07";
+
+
+PROCEDURE [ccall] main*(): INTEGER;
+VAR
+	bgColor: RL.Color;
+	fontSize: INTEGER;
+	ctx: MUI.Context;
+	wrect, wrect2: MUI.Rect;
+	font: RL.Font;
+	widths2: ARRAY 1 OF INTEGER;
+	buf2: ARRAY 32 OF CHAR;
+	svalue1, svalue2: REAL;
+BEGIN
+
+	RL.IntToColor(RL.WHITE, bgColor);
+	fontSize := 16;
+	wrect := MUI.ToRect(20, 20, 200, 150);
+	wrect2 := MUI.ToRect(300, 20, 200, 200);
+	widths2[0] := -1;
+	font := RL.CreateFont();
+	
+	RL.InitWindow(800, 600, "HelloGui - microui");
+	RL.SetTargetFPS(60);
+	
+	MUI.Init(ctx);
+	RL.LoadFontEx("./resources/anonymous_pro_bold.ttf", font, 11);
+	//MURL.SetupFont(ctx);
+	MURL.SetupFontEx(ctx, font);
+	
+	WHILE ~ RL.WindowShouldClose() DO
+		MURL.HandleInput(ctx);
+		MUI.Begin(ctx);
+		
+		IF MUI.BeginWindowEx(ctx, "Hello", wrect, MUI.OPT_NOCLOSE) THEN
+			MUI.Label(ctx, "Hello, raylib");
+			
+			IF MUI.Button(ctx, "The button") THEN
+				MUI.OpenPopup(ctx, "popup");
+			END;
+			
+			IF MUI.BeginPopup(ctx, "popup") THEN
+				MUI.Label(ctx, "This is a popup");
+				MUI.EndPopup(ctx);
+			END;
+
+			MUI.EndWindow(ctx);
+		END;
+		
+		IF MUI.BeginWindowEx(ctx, "Font", wrect2, MUI.OPT_NORESIZE + MUI.OPT_NOTITLE) THEN
+			MUI.LayoutRow(ctx, 1, widths2, 0);
+			MUI.Label(ctx, "Hello, World");
+			
+			IF MUI.Textbox(ctx, buf2, 32) THEN
+			END;
+			
+			IF MUI.Slider(ctx, svalue1, 0.0, 100.00) THEN
+			END;
+			
+			IF MUI.SliderEx(ctx, svalue2, 0.0, 100.00, 1.0, "%.0f", MUI.OPT_NONE) THEN
+			END;
+			
+			
+			MUI.EndWindow(ctx);
+		END;
+	
+		MUI.End(ctx);
+		
+		RL.BeginDrawing();
+			RL.ClearBackground(bgColor);
+			MURL.Render(ctx);
+		RL.EndDrawing();
+	END;
+	
+	MUI.Destroy(ctx);
+	RL.DestroyFont(font);
+	RL.CloseWindow();
+	
+	RETURN 0
+END main;
+
+
+END HelloGui.

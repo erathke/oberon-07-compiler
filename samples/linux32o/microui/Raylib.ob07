@@ -1,0 +1,123 @@
+MODULE Raylib;
+IMPORT SYSTEM;
+
+CONST
+	
+	WHITE* = 0FFFFFFFFH;
+	YELLOW* = 0FFFF00FFH;
+	BLUE* =   0000FFFFH;
+	RED* =   0FF0000FFH;
+	
+	MOUSE_BUTTON_LEFT* = 0;
+	MOUSE_BUTTON_RIGHT* = 1;
+	MOUSE_BUTTON_MIDDLE* = 2;
+	
+	NULL = 0;
+TYPE
+	
+	Vector2* = RECORD
+		x*, y*: INTEGER
+	END;
+	
+	Color* = RECORD
+		r*, g*, b*, a*: BYTE
+	END;
+
+	ADDRESS = INTEGER;
+	
+	Font* = ADDRESS;
+
+
+PROCEDURE [extern, "SetTargetFPS"] SetTargetFPS*(fps: INTEGER); END;
+PROCEDURE [extern, "CloseWindow"] CloseWindow*(); END;
+PROCEDURE [extern, "WindowShouldClose"] WindowShouldClose*(): BOOLEAN; END;
+PROCEDURE [extern, "BeginDrawing"] BeginDrawing*(); END;
+PROCEDURE [extern, "EndDrawing"] EndDrawing*(); END;
+PROCEDURE [extern, "GetMouseX"] GetMouseX*(): INTEGER; END;
+PROCEDURE [extern, "GetMouseY"] GetMouseY*(): INTEGER; END;
+PROCEDURE [extern, "IsMouseButtonPressed"] IsMouseButtonPressed*(button: INTEGER): BOOLEAN; END;
+PROCEDURE [extern, "_CreateFont"] CreateFont*(): Font; END;
+PROCEDURE [extern, "_DestroyFont"] DestroyFont*(font: Font); END;
+
+PROCEDURE [extern, "InitWindow"] _InitWindow(w, h: INTEGER; title: ADDRESS); END;
+PROCEDURE [extern, "_ClearBackground"] _ClearBackground(color: ADDRESS); END;
+PROCEDURE [extern, "_DrawCircle"] _DrawCircle(cx, cy: INTEGER; r: REAL; color: ADDRESS); END;
+PROCEDURE [extern, "_DrawRectangle"] _DrawRectangle(x, y, w, h: INTEGER; color: ADDRESS); END;
+PROCEDURE [extern, "_DrawText"] _DrawText(str: ADDRESS; x, y, font: INTEGER; color: ADDRESS); END;
+PROCEDURE [extern, "_LoadFont"] _LoadFont(fileName: ADDRESS; font: Font); END;
+
+PROCEDURE [extern, "_LoadFontEx"] _LoadFontEx(fileName: ADDRESS; font: Font; fontSize: INTEGER; codepoints: ADDRESS; coudepointsCount: INTEGER); END;
+
+
+PROCEDURE InitWindow*(w, h: INTEGER; title: ARRAY OF CHAR);
+BEGIN 
+	_InitWindow(w, h, SYSTEM.ADR(title[0]));
+END;
+
+
+PROCEDURE ClearBackground*(color: Color);
+BEGIN 
+	_ClearBackground(SYSTEM.ADR(color));
+END;
+
+
+PROCEDURE DrawCircle*(cx, cy: INTEGER; r: REAL; color: Color);
+BEGIN 
+	_DrawCircle(cx, cy, r, SYSTEM.ADR(color));
+END;
+
+
+PROCEDURE DrawRectangle*(x, y, w, h: INTEGER; color: Color);
+BEGIN 
+	_DrawRectangle(x, y, w, h, SYSTEM.ADR(color));
+END;
+
+
+PROCEDURE DrawText*(str: ARRAY OF CHAR; x, y, font: INTEGER; color: Color);
+BEGIN
+	_DrawText(SYSTEM.ADR(str[0]), x, y, font, SYSTEM.ADR(color));
+END DrawText;
+
+
+PROCEDURE GetMousePosition*(VAR pos: Vector2);
+BEGIN
+	pos.x := GetMouseX();
+	pos.y := GetMouseY();
+END GetMousePosition;
+
+
+PROCEDURE ColorToInt*(color: Color; VAR c: INTEGER);
+VAR	
+	r, g, b, a: INTEGER;
+BEGIN
+	r := LSL(color.r, 24);
+	g := LSL(color.g, 16);
+	b := LSL(color.b, 8);
+	a := color.a;
+	c := r + g + b + a;
+END ColorToInt;
+
+
+PROCEDURE IntToColor*(color: INTEGER; VAR c: Color);
+VAR
+	i: INTEGER;
+BEGIN
+	i := LSR(color, 24); c.r := SYSTEM.VAL(i, BYTE);
+	i := LSR(color, 16); c.g := SYSTEM.VAL(i, BYTE);
+	i := LSR(color, 8);  c.b := SYSTEM.VAL(i, BYTE);
+	i := color; 		 c.a := SYSTEM.VAL(i, BYTE);
+END IntToColor;
+
+
+PROCEDURE LoadFont*(filename: ARRAY OF CHAR; font: Font);
+BEGIN
+	_LoadFont(SYSTEM.ADR(filename[0]), font);
+END LoadFont;
+
+
+PROCEDURE LoadFontEx*(filename: ARRAY OF CHAR; font: Font; fontSize: INTEGER);
+BEGIN
+	_LoadFontEx(SYSTEM.ADR(filename[0]), font, fontSize, NULL, 0);
+END LoadFontEx;
+
+END Raylib.
