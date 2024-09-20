@@ -2328,6 +2328,11 @@ VAR
 BEGIN
     entry := NewLabel();
     SetLabel(entry);
+    
+    IF target IN {TARGETS.Linux32O} THEN
+		BIN.Export(program, "_start", entry);
+    END;
+    
     dcount := CHL.Length(IL.codes.data);
 
     push(ebp);
@@ -2455,7 +2460,7 @@ VAR
 
 BEGIN
 
-    IF target IN {TARGETS.Win32C, TARGETS.Win32GUI, TARGETS.KolibriOS, TARGETS.Linux32} THEN
+    IF target IN {TARGETS.Win32C, TARGETS.Win32GUI, TARGETS.KolibriOS, TARGETS.Linux32, TARGETS.Linux32O} THEN
         pushc(0);
         CallRTL(pic, IL._exit);
     ELSIF target = TARGETS.Win32DLL THEN
