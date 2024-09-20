@@ -1,13 +1,11 @@
 MODULE HelloGui;
-IMPORT SYSTEM, 
-	API,
-	//Out,
+IMPORT API, Out,
 	RL IN "./Raylib.ob07",
 	MUI IN "./MicroUI.ob07",
 	MURL IN "./MURL.ob07";
 
 
-PROCEDURE [ccall] _start*();
+PROCEDURE start();
 VAR
 	bgColor: RL.Color;
 	fontSize: INTEGER;
@@ -81,10 +79,14 @@ BEGIN
 	MUI.Destroy(ctx);
 	RL.DestroyFont(font);
 	RL.CloseWindow();
+
+END start;
+
+
+BEGIN
 	
+	start();
+	Out.String("Bye!"); Out.Ln;
 	API.exit(0)
-
-END _start;
-
 
 END HelloGui.

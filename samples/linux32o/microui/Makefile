@@ -12,7 +12,7 @@ EXE=HelloGui
 MURL_DEP=./deps/microui-raylib
 MURL_SRC=$(MURL_DEP)/src/murl.c $(MURL_DEP)/vendor/microui.c
 
-exe: $(OBJC) $(OBJO)
+exe: $(OBJO) $(OBJC)
 	$(CC) $(CFLAGS) -nostartfiles -o $(EXE) $^ $(LIBS) -lm
 
 lib/glue.o: $(SRCC)
@@ -23,7 +23,6 @@ lib/HelloGui.xo: $(SRCO)
 
 clean:
 	$(RM) $(EXE) $(OBJC) $(OBJO)
-	$(RM) lib/murl.o lib/microui.o
 	
 deps: $(MURL_SRC)
 	$(CC) $(CFLAGS) -c $(MURL_DEP)/src/murl.c -o lib/murl.o -I$(MURL_DEP)/vendor -I./include
