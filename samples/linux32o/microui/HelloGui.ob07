@@ -1,5 +1,5 @@
 MODULE HelloGui;
-IMPORT API, Out,
+IMPORT API, Args,
 	RL IN "./Raylib.ob07",
 	MUI IN "./MicroUI.ob07",
 	MURL IN "./MURL.ob07";
@@ -15,6 +15,7 @@ VAR
 	widths2: ARRAY 1 OF INTEGER;
 	buf2: ARRAY 32 OF CHAR;
 	svalue1, svalue2: REAL;
+	title: ARRAY 32 OF CHAR;
 BEGIN
 
 	RL.IntToColor(RL.WHITE, bgColor);
@@ -24,7 +25,13 @@ BEGIN
 	widths2[0] := -1;
 	font := RL.CreateFont();
 	
-	RL.InitWindow(800, 600, "HelloGui - microui");
+	IF Args.argc > 1 THEN
+		Args.GetArg(1, title);
+	ELSE
+		title := "HelloGui - microui";
+	END;
+	
+	RL.InitWindow(800, 600, title);
 	RL.SetTargetFPS(60);
 	
 	MUI.Init(ctx);
@@ -84,9 +91,8 @@ END start;
 
 
 BEGIN
-	
+
 	start();
-	Out.String("Bye!"); Out.Ln;
 	API.exit(0)
 
 END HelloGui.
