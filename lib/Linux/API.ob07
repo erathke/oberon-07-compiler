@@ -31,10 +31,7 @@ VAR
 
 	MainParam*: INTEGER;
     fini: SOFINI;
-	
-	PROCEDURE [extern, "dlopen"] dlopen*(filename, flag: INTEGER): INTEGER; END dlopen;
-    PROCEDURE [extern, "dlsym"] dlsym*(handle, symbol: INTEGER): INTEGER; END dlsym;
-    
+
     PROCEDURE [extern, "exit"] exit*(code: INTEGER); END exit;
     PROCEDURE [extern, "exit"] exit_thread*(code: INTEGER); END exit_thread;
     PROCEDURE [extern, "puts"] puts(pStr: INTEGER); END puts;
@@ -94,6 +91,8 @@ BEGIN
 END _DISPOSE;
 
 
+$IF (linux32exe)
+
 PROCEDURE GetSym (lib: INTEGER; name: ARRAY OF CHAR; VarAdr: INTEGER);
 VAR
     sym: INTEGER;
@@ -104,6 +103,7 @@ BEGIN
     SYSTEM.PUT(VarAdr, sym)
 END GetSym;
 
+$END
 
 PROCEDURE init* (sp, code: INTEGER);
 BEGIN
