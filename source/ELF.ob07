@@ -594,7 +594,7 @@ CONST
     
     ET_REL = 1;
     
-	SH_NUM = 7;
+	SH_NUM = 8;
 	SH_SIZE = 28H;
 	SYM_SIZE = 16;
 	
@@ -604,6 +604,7 @@ CONST
 	SH_IDX_STRTAB = 4;
 	SH_IDX_SYMTAB = 5;
 	SH_IDX_RELTEXT = 6;
+	SH_IDX_NOTE_GNU = 7;
 	
 	(* s_type *)
 	SHT_NULL = 0H;
@@ -673,9 +674,9 @@ VAR
 
     i: INTEGER;
 
-    SizeOf: RECORD header, text, data, strtab, symtab, reltext, bss: INTEGER END;
+    SizeOf: RECORD header, text, data, strtab, symtab, reltext, bss, note_gnu: INTEGER END;
     
-    Offset: RECORD text, data, strtab, symtab, reltext, bss: INTEGER END;
+    Offset: RECORD text, data, strtab, symtab, reltext, bss, note_gnu: INTEGER END;
 
     Name: ARRAY 2048 OF CHAR;
     
@@ -685,7 +686,7 @@ VAR
     
     localSymCount, symtabCount, relCount: INTEGER;
     
-    StrPos: RECORD text, reltext, data, symtab, strtab, bss: INTEGER END;
+    StrPos: RECORD text, reltext, data, symtab, strtab, bss, note_gnu: INTEGER END;
     
     symidx, symlbl, relidx: INTEGER;
     
@@ -824,10 +825,12 @@ BEGIN
     StrPos.symtab := CHL.PushStr(strtab, ".symtab");
     StrPos.strtab := CHL.PushStr(strtab, ".strtab");
     StrPos.bss := CHL.PushStr(strtab, ".bss");
+    StrPos.note_gnu := CHL.PushStr(strtab, ".note.GNU-stack");
     
     SizeOf.text := CHL.Length(program.code);
     SizeOf.data := CHL.Length(program.data);
     SizeOf.bss := program.bss;
+    SizeOf.note_gnu := 0;
     
     ehdr.e_ident[0] := 7FH;
     ehdr.e_ident[1] := ORD("E");
@@ -961,6 +964,7 @@ BEGIN
 	Offset.strtab := Offset.data + SizeOf.data; 
 	Offset.symtab := Offset.strtab + SizeOf.strtab;
 	Offset.reltext := Offset.symtab + SizeOf.symtab;
+	Offset.note_gnu := Offset.reltext + SizeOf.reltext;
 	
 	(* File *)
     WR.Create(FileName);
@@ -1054,6 +1058,13 @@ BEGIN
     shdr[SH_IDX_RELTEXT].s_info := 1;
     shdr[SH_IDX_RELTEXT].s_link := SH_IDX_SYMTAB;
     shdr[SH_IDX_RELTEXT].s_entsize := 8;
+    
+    (* .note.GNU-stack *)
+    shdr[SH_IDX_NOTE_GNU].s_name := StrPos.note_gnu;
+    shdr[SH_IDX_NOTE_GNU].s_type := SHT_NOBITS;
+    shdr[SH_IDX_NOTE_GNU].s_size := SizeOf.note_gnu;
+    shdr[SH_IDX_NOTE_GNU].s_offset := Offset.note_gnu;
+    shdr[SH_IDX_NOTE_GNU].s_addralign := 1H;
     
     FOR i := 0 TO SH_NUM - 1  DO
 		WriteSH(shdr[i]);
