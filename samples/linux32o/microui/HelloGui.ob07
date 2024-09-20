@@ -1,5 +1,5 @@
 MODULE HelloGui;
-IMPORT API, Args,
+IMPORT Args,
 	RL IN "./Raylib.ob07",
 	MUI IN "./MicroUI.ob07",
 	MURL IN "./MURL.ob07";
@@ -93,6 +93,5 @@ END start;
 BEGIN
 
 	start();
-	API.exit(0)
 
 END HelloGui.
