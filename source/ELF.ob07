@@ -1061,7 +1061,7 @@ BEGIN
     
     (* .note.GNU-stack *)
     shdr[SH_IDX_NOTE_GNU].s_name := StrPos.note_gnu;
-    shdr[SH_IDX_NOTE_GNU].s_type := SHT_NOBITS;
+    shdr[SH_IDX_NOTE_GNU].s_type := SHT_PROGBITS;
     shdr[SH_IDX_NOTE_GNU].s_size := SizeOf.note_gnu;
     shdr[SH_IDX_NOTE_GNU].s_offset := Offset.note_gnu;
     shdr[SH_IDX_NOTE_GNU].s_addralign := 1H;
