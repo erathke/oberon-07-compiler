@@ -2358,7 +2358,7 @@ BEGIN
         Pic(reg1, BIN.IMPTAB, 0);
         push(reg1);    (* push IMPORT *)
         drop
-    ELSIF target = TARGETS.Linux32 THEN
+    ELSIF target IN {TARGETS.Linux32, TARGETS.Linux32O} THEN
         mov(eax, ebp);
         addrc(eax, 4);
         push(eax)
@@ -2388,7 +2388,7 @@ BEGIN
 
     CallRTL(pic, IL._init);
 
-    IF target IN {TARGETS.Win32C, TARGETS.Win32GUI, TARGETS.Linux32} THEN
+    IF target IN {TARGETS.Win32C, TARGETS.Win32GUI, TARGETS.Linux32, TARGETS.Linux32O} THEN
         L := NewLabel();
         pushc(0);
         push(esp);

@@ -961,7 +961,6 @@ END append;
 PROCEDURE [stdcall] _error* (modnum, _module, err, line: INTEGER);
 VAR
     s, temp: ARRAY 1024 OF CHAR;
-	modname: ARRAY 64 OF CHAR;
 
 BEGIN
     CASE err OF
@@ -981,11 +980,8 @@ BEGIN
     append(s, API.eol + "module: "); PCharToStr(_module, temp); append(s, temp);
     append(s, API.eol + "line: ");   IntToStr(line, temp);     append(s, temp);
 
-	(* FIXME: workaround until fix module initialization *)
-    // API.DebugMsg(SYSTEM.ADR(s[0]), name);
-	PCharToStr(_module, modname);
-	API.DebugMsg(SYSTEM.ADR(s[0]), SYSTEM.ADR(modname));
-
+	API.DebugMsg(SYSTEM.ADR(s[0]), name);
+	
     API.exit_thread(0)
 END _error;
 
