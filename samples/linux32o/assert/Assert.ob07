@@ -1,0 +1,24 @@
+MODULE Assert;
+IMPORT Out IN "./Out_sys.ob07", API;
+
+CONST
+	MEM_SIZE = 1 * 1024 * 1024;
+
+TYPE
+	Memory = POINTER TO RECORD
+		ram: ARRAY MEM_SIZE OF BYTE
+	END;
+
+VAR
+	mem: Memory;
+
+BEGIN
+	NEW(mem);
+	DISPOSE(mem);
+	
+	Out.String("Hello, world = ");
+	Out.Int(-1000, 0);
+	Out.Char('!'); Out.Ln;
+	
+	ASSERT(FALSE)
+END Assert.

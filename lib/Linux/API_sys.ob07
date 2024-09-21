@@ -1,0 +1,219 @@
+﻿(*
+    BSD 2-Clause License
+
+    Copyright (c) 2019-2021, 2023, Anton Krotov
+    All rights reserved.
+*)
+
+MODULE API_sys;
+
+IMPORT SYSTEM;
+
+
+CONST
+
+    OS* = "LINUX";
+    eol* = 0AX;
+
+    BIT_DEPTH* = (ORD(LSL(1, 31) > 0) + 1) * 32;
+
+    RTLD_LAZY = 1;
+
+	MEM_SIZE = 2 * 1024 * 1024;
+
+TYPE
+
+    SOFINI = PROCEDURE;
+
+	Memory = RECORD
+		data: ARRAY MEM_SIZE OF BYTE;
+		offset: INTEGER
+	END;
+
+VAR	
+
+	MainParam*: INTEGER;
+    fini: SOFINI;
+    ram: Memory;
+
+PROCEDURE [oberon-] syscall(eax, ebx, ecx, edx, esi, edi: INTEGER): INTEGER;
+BEGIN
+    SYSTEM.CODE(
+    053H,               (*  push    ebx                    *)
+    056H,               (*  push    esi                    *)
+    057H,               (*  push    edi                    *)
+    08BH, 045H, 008H,   (*  mov     eax, dword [ebp +  8]  *)
+    08BH, 05DH, 00CH,   (*  mov     ebx, dword [ebp + 12]  *)
+    08BH, 04DH, 010H,   (*  mov     ecx, dword [ebp + 16]  *)
+    08BH, 055H, 014H,   (*  mov     edx, dword [ebp + 20]  *)
+    08BH, 075H, 018H,   (*  mov     esi, dword [ebp + 24]  *)
+    08BH, 07DH, 01CH,   (*  mov     edi, dword [ebp + 28]  *)
+    0CDH, 080H,         (*  int     128                    *)
+    05FH,               (*  pop     edi                    *)
+    05EH,               (*  pop     esi                    *)
+    05BH,               (*  pop     ebx                    *)
+    05DH,               (*  pop     ebp                    *)
+    0C2H, 018H, 000H    (*  ret     24                     *)
+    );
+    RETURN 0
+END syscall;
+
+
+PROCEDURE IntToStr (x: INTEGER; VAR str: ARRAY OF CHAR);
+VAR
+    i, a: INTEGER;
+
+BEGIN
+    i := 0;
+    a := x;
+    REPEAT
+        INC(i);
+        a := a DIV 10
+    UNTIL a = 0;
+
+    str[i] := 0X;
+
+    REPEAT
+        DEC(i);
+        str[i] := CHR(x MOD 10 + ORD("0"));
+        x := x DIV 10
+    UNTIL x = 0
+END IntToStr;
+
+
+PROCEDURE DebugMsg* (lpText, lpTextLen: INTEGER);
+CONST
+	SYS_write = 4;
+	STDOUT = 1;
+BEGIN
+	syscall(SYS_write, STDOUT, lpText, lpTextLen, 0, 0);
+	syscall(SYS_write, STDOUT, SYSTEM.SADR(0AX), 2, 0, 0);
+END DebugMsg;
+
+
+PROCEDURE Debug (msg, msgLen: INTEGER; lbreak: BOOLEAN);
+CONST
+	SYS_write = 4;
+	STDOUT = 1;
+BEGIN
+	syscall(SYS_write, STDOUT, msg, msgLen, 0, 0);
+	IF lbreak THEN
+		syscall(SYS_write, STDOUT, SYSTEM.SADR(0AX), 2, 0, 0);
+	END;
+END Debug;
+
+
+PROCEDURE exit*(code: INTEGER);
+CONST 
+	SYS_exit = 1;
+$IF (API_DEBUG)
+VAR
+	msg: ARRAY 32 OF CHAR;
+BEGIN
+	Debug(SYSTEM.SADR("------------------------"), 25, TRUE);
+	Debug(SYSTEM.SADR("Total memory: "), 15, FALSE);
+	IntToStr(MEM_SIZE, msg);
+	Debug(SYSTEM.ADR(msg[0]), LENGTH(msg), TRUE);
+	Debug(SYSTEM.SADR("Total usage: "), 14, FALSE);
+	IntToStr(ram.offset, msg);
+	Debug(SYSTEM.ADR(msg[0]), LENGTH(msg), TRUE);
+$ELSE
+BEGIN
+$END
+	syscall(SYS_exit, code, 0, 0, 0, 0);
+END exit;
+
+
+PROCEDURE exit_thread*(code: INTEGER); 
+BEGIN
+	exit(code)
+END exit_thread;
+
+
+PROCEDURE _NEW* (size: INTEGER): INTEGER;
+VAR
+    res, ptr, words: INTEGER;
+$IF (API_DEBUG)
+	msg: ARRAY 32 OF CHAR;
+$END
+
+PROCEDURE Alloc(VAR ptr: INTEGER; size: INTEGER);
+BEGIN
+	IF size + ram.offset > MEM_SIZE THEN
+		DebugMsg(SYSTEM.SADR("Out of memory"), 14); 
+		exit(1);
+	END;
+	ptr := SYSTEM.ADR(ram.data[ram.offset]);
+	INC(ram.offset, size);
+END Alloc;
+
+
+BEGIN
+
+$IF (API_DEBUG)
+	Debug(SYSTEM.SADR("Alloc: "), 8, FALSE);
+	IntToStr(size, msg);
+	Debug(SYSTEM.ADR(msg[0]), LENGTH(msg), TRUE);
+$END
+
+    Alloc(res, size);
+    
+    IF res # 0 THEN
+        ptr := res;
+        words := size DIV SYSTEM.SIZE(INTEGER);
+        WHILE words > 0 DO
+            SYSTEM.PUT(ptr, 0);
+            INC(ptr, SYSTEM.SIZE(INTEGER));
+            DEC(words)
+        END
+    END
+	
+	
+    RETURN res
+END _NEW;
+
+
+PROCEDURE _DISPOSE* (p: INTEGER): INTEGER;
+$IF (API_DEBUG)
+VAR
+	msg: ARRAY 32 OF CHAR;
+BEGIN
+	Debug(SYSTEM.SADR("Free: "), 7, FALSE);
+	IntToStr(p, msg);
+	Debug(SYSTEM.ADR(msg[0]), LENGTH(msg), TRUE);
+$ELSE
+BEGIN
+$END
+    //free(p)
+    RETURN 0
+END _DISPOSE;
+
+
+
+PROCEDURE init* (sp, code: INTEGER);
+BEGIN
+    fini := NIL;
+    MainParam := sp;
+END init;
+
+
+PROCEDURE dllentry* (hinstDLL, fdwReason, lpvReserved: INTEGER): INTEGER;
+    RETURN 0
+END dllentry;
+
+
+PROCEDURE sofinit*;
+BEGIN
+    IF fini # NIL THEN
+        fini
+    END
+END sofinit;
+
+
+PROCEDURE SetFini* (ProcFini: SOFINI);
+BEGIN
+    fini := ProcFini
+END SetFini;
+
+
+END API_sys.
