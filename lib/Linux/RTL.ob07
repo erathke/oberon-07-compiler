@@ -535,7 +535,12 @@ $END
 $IF (CPU_X86)
 MODULE RTL;
 
-IMPORT SYSTEM, API;
+IMPORT SYSTEM, 
+$IF (linux32exe)
+	API;
+$ELSE
+	API IN "./API_sys.ob07";
+$END
 
 
 CONST
@@ -961,7 +966,6 @@ END append;
 PROCEDURE [stdcall] _error* (modnum, _module, err, line: INTEGER);
 VAR
     s, temp: ARRAY 1024 OF CHAR;
-
 BEGIN
     CASE err OF
     | 1: s := "assertion failure"
@@ -976,11 +980,22 @@ BEGIN
     |10: s := "WCHR out of range"
     |11: s := "BYTE out of range"
     END;
-
-    append(s, API.eol + "module: "); PCharToStr(_module, temp); append(s, temp);
+	
+	append(s, API.eol + "module: "); PCharToStr(_module, temp); append(s, temp);
     append(s, API.eol + "line: ");   IntToStr(line, temp);     append(s, temp);
 
+$IF (linux32exe)
+
 	API.DebugMsg(SYSTEM.ADR(s[0]), name);
+	API.DebugMsg(SYSTEM.ADR(_module), _module);
+	
+$ELSE
+	
+	PCharToStr(name, temp);
+	API.DebugMsg(SYSTEM.ADR(temp[0]), LENGTH(temp));
+	API.DebugMsg(SYSTEM.ADR(s[0]), LENGTH(s));
+
+$END
 	
     API.exit_thread(0)
 END _error;
