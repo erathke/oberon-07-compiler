@@ -2329,6 +2329,7 @@ BEGIN
     entry := NewLabel();
     SetLabel(entry);
     
+    (* FIXME: create compiler option *)
     IF target IN {TARGETS.Linux32O} THEN
 		BIN.Export(program, "_start", entry);
     END;
@@ -2393,7 +2394,7 @@ BEGIN
 
     CallRTL(pic, IL._init);
 
-    IF target IN {TARGETS.Win32C, TARGETS.Win32GUI, TARGETS.Linux32, TARGETS.Linux32O} THEN
+    IF target IN {TARGETS.Win32C, TARGETS.Win32GUI, TARGETS.Linux32} THEN
         L := NewLabel();
         pushc(0);
         push(esp);
@@ -2460,7 +2461,7 @@ VAR
 
 BEGIN
 
-    IF target IN {TARGETS.Win32C, TARGETS.Win32GUI, TARGETS.KolibriOS, TARGETS.Linux32, TARGETS.Linux32O} THEN
+    IF target IN {TARGETS.Win32C, TARGETS.Win32GUI, TARGETS.KolibriOS, TARGETS.Linux32} THEN
         pushc(0);
         CallRTL(pic, IL._exit);
     ELSIF target = TARGETS.Win32DLL THEN
@@ -2488,6 +2489,9 @@ BEGIN
         SetLabel(sofinit);
         CallRTL(pic, IL._sofinit);
         ret
+    ELSIF target = TARGETS.Linux32O THEN (* FIXME: create compiler option *)
+		pushc(0);
+        CallRTL(pic, IL._exit);
     END;
 
     fixup;
