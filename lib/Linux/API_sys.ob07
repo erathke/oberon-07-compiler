@@ -58,7 +58,6 @@ BEGIN
     RETURN 0
 END syscall;
 
-
 PROCEDURE IntToStr (x: INTEGER; VAR str: ARRAY OF CHAR);
 VAR
     i, a: INTEGER;
@@ -66,6 +65,14 @@ VAR
 BEGIN
     i := 0;
     a := x;
+    
+    IF x < 0 THEN
+		str[i] := "-";
+		a := -a;
+		x := -x;
+		INC(i);
+    END;
+    
     REPEAT
         INC(i);
         a := a DIV 10
