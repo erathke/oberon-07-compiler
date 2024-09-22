@@ -8,5 +8,6 @@ LIBS="liblua-i686-posix.a"
 #DEF="-def API_DEBUG"
 #OPTS="-stk 1"
 
-../../../compilerX HelloLua.ob07 linux32o $DEF $OPTS && 
-	$CC $CFLAGS $COPTIONS -o HelloLua HelloLua.xo $LIBS -lm
+mkdir -p bin;
+../../../compilerX $1.ob07 linux32o $DEF $OPTS && 
+	$CC $CFLAGS $COPTIONS -o bin/$1 $1.xo $LIBS -lm

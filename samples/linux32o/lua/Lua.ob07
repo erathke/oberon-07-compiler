@@ -1,5 +1,5 @@
 MODULE Lua;
-IMPORT SYSTEM, Out;
+IMPORT SYSTEM;
 
 CONST 
 	LUAI_MAXSTACK = 1000000;
@@ -22,6 +22,7 @@ CONST
 	LUA_TFUNCTION* = 6;
 	LUA_TUSERDATA* = 7;
 	LUA_TTHREAD* = 8;
+
 
 TYPE 
 	lua_State = INTEGER;
@@ -49,19 +50,24 @@ PROCEDURE [extern, "lua_setglobal"] _lua_setglobal(L: lua_State; name: cstr); EN
 PROCEDURE [extern, "lua_tolstring"]	_lua_tolstring(L: lua_State; index: INTEGER; VAR len: csize_t): cstr; END;
 PROCEDURE [extern, "lua_tointegerx"] tointegerx*(L: lua_State; index: INTEGER; VAR isnum: BOOLEAN): INTEGER; END;
 PROCEDURE [extern, "lua_tonumberx"] _lua_tonumberx(L: lua_State; index: INTEGER; VAR isnum: BOOLEAN): REAL; END;
-PROCEDURE [extern, "lua_type"] ltype*(L: lua_State; index, ltype: INTEGER): INTEGER; END;
-PROCEDURE [extern, "lua_error"] error*(L: lua_State): INTEGER; END;
+PROCEDURE [extern, "lua_type"] ltype*(L: lua_State; index: INTEGER): INTEGER; END;
+PROCEDURE [extern, "lua_error"] _lua_error(L: lua_State): INTEGER; END;
 PROCEDURE [extern, "lua_newuserdatauv"] newuserdatauv*(L: lua_State; size: csize_t; nuvalue: BYTE): cptr; END;
 PROCEDURE [extern, "lua_touserdata"] touserdata*(L: lua_State; index: INTEGER): cptr; END;
 PROCEDURE [extern, "luaL_newmetatable"] _luaL_newmetatable(L: lua_State; tname: cstr); END;
-PROCEDURE [extern, "luaL_setmetatable"]	setmetatable*(L: lua_State; index: INTEGER); END;
+PROCEDURE [extern, "lua_setmetatable"]	setmetatable*(L: lua_State; index: INTEGER); END;
+PROCEDURE [extern, "luaL_checkudata"] _luaL_checkudata(L: lua_State; ar: INTEGER; tname: cstr): cptr; END;
 PROCEDURE [extern, "lua_setfield"]	_lua_setfield(L: lua_State; index: INTEGER; k: cstr); END;
 PROCEDURE [extern, "lua_getfield"] _lua_getfield(L: lua_State; index: INTEGER; k: cstr); END;
 PROCEDURE [extern, "lua_pushvalue"] pushvalue*(L: lua_State; index: INTEGER); END;
 PROCEDURE [extern, "lua_pushinteger"] pushinteger*(L: lua_State; n: INTEGER); END;
 PROCEDURE [extern, "lua_pushnumber"] pushnumber*(L: lua_State; n: REAL); END;
+PROCEDURE [extern, "lua_pushstring"] _lua_pushstring(L: lua_State; s: cstr): cptr; END;
 PROCEDURE [extern, "lua_settop"] settop*(L: lua_State; index: INTEGER); END;
-PROCEDURE [extern, "luaL_setfuncs"] _luaL_setfuncs(L: lua_State; l: cptr; index: INTEGER); END;
+PROCEDURE [extern, "luaL_setfuncs"] _luaL_setfuncs(L: lua_State; l: cptr; nup: INTEGER); END;
+PROCEDURE [extern, "luaL_requiref"] _luaL_requiref(L: lua_State; modname: cstr; openf: lua_CFunction; glb: INTEGER); END;
+PROCEDURE [extern, "lua_createtable"] createtable*(L: lua_State; narr, nrec: INTEGER); END;
+PROCEDURE [extern, "lua_newtable"] _lua_newtable*(L: lua_State); END;
 
 
 (* luaL_loadstring(L, str) || lua_pcall(L, 0, LUA_MULTRET, 0) *)
@@ -70,39 +76,26 @@ VAR
 	status: INTEGER;
 BEGIN
 	status := _luaL_loadstring(L, SYSTEM.ADR(str[0]));
-	IF (status # LUA_OK) THEN
-		Out.String("error loading string"); Out.Ln(); 
-		ASSERT(status # LUA_OK);
-	END;
-	
-	status := _lua_pcallk(L, 0, LUA_MULTRET, 0, 0, NIL);
-	IF (status # LUA_OK) THEN
-		Out.String("error calling function: "); Out.Int(status, 0); Out.Ln(); 
-		ASSERT(status # LUA_OK);
+	IF (status = LUA_OK) THEN
+		status := _lua_pcallk(L, 0, LUA_MULTRET, 0, 0, NIL);
 	END;
 	
 	RETURN status
 	
 END dostring;
 
+
 PROCEDURE loadfilex*(L: lua_State; filename, mode: ARRAY OF CHAR): INTEGER;
-VAR 
-	status: INTEGER;
 BEGIN
-	status := _luaL_loadfilex(L, SYSTEM.ADR(filename[0]), SYSTEM.ADR(mode[0]));
-	IF (status # LUA_OK) THEN
-		Out.String("error loading file: "); Out.Int(status, 0); Out.Ln(); 
-		ASSERT(status # LUA_OK);
-	END;
-	
-	RETURN status
-	
+	RETURN _luaL_loadfilex(L, SYSTEM.ADR(filename[0]), SYSTEM.ADR(mode[0]))
 END loadfilex;
+
 
 PROCEDURE pcall*(L: lua_State; nargs, nresults, msgh: INTEGER): INTEGER;
 BEGIN
 	RETURN _lua_pcallk(L, nargs, nresults, msgh, 0, NIL)
 END pcall;
+
 
 (* luaL_loadfile(L, filename) || lua_pcall(L, 0, LUA_MULTRET, 0) *)
 PROCEDURE dofile*(L: lua_State; filename: ARRAY OF CHAR): INTEGER;
@@ -110,19 +103,24 @@ VAR
 	status: INTEGER;
 BEGIN
 	status := loadfilex(L, filename, "bt");
-	status := pcall(L, 0, LUA_MULTRET, 0);
+	IF status = LUA_OK THEN
+		status := pcall(L, 0, LUA_MULTRET, 0);
+	END;
 	RETURN status
 END dofile;
+
 
 PROCEDURE pushcfunction*(L: lua_State; fn: lua_CFunction);
 BEGIN
 	pushcclosure(L, fn, 0);
 END pushcfunction;
 
+
 PROCEDURE setglobal*(L: lua_State; name: ARRAY OF CHAR);
 BEGIN
 	_lua_setglobal(L, SYSTEM.ADR(name[0]));
 END setglobal;
+
 
 PROCEDURE tolstring*(L: lua_State; index: INTEGER; VAR str: ARRAY OF CHAR);
 VAR
@@ -136,40 +134,89 @@ BEGIN
 	END;
 END tolstring;
 
+
 PROCEDURE istable*(L: lua_State; index: INTEGER): BOOLEAN;
 BEGIN
-	RETURN ltype(L, index, LUA_TTABLE) = LUA_TTABLE
+	RETURN ltype(L, index) = LUA_TTABLE
 END istable;
+
 
 PROCEDURE newmetatable*(L: lua_State; tname: ARRAY OF CHAR);
 BEGIN
 	_luaL_newmetatable(L, SYSTEM.ADR(tname[0]));
 END newmetatable;
 
+
 PROCEDURE getmetatable*(L: lua_State; tname: ARRAY OF CHAR);
 BEGIN
 	_lua_getfield(L, LUA_REGISTRYINDEX, SYSTEM.ADR(tname[0]));
 END getmetatable;
+
 
 PROCEDURE setfield*(L: lua_State; index: INTEGER; k: ARRAY OF CHAR);
 BEGIN
 	_lua_setfield(L, index, SYSTEM.ADR(k[0]));
 END setfield;
 
+
 PROCEDURE getfield*(L: lua_State; index: INTEGER; k: ARRAY OF CHAR);
 BEGIN
 	_lua_getfield(L, index, SYSTEM.ADR(k[0]));
 END getfield;
+
 
 PROCEDURE pop*(L: lua_State; n: INTEGER);
 BEGIN
 	settop(L, -n-1);
 END pop;
 
+
 PROCEDURE setfuncs*(L: lua_State; l: ARRAY OF luaL_Reg; nup: INTEGER);
 BEGIN
 	_luaL_setfuncs(L, SYSTEM.ADR(l[0]), nup);
 END setfuncs;
+
+
+PROCEDURE requiref*(L: lua_State; modname: ARRAY OF CHAR; openf: lua_CFunction; glb: BOOLEAN);
+BEGIN
+	_luaL_requiref(L, SYSTEM.ADR(modname[0]), openf, ORD(glb));
+END requiref;
+
+
+PROCEDURE newtable*(L: lua_State);
+BEGIN
+	createtable(L, 0, 0);
+END newtable;
+
+
+PROCEDURE checkudata*(L: lua_State; index: INTEGER; tname: ARRAY OF CHAR): cptr;
+BEGIN
+	RETURN _luaL_checkudata(L, index, SYSTEM.ADR(tname[0]))
+END checkudata;
+
+
+PROCEDURE tointeger*(L: lua_State; n: INTEGER): INTEGER;
+VAR
+	isnum: BOOLEAN;
+BEGIN
+	RETURN tointegerx(L, n, isnum)
+END tointeger;
+
+
+PROCEDURE pushstring*(L: lua_State; s: ARRAY OF CHAR);
+VAR
+	ptr: cptr;
+BEGIN
+	ptr := _lua_pushstring(L, SYSTEM.ADR(s[0]))
+END pushstring;
+
+
+PROCEDURE error*(L: lua_State);
+VAR
+	r: INTEGER;
+BEGIN
+	r := _lua_error(L)
+END error;
 
 
 END Lua.

@@ -1,0 +1,33 @@
+MODULE Userdata;
+IMPORT SYSTEM, Args, Out, 
+	Lua IN "./Lua.ob07", 
+	Array IN "./Array.ob07";
+
+VAR
+	L: Lua.State;
+	script, err: ARRAY 128 OF CHAR;
+
+
+PROCEDURE openlibs(L: Lua.State);
+BEGIN
+	Lua.requiref(L, "array", Array.luaopen_array, FALSE);
+END openlibs;
+
+
+BEGIN
+	IF Args.argc # 2 THEN
+		Out.String("usage: Userdata <script.lua>"); Out.Ln;
+	ELSE
+		L := Lua.newstate();
+		Lua.openlibs(L);
+		openlibs(L);
+		
+		Args.GetArg(1, script);
+		IF Lua.dofile(L, script) # Lua.LUA_OK THEN
+			Lua.tolstring(L, -1, err);
+			Out.String(err); Out.Ln;
+		END;
+		
+		Lua.close(L);
+	END;
+END Userdata.

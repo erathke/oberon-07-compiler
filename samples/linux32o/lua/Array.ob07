@@ -1,0 +1,129 @@
+MODULE Array;
+IMPORT SYSTEM, Lua IN "./Lua.ob07";
+
+CONST
+	ARRAY_SIZE = 128;
+
+TYPE
+	ArrayT = RECORD
+		el: ARRAY ARRAY_SIZE OF INTEGER;
+		size: INTEGER
+	END;
+
+	ArrayPtr = POINTER TO ArrayT;
+
+
+//------------------------------------------------
+PROCEDURE [ccall] arr_new(L: Lua.State): INTEGER;
+VAR
+	a: ArrayPtr;
+	udata: INTEGER;
+BEGIN
+	udata := Lua.newuserdatauv(L, SYSTEM.SIZE(ArrayT), 0);
+	Lua.getmetatable(L, "Array");
+	Lua.setmetatable(L, -2);
+	
+	a := SYSTEM.VAL(udata, ArrayPtr);
+	ASSERT(a # NIL);
+	a.size := ARRAY_SIZE;
+	
+	
+	RETURN 1
+END arr_new;
+
+
+PROCEDURE [ccall] arr_at(L: Lua.State): INTEGER;
+VAR
+	a: ArrayPtr;
+	udata: INTEGER;
+	idx: INTEGER;
+BEGIN
+	udata := Lua.checkudata(L, 1, "Array");
+	a := SYSTEM.VAL(udata, ArrayPtr);
+	ASSERT(a # NIL);
+	
+	idx := Lua.tointeger(L, 2);
+	IF (idx > a.size) OR (idx < 0) THEN
+		Lua.pushstring(L, "array index out of bounds");
+		Lua.error(L);
+	END;
+	
+	Lua.pushinteger(L, a.el[idx]);
+	
+	RETURN 1
+END arr_at;
+
+
+PROCEDURE [ccall] arr_size(L: Lua.State): INTEGER;
+VAR
+	a: ArrayPtr;
+	udata: INTEGER;
+BEGIN
+	udata := Lua.checkudata(L, 1, "Array");
+	a := SYSTEM.VAL(udata, ArrayPtr);
+	ASSERT(a # NIL);
+	Lua.pushinteger(L, a.size);
+	
+	RETURN 1
+END arr_size;
+
+
+PROCEDURE [ccall] arr_set(L: Lua.State): INTEGER;
+VAR
+	a: ArrayPtr;
+	udata: INTEGER;
+	idx, value: INTEGER;
+BEGIN
+	udata := Lua.checkudata(L, 1, "Array");
+	a := SYSTEM.VAL(udata, ArrayPtr);
+	ASSERT(a # NIL);
+	
+	idx := Lua.tointeger(L, 2);
+	IF (idx > a.size) OR (idx < 0) THEN
+		Lua.pushstring(L, "array index out of bounds");
+		Lua.error(L);
+	END;
+	
+	value := Lua.tointeger(L, 3);
+	a.el[idx] := value;
+	
+	RETURN 0
+END arr_set;
+
+
+PROCEDURE [ccall] luaopen_array*(L: Lua.State): INTEGER;
+VAR
+	funcs: ARRAY 2 OF Lua.luaL_Reg;
+	arr_m: ARRAY 4 OF Lua.luaL_Reg;
+BEGIN
+	
+	Lua.pushcfunction(L, arr_new);
+	Lua.setglobal(L, "array_new");
+	
+	Lua.createtable(L, 2, 0);
+	funcs[0].name := SYSTEM.SADR("new");
+	funcs[0].func := arr_new;
+	funcs[1].name := 0;
+	funcs[1].func := NIL;
+	Lua.setfuncs(L, funcs, 0);
+	
+	Lua.newmetatable(L, "Array");
+    Lua.pushvalue(L, -1);
+    Lua.setfield(L, -2, "__index");
+    arr_m[0].name := SYSTEM.SADR("at");
+	arr_m[0].func := arr_at;
+	arr_m[1].name := SYSTEM.SADR("size");
+	arr_m[1].func := arr_size;
+	arr_m[2].name := SYSTEM.SADR("set");
+	arr_m[2].func := arr_set;
+	arr_m[3].name := 0;
+	arr_m[3].func := NIL;
+	Lua.setfuncs(L, arr_m, 0);
+	Lua.pop(L, 1);
+	
+	
+	RETURN 1
+END luaopen_array;
+
+
+END Array.
