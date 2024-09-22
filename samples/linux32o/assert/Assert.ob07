@@ -1,5 +1,10 @@
 MODULE Assert;
-IMPORT Out IN "./Out_sys.ob07", API;
+IMPORT Args,
+$IF (linux32exe)
+	Out;
+$ELSE
+	Out IN "./Out_sys.ob07";
+$END
 
 CONST
 	MEM_SIZE = 1 * 1024 * 1024;
@@ -17,7 +22,7 @@ BEGIN
 	DISPOSE(mem);
 	
 	Out.String("Hello, world = ");
-	Out.Int(-1000, 0);
+	Out.Int(Args.argc, 0);
 	Out.Char('!'); Out.Ln;
 	
 	ASSERT(FALSE)

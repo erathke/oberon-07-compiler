@@ -5,7 +5,6 @@ VAR
 	state: Lua.State;
 	script: ARRAY 32 OF CHAR;
 BEGIN
-	Out.Int(Args.argc, 0);
 	IF Args.argc # 2 THEN
 		Out.String("usage: HelloLua <script.lua>"); Out.Ln;
 	ELSE
