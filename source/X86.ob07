@@ -1276,7 +1276,15 @@ BEGIN
         |IL.opPUSHP:
             reg1 := GetAnyReg();
             IF pic THEN
-                Pic(reg1, BIN.PICCODE, param2)
+				
+                IF target IN {TARGETS.Linux32O} THEN
+					xor(reg1, reg1);
+					OutByte2(081H, 0C0H + reg1);  (* add reg, ... *)
+					Reloc(BIN.PICCODE, param2);
+                ELSE
+					Pic(reg1, BIN.PICCODE, param2);
+                END;
+                
             ELSE
                 OutByte(0B8H + reg1);  (* mov reg1, L *)
                 Reloc(BIN.RCODE, param2)
