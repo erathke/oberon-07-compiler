@@ -987,7 +987,6 @@ BEGIN
 $IF (linux32exe)
 
 	API.DebugMsg(SYSTEM.ADR(s[0]), name);
-	API.DebugMsg(SYSTEM.ADR(_module), _module);
 	
 $ELSE
 	
