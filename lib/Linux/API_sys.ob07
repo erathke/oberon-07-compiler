@@ -17,9 +17,7 @@ CONST
 
     BIT_DEPTH* = (ORD(LSL(1, 31) > 0) + 1) * 32;
 
-    RTLD_LAZY = 1;
-
-	MEM_SIZE = 2 * 1024 * 1024;
+    MEM_SIZE = 2 * 1024 * 1024;
 
 TYPE
 
@@ -94,7 +92,7 @@ CONST
 	STDOUT = 1;
 BEGIN
 	syscall(SYS_write, STDOUT, lpText, lpTextLen, 0, 0);
-	syscall(SYS_write, STDOUT, SYSTEM.SADR(0AX), 2, 0, 0);
+	syscall(SYS_write, STDOUT, SYSTEM.SADR(eol), 1, 0, 0);
 END DebugMsg;
 
 
@@ -105,7 +103,7 @@ CONST
 BEGIN
 	syscall(SYS_write, STDOUT, msg, msgLen, 0, 0);
 	IF lbreak THEN
-		syscall(SYS_write, STDOUT, SYSTEM.SADR(0AX), 2, 0, 0);
+		syscall(SYS_write, STDOUT, SYSTEM.SADR(eol), 1, 0, 0);
 	END;
 END Debug;
 
