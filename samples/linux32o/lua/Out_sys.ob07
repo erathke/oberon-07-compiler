@@ -1,0 +1,119 @@
+﻿(*
+    BSD 2-Clause License
+
+    Copyright (c) 2020-2022, Anton Krotov
+    All rights reserved.
+*)
+
+MODULE Out_sys;
+
+IMPORT SYSTEM;
+
+PROCEDURE [oberon-] syscall(eax, ebx, ecx, edx, esi, edi: INTEGER): INTEGER;
+BEGIN
+    SYSTEM.CODE(
+    053H,               (*  push    ebx                    *)
+    056H,               (*  push    esi                    *)
+    057H,               (*  push    edi                    *)
+    08BH, 045H, 008H,   (*  mov     eax, dword [ebp +  8]  *)
+    08BH, 05DH, 00CH,   (*  mov     ebx, dword [ebp + 12]  *)
+    08BH, 04DH, 010H,   (*  mov     ecx, dword [ebp + 16]  *)
+    08BH, 055H, 014H,   (*  mov     edx, dword [ebp + 20]  *)
+    08BH, 075H, 018H,   (*  mov     esi, dword [ebp + 24]  *)
+    08BH, 07DH, 01CH,   (*  mov     edi, dword [ebp + 28]  *)
+    0CDH, 080H,         (*  int     128                    *)
+    05FH,               (*  pop     edi                    *)
+    05EH,               (*  pop     esi                    *)
+    05BH,               (*  pop     ebx                    *)
+    05DH,               (*  pop     ebp                    *)
+    0C2H, 018H, 000H    (*  ret     24                     *)
+    );
+    RETURN 0
+END syscall;
+
+
+PROCEDURE IntToStr (x: INTEGER; VAR str: ARRAY OF CHAR);
+VAR
+    i, a: INTEGER;
+
+BEGIN
+    i := 0;
+    a := x;
+    
+    IF x < 0 THEN
+		str[i] := "-";
+		a := -a;
+		x := -x;
+		INC(i);
+    END;
+    
+    REPEAT
+        INC(i);
+        a := a DIV 10
+    UNTIL a = 0;
+
+    str[i] := 0X;
+
+    REPEAT
+        DEC(i);
+        str[i] := CHR(x MOD 10 + ORD("0"));
+        x := x DIV 10
+    UNTIL x = 0
+END IntToStr;
+
+
+PROCEDURE Write (msg, msgLen: INTEGER);
+CONST
+	SYS_write = 4;
+	STDOUT = 1;
+BEGIN
+	syscall(SYS_write, STDOUT, msg, msgLen, 0, 0);
+END Write;
+
+
+PROCEDURE Char* (x: CHAR);
+BEGIN
+    Write(SYSTEM.ADR(x), 1)
+END Char;
+
+
+PROCEDURE String* (s: ARRAY OF CHAR);
+BEGIN
+    Write(SYSTEM.ADR(s[0]), LENGTH(s))
+END String;
+
+
+PROCEDURE Ln*;
+BEGIN
+    Write(SYSTEM.SADR(0AX), 2)
+END Ln;
+
+
+PROCEDURE Int* (x, width: INTEGER);
+VAR
+	str: ARRAY 32 OF CHAR;
+BEGIN
+	IntToStr(x, str);
+	// TODO: width
+    Write(SYSTEM.ADR(str[0]), LENGTH(str))
+END Int;
+
+
+PROCEDURE Real* (x: REAL; width: INTEGER);
+BEGIN
+    // TODO: not implemented yet
+END Real;
+
+
+PROCEDURE FixReal* (x: REAL; width, precision: INTEGER);
+BEGIN
+    // TODO: not implemented yet
+END FixReal;
+
+
+PROCEDURE Open*;
+BEGIN
+END Open;
+
+
+END Out_sys.
