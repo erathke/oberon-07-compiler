@@ -80,9 +80,7 @@ TYPE
     END;
     
     CALLEXT = POINTER TO RECORD (JUMP)
-		
-		value: INTEGER
-		
+
     END;
 
     RELOC = POINTER TO RECORD (ANYCODE)
@@ -620,9 +618,9 @@ BEGIN
                 
         |CALLEXT:
 				BIN.PutCode(program, 0E8H);
-                BIN.PutCode32LE(program, -4);
-                code.value := CHL.Length(program.code) - 4;
-                
+				BIN.PutReloc(program, BIN.PICCODE);
+				BIN.PutCode32LE(program, code.label);
+				
         |RELOC:
                 BIN.PutReloc(program, code.op);
 				BIN.PutCode32LE(program, code.value)
@@ -2535,7 +2533,7 @@ BEGIN
     WHILE code # NIL DO
 		IF code IS CALLEXT THEN
 			ASSERT(FindNameByLabel(IL.codes.extern, code(CALLEXT).label, expname));
-			BIN.Extern(program, code(CALLEXT).label, code(CALLEXT).value, expname);			
+			BIN.Extern(program, code(CALLEXT).label, expname);			
 		END;
 		code := code.next(ANYCODE);
     END;

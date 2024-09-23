@@ -7,7 +7,7 @@
 
 MODULE ELF;
 
-IMPORT BIN, WR := WRITER, CHL := CHUNKLISTS, LISTS, PE32, UTILS, STRINGS, SCAN, Out;
+IMPORT BIN, WR := WRITER, CHL := CHUNKLISTS, LISTS, PE32, UTILS, STRINGS, SCAN;
 
 
 CONST
@@ -889,25 +889,23 @@ BEGIN
 	END;
 	ASSERT(CHL.GetStr(program.data, program.modname, Name));
 	
-	(* Creating relocations *)
+	(* External symbols *)
 	
 	item := program.ext_list.first;
 	symidx := 0;
 	WHILE item # NIL DO
 		IF FindSymbolIdx(symtab, item(BIN.EXPRT).name, symidx, symlbl) THEN
-			NewRel(reltab, item(BIN.EXPRT).offset, LSL(symidx, 8) + RTT_R_386_PC32);
 			NewSymLabel(symlabels, symlbl, symidx);
-			INC(relCount);
 		ELSE
 			i := CHL.PushStr(strtab, item(BIN.EXPRT).name);
 			NewSym(i, 0, 0, CHR(LSL(STB_GLOBAL, 4) + STT_NOTYPE), 0X, WCHR(0));
-			NewRel(reltab, item(BIN.EXPRT).offset, LSL(symtabCount, 8) + RTT_R_386_PC32);
 			NewSymLabel(symlabels, item(BIN.EXPRT).label, symtabCount);
-			INC(relCount);
 			INC(symtabCount);
 		END;
 		item := item.next;
 	END;
+	
+	(* Creating relocations *)
 	
 	reloc := program.rel_list.first(BIN.RELOC);
 	symidx := 0;
@@ -920,29 +918,19 @@ BEGIN
 
 		|BIN.PICCODE:
 			L := BIN.get32le(program.code, reloc.offset);
-			delta := BIN.GetLabel(program, L);
-			//Out.String("reloc: offset="); Out.Int(reloc.offset, 0);
-			//Out.String(", delta="); Out.Int(delta, 0);
-			//Out.String(", L="); Out.Int(L, 0);
-			//sOut.Ln;
-			IF delta # 0 THEN
-				(* local symbols *)
-				NewRel(reltab, reloc.offset, LSL(SH_IDX_TEXT, 8) + RTT_R_386_32);
-				INC(relCount);
-				BIN.put32le(program.code, reloc.offset, delta);
+			
+			(* relocation for external symbol? *)
+			IF (FindRelocIdx(symlabels, L, relidx)) THEN
+				NewRel(reltab, reloc.offset, LSL(relidx, 8) + RTT_R_386_PC32);
+				BIN.put32le(program.code, reloc.offset, -4);
 			ELSE
-				(* external symbols *)
-				IF (FindRelocIdx(symlabels, L, relidx)) THEN
-					NewRel(reltab, reloc.offset, LSL(relidx, 8) + RTT_R_386_32);
-					INC(relCount);
-					BIN.put32le(program.code, reloc.offset, delta);
-				ELSE
-					(* external symbols in no main modules *)
-					NewRel(reltab, reloc.offset, LSL(SH_IDX_TEXT, 8) + RTT_R_386_PC32);
-					INC(relCount);
-				END;
+				delta := BIN.GetLabel(program, L);
+				NewRel(reltab, reloc.offset, LSL(SH_IDX_TEXT, 8) + RTT_R_386_32);
+				BIN.put32le(program.code, reloc.offset, delta);
 			END;
-
+			
+			INC(relCount);
+			
 		|BIN.PICBSS:
 			NewRel(reltab, reloc.offset, LSL(SH_IDX_BSS, 8) + RTT_R_386_PC32);
 			INC(relCount);

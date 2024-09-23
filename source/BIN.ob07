@@ -43,7 +43,6 @@ TYPE
 
         nameoffs*: INTEGER;
         label*:    INTEGER;
-        offset*: INTEGER;
         name*: SCAN.IDSTR
     END;
 
@@ -285,14 +284,15 @@ BEGIN
 
 END Export;
 
-PROCEDURE Extern* (program: PROGRAM; label, offset: INTEGER; name: SCAN.IDSTR);
+
+PROCEDURE Extern* (program: PROGRAM; label: INTEGER; name: SCAN.IDSTR);
 VAR
     exp: EXPRT;
 
 BEGIN
     NEW(exp);
-    exp.label := label; //CHL.GetInt(program.labels, label);
-    exp.offset := offset;
+    
+    exp.label := label;
     exp.name := name;
     LISTS.push(program.ext_list, exp)
     
