@@ -16,7 +16,7 @@ CONST
     eCONST*   =  1;  eTYPE*   =  2;  eVAR*     =  3;  eEXPR*    =  4;
     eVREC*    =  5;  ePROC*   =  6;  eVPAR*    =  7;  ePARAM*   =  8;
     eSTPROC*  =  9;  eSTFUNC* = 10;  eSYSFUNC* = 11;  eSYSPROC* = 12;
-    eIMP*     = 13;  eEXTPROC* = 14;
+    eIMP*     = 13;
 
 
 TYPE
