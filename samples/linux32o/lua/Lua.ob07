@@ -39,35 +39,35 @@ TYPE
 	END;
 
 
-PROCEDURE [extern, "luaL_newstate"] newstate*(): lua_State; END;
-PROCEDURE [extern, "lua_close"] close*(L: lua_State); END;
-PROCEDURE [extern, "luaL_loadstring"] _luaL_loadstring(L: lua_State; str: cstr): INTEGER; END;
-PROCEDURE [extern, "luaL_loadfilex"] _luaL_loadfilex(L: lua_State; filename, mode: cstr): INTEGER; END;
-PROCEDURE [extern, "lua_pcallk"] _lua_pcallk(L: lua_State; nargs, nresults, msgh: INTEGER; ctx: lua_KContext; k: lua_KFunction): INTEGER; END;
-PROCEDURE [extern, "luaL_openlibs"] openlibs*(L: lua_State); END;
-PROCEDURE [extern, "lua_pushcclosure"] pushcclosure*(L: lua_State; fn: lua_CFunction; n: INTEGER); END;
-PROCEDURE [extern, "lua_setglobal"] _lua_setglobal(L: lua_State; name: cstr); END;
-PROCEDURE [extern, "lua_tolstring"]	_lua_tolstring(L: lua_State; index: INTEGER; VAR len: csize_t): cstr; END;
-PROCEDURE [extern, "lua_tointegerx"] tointegerx*(L: lua_State; index: INTEGER; VAR isnum: BOOLEAN): INTEGER; END;
-PROCEDURE [extern, "lua_tonumberx"] _lua_tonumberx(L: lua_State; index: INTEGER; VAR isnum: BOOLEAN): REAL; END;
-PROCEDURE [extern, "lua_type"] ltype*(L: lua_State; index: INTEGER): INTEGER; END;
-PROCEDURE [extern, "lua_error"] _lua_error(L: lua_State): INTEGER; END;
-PROCEDURE [extern, "lua_newuserdatauv"] newuserdatauv*(L: lua_State; size: csize_t; nuvalue: BYTE): cptr; END;
-PROCEDURE [extern, "lua_touserdata"] touserdata*(L: lua_State; index: INTEGER): cptr; END;
-PROCEDURE [extern, "luaL_newmetatable"] _luaL_newmetatable(L: lua_State; tname: cstr); END;
-PROCEDURE [extern, "lua_setmetatable"]	setmetatable*(L: lua_State; index: INTEGER); END;
-PROCEDURE [extern, "luaL_checkudata"] _luaL_checkudata(L: lua_State; ar: INTEGER; tname: cstr): cptr; END;
-PROCEDURE [extern, "lua_setfield"]	_lua_setfield(L: lua_State; index: INTEGER; k: cstr); END;
-PROCEDURE [extern, "lua_getfield"] _lua_getfield(L: lua_State; index: INTEGER; k: cstr); END;
-PROCEDURE [extern, "lua_pushvalue"] pushvalue*(L: lua_State; index: INTEGER); END;
-PROCEDURE [extern, "lua_pushinteger"] pushinteger*(L: lua_State; n: INTEGER); END;
-PROCEDURE [extern, "lua_pushnumber"] pushnumber*(L: lua_State; n: REAL); END;
-PROCEDURE [extern, "lua_pushstring"] _lua_pushstring(L: lua_State; s: cstr): cptr; END;
-PROCEDURE [extern, "lua_settop"] settop*(L: lua_State; index: INTEGER); END;
-PROCEDURE [extern, "luaL_setfuncs"] _luaL_setfuncs(L: lua_State; l: cptr; nup: INTEGER); END;
-PROCEDURE [extern, "luaL_requiref"] _luaL_requiref(L: lua_State; modname: cstr; openf: lua_CFunction; glb: INTEGER); END;
-PROCEDURE [extern, "lua_createtable"] createtable*(L: lua_State; narr, nrec: INTEGER); END;
-PROCEDURE [extern, "lua_newtable"] _lua_newtable*(L: lua_State); END;
+PROCEDURE [extern, "luaL_newstate"] newstate*(): lua_State;
+PROCEDURE [extern, "lua_close"] close*(L: lua_State);
+PROCEDURE [extern, "luaL_loadstring"] _luaL_loadstring(L: lua_State; str: cstr): INTEGER;
+PROCEDURE [extern, "luaL_loadfilex"] _luaL_loadfilex(L: lua_State; filename, mode: cstr): INTEGER;
+PROCEDURE [extern, "lua_pcallk"] _lua_pcallk(L: lua_State; nargs, nresults, msgh: INTEGER; ctx: lua_KContext; k: lua_KFunction): INTEGER;
+PROCEDURE [extern, "luaL_openlibs"] openlibs*(L: lua_State);
+PROCEDURE [extern, "lua_pushcclosure"] pushcclosure*(L: lua_State; fn: lua_CFunction; n: INTEGER);
+PROCEDURE [extern, "lua_setglobal"] _lua_setglobal(L: lua_State; name: cstr);
+PROCEDURE [extern, "lua_tolstring"]	_lua_tolstring(L: lua_State; index: INTEGER; VAR len: csize_t): cstr;
+PROCEDURE [extern, "lua_tointegerx"] tointegerx*(L: lua_State; index: INTEGER; VAR isnum: BOOLEAN): INTEGER;
+PROCEDURE [extern, "lua_tonumberx"] _lua_tonumberx(L: lua_State; index: INTEGER; VAR isnum: BOOLEAN): REAL;
+PROCEDURE [extern, "lua_type"] ltype*(L: lua_State; index: INTEGER): INTEGER;
+PROCEDURE [extern, "lua_error"] _lua_error(L: lua_State): INTEGER;
+PROCEDURE [extern, "lua_newuserdatauv"] newuserdatauv*(L: lua_State; size: csize_t; nuvalue: BYTE): cptr;
+PROCEDURE [extern, "lua_touserdata"] touserdata*(L: lua_State; index: INTEGER): cptr;
+PROCEDURE [extern, "luaL_newmetatable"] _luaL_newmetatable(L: lua_State; tname: cstr);
+PROCEDURE [extern, "lua_setmetatable"]	setmetatable*(L: lua_State; index: INTEGER);
+PROCEDURE [extern, "luaL_checkudata"] _luaL_checkudata(L: lua_State; ar: INTEGER; tname: cstr): cptr;
+PROCEDURE [extern, "lua_setfield"]	_lua_setfield(L: lua_State; index: INTEGER; k: cstr);
+PROCEDURE [extern, "lua_getfield"] _lua_getfield(L: lua_State; index: INTEGER; k: cstr);
+PROCEDURE [extern, "lua_pushvalue"] pushvalue*(L: lua_State; index: INTEGER);
+PROCEDURE [extern, "lua_pushinteger"] pushinteger*(L: lua_State; n: INTEGER);
+PROCEDURE [extern, "lua_pushnumber"] pushnumber*(L: lua_State; n: REAL);
+PROCEDURE [extern, "lua_pushstring"] _lua_pushstring(L: lua_State; s: cstr): cptr;
+PROCEDURE [extern, "lua_settop"] settop*(L: lua_State; index: INTEGER);
+PROCEDURE [extern, "luaL_setfuncs"] _luaL_setfuncs(L: lua_State; l: cptr; nup: INTEGER);
+PROCEDURE [extern, "luaL_requiref"] _luaL_requiref(L: lua_State; modname: cstr; openf: lua_CFunction; glb: INTEGER);
+PROCEDURE [extern, "lua_createtable"] createtable*(L: lua_State; narr, nrec: INTEGER);
+PROCEDURE [extern, "lua_newtable"] _lua_newtable*(L: lua_State);
 
 
 (* luaL_loadstring(L, str) || lua_pcall(L, 0, LUA_MULTRET, 0) *)

@@ -28,23 +28,23 @@ TYPE
 	END;
 	
 
-PROCEDURE [extern, "_mu_destroy"] Destroy*(ctx: Context); END;
-PROCEDURE [extern, "mu_begin"] Begin*(ctx: Context); END;
-PROCEDURE [extern, "mu_end"] End*(ctx: Context); END;
-PROCEDURE [extern, "mu_end_window"] EndWindow*(ctx: Context); END;
-PROCEDURE [extern, "mu_end_popup"] EndPopup*(ctx: Context); END;
+PROCEDURE [extern, "_mu_destroy"] Destroy*(ctx: Context);
+PROCEDURE [extern, "mu_begin"] Begin*(ctx: Context);
+PROCEDURE [extern, "mu_end"] End*(ctx: Context);
+PROCEDURE [extern, "mu_end_window"] EndWindow*(ctx: Context);
+PROCEDURE [extern, "mu_end_popup"] EndPopup*(ctx: Context);
 
-PROCEDURE [extern, "_mu_create_ctx"] _mu_create_ctx(): Context; END;
-PROCEDURE [extern, "mu_init"] _mu_init(ctx: Context); END;
-PROCEDURE [extern, "_mu_begin_window_ex"] _mu_begin_window_ex(ctx: Context; title: ADDRESS; rect: Rect; opt: INTEGER): INTEGER; END;
-PROCEDURE [extern, "mu_button_ex"] _mu_button_ex(ctx: Context; title: ADDRESS; icon, opt: INTEGER): INTEGER; END;
-PROCEDURE [extern, "mu_label"] _mu_label(ctx: Context; text: ADDRESS); END;
-PROCEDURE [extern, "mu_text"] _mu_text(ctx: Context; text: ADDRESS); END;
-PROCEDURE [extern, "mu_textbox_ex"] _mu_textbox_ex(ctx: Context; buf: ADDRESS; bufsize, opt: INTEGER): INTEGER; END;
-PROCEDURE [extern, "mu_open_popup"] _mu_open_popup(ctx: Context; name: ADDRESS); END;
-PROCEDURE [extern, "mu_begin_popup"] _mu_begin_popup(ctx: Context; name: ADDRESS): INTEGER; END;
-PROCEDURE [extern, "mu_layout_row"] _mu_layout_row(ctx: Context; items: INTEGER; widths: ADDRESS; height: INTEGER); END;
-PROCEDURE [extern, "mu_slider_ex"] _mu_slider_ex(ctx: Context; VAR value: REAL; low, high, step: REAL; fmt: ADDRESS; opt: INTEGER): INTEGER; END;
+PROCEDURE [extern, "_mu_create_ctx"] _mu_create_ctx(): Context;
+PROCEDURE [extern, "mu_init"] _mu_init(ctx: Context);
+PROCEDURE [extern, "_mu_begin_window_ex"] _mu_begin_window_ex(ctx: Context; title: ADDRESS; rect: Rect; opt: INTEGER): INTEGER;
+PROCEDURE [extern, "mu_button_ex"] _mu_button_ex(ctx: Context; title: ADDRESS; icon, opt: INTEGER): INTEGER;
+PROCEDURE [extern, "mu_label"] _mu_label(ctx: Context; text: ADDRESS);
+PROCEDURE [extern, "mu_text"] _mu_text(ctx: Context; text: ADDRESS);
+PROCEDURE [extern, "mu_textbox_ex"] _mu_textbox_ex(ctx: Context; buf: ADDRESS; bufsize, opt: INTEGER): INTEGER;
+PROCEDURE [extern, "mu_open_popup"] _mu_open_popup(ctx: Context; name: ADDRESS);
+PROCEDURE [extern, "mu_begin_popup"] _mu_begin_popup(ctx: Context; name: ADDRESS): INTEGER;
+PROCEDURE [extern, "mu_layout_row"] _mu_layout_row(ctx: Context; items: INTEGER; widths: ADDRESS; height: INTEGER);
+PROCEDURE [extern, "mu_slider_ex"] _mu_slider_ex(ctx: Context; VAR value: REAL; low, high, step: REAL; fmt: ADDRESS; opt: INTEGER): INTEGER;
 
 PROCEDURE ToRect*(x, y, w, h: INTEGER): Rect;
 VAR

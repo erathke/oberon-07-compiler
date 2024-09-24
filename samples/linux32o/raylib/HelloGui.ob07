@@ -1,6 +1,9 @@
 MODULE HelloGui;
-IMPORT SYSTEM, Out,
-	RL IN "./Raylib.ob07", RNK IN "./RaylibNK.ob07", NK IN "./Nuklear.ob07";
+IMPORT SYSTEM, 
+	Out := Out_sys,
+	RL IN "./Raylib.ob07", 
+	RNK IN "./RaylibNK.ob07", 
+	NK IN "./Nuklear.ob07";
 
 CONST
 	WINDOW_FLAGS = NK.WINDOW_BORDER + NK.WINDOW_MOVABLE +
@@ -50,7 +53,7 @@ BEGIN
 
 END DrawWindow;
 
-PROCEDURE [ccall] main*(): INTEGER;
+PROCEDURE main();
 VAR
 	bgColor: RL.Color;
 	ctx: NK.Context;
@@ -67,8 +70,8 @@ BEGIN
 	RL.SetTargetFPS(60);
 	RL.InitWindow(800, 600, "HelloGui");
 	
-	ctx := RNK.InitNuklear(fontSize);
-	//ctx := RNK.InitNuklearEx("./resources/anonymous_pro_bold.ttf", FLT(fontSize));
+	//ctx := RNK.InitNuklear(fontSize);
+	ctx := RNK.InitNuklearEx("./resources/anonymous_pro_bold.ttf", FLT(fontSize));
 	
 	WHILE ~ RL.WindowShouldClose() DO
 		
@@ -85,7 +88,8 @@ BEGIN
 	RNK.UnloadNuklear(ctx);
 	RL.CloseWindow();
 	
-	RETURN 0
 END main;
 
+BEGIN
+	main()
 END HelloGui.

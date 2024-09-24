@@ -12,6 +12,7 @@ CONST
 	MOUSE_BUTTON_RIGHT* = 1;
 	MOUSE_BUTTON_MIDDLE* = 2;
 	
+	NULL = 0;
 TYPE
 	
 	Vector2* = RECORD
@@ -27,21 +28,25 @@ TYPE
 	Font* = ADDRESS;
 
 
-PROCEDURE [extern, "SetTargetFPS"] SetTargetFPS*(fps: INTEGER); END;
-PROCEDURE [extern, "CloseWindow"] CloseWindow*(); END;
-PROCEDURE [extern, "WindowShouldClose"] WindowShouldClose*(): BOOLEAN; END;
-PROCEDURE [extern, "BeginDrawing"] BeginDrawing*(); END;
-PROCEDURE [extern, "EndDrawing"] EndDrawing*(); END;
-PROCEDURE [extern, "GetMouseX"] GetMouseX*(): INTEGER; END;
-PROCEDURE [extern, "GetMouseY"] GetMouseY*(): INTEGER; END;
-PROCEDURE [extern, "IsMouseButtonPressed"] IsMouseButtonPressed*(button: INTEGER): BOOLEAN; END;
+PROCEDURE [extern, "SetTargetFPS"] SetTargetFPS*(fps: INTEGER);
+PROCEDURE [extern, "CloseWindow"] CloseWindow*();
+PROCEDURE [extern, "WindowShouldClose"] WindowShouldClose*(): BOOLEAN;
+PROCEDURE [extern, "BeginDrawing"] BeginDrawing*();
+PROCEDURE [extern, "EndDrawing"] EndDrawing*();
+PROCEDURE [extern, "GetMouseX"] GetMouseX*(): INTEGER;
+PROCEDURE [extern, "GetMouseY"] GetMouseY*(): INTEGER;
+PROCEDURE [extern, "IsMouseButtonPressed"] IsMouseButtonPressed*(button: INTEGER): BOOLEAN;
+PROCEDURE [extern, "_CreateFont"] CreateFont*(): Font;
+PROCEDURE [extern, "_DestroyFont"] DestroyFont*(font: Font);
 
-PROCEDURE [extern, "InitWindow"] _InitWindow(w, h: INTEGER; title: ADDRESS); END;
-PROCEDURE [extern, "_ClearBackground"] _ClearBackground(color: ADDRESS); END;
-PROCEDURE [extern, "_DrawCircle"] _DrawCircle(cx, cy: INTEGER; r: REAL; color: ADDRESS); END;
-PROCEDURE [extern, "_DrawRectangle"] _DrawRectangle(x, y, w, h: INTEGER; color: ADDRESS); END;
-PROCEDURE [extern, "_DrawText"] _DrawText(str: ADDRESS; x, y, font: INTEGER; color: ADDRESS); END;
-PROCEDURE [extern, "_LoadFont"] _LoadFont(str: ADDRESS): ADDRESS; END;
+PROCEDURE [extern, "InitWindow"] _InitWindow(w, h: INTEGER; title: ADDRESS);
+PROCEDURE [extern, "_ClearBackground"] _ClearBackground(color: ADDRESS);
+PROCEDURE [extern, "_DrawCircle"] _DrawCircle(cx, cy: INTEGER; r: REAL; color: ADDRESS);
+PROCEDURE [extern, "_DrawRectangle"] _DrawRectangle(x, y, w, h: INTEGER; color: ADDRESS);
+PROCEDURE [extern, "_DrawText"] _DrawText(str: ADDRESS; x, y, font: INTEGER; color: ADDRESS);
+PROCEDURE [extern, "_LoadFont"] _LoadFont(fileName: ADDRESS; font: Font);
+PROCEDURE [extern, "_LoadFontEx"] _LoadFontEx(fileName: ADDRESS; font: Font; 
+	fontSize: INTEGER; codepoints: ADDRESS; coudepointsCount: INTEGER);
 
 
 PROCEDURE InitWindow*(w, h: INTEGER; title: ARRAY OF CHAR);
@@ -104,10 +109,15 @@ BEGIN
 END IntToColor;
 
 
-PROCEDURE LoadFont*(filename: ARRAY OF CHAR; VAR font: Font);
+PROCEDURE LoadFont*(filename: ARRAY OF CHAR; font: Font);
 BEGIN
-	font := _LoadFont(SYSTEM.ADR(filename[0]));
+	_LoadFont(SYSTEM.ADR(filename[0]), font);
 END LoadFont;
 
+
+PROCEDURE LoadFontEx*(filename: ARRAY OF CHAR; font: Font; fontSize: INTEGER);
+BEGIN
+	_LoadFontEx(SYSTEM.ADR(filename[0]), font, fontSize, NULL, 0);
+END LoadFontEx;
 
 END Raylib.

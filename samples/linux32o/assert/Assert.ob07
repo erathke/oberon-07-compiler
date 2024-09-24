@@ -3,7 +3,7 @@ IMPORT Args,
 $IF (linux32exe)
 	Out;
 $ELSE
-	Out IN "./Out_sys.ob07";
+	Out := Out_sys;
 $END
 
 CONST

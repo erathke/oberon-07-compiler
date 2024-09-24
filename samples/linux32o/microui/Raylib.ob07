@@ -28,25 +28,25 @@ TYPE
 	Font* = ADDRESS;
 
 
-PROCEDURE [extern, "SetTargetFPS"] SetTargetFPS*(fps: INTEGER); END;
-PROCEDURE [extern, "CloseWindow"] CloseWindow*(); END;
-PROCEDURE [extern, "WindowShouldClose"] WindowShouldClose*(): BOOLEAN; END;
-PROCEDURE [extern, "BeginDrawing"] BeginDrawing*(); END;
-PROCEDURE [extern, "EndDrawing"] EndDrawing*(); END;
-PROCEDURE [extern, "GetMouseX"] GetMouseX*(): INTEGER; END;
-PROCEDURE [extern, "GetMouseY"] GetMouseY*(): INTEGER; END;
-PROCEDURE [extern, "IsMouseButtonPressed"] IsMouseButtonPressed*(button: INTEGER): BOOLEAN; END;
-PROCEDURE [extern, "_CreateFont"] CreateFont*(): Font; END;
-PROCEDURE [extern, "_DestroyFont"] DestroyFont*(font: Font); END;
+PROCEDURE [extern, "SetTargetFPS"] SetTargetFPS*(fps: INTEGER);
+PROCEDURE [extern, "CloseWindow"] CloseWindow*();
+PROCEDURE [extern, "WindowShouldClose"] WindowShouldClose*(): BOOLEAN;
+PROCEDURE [extern, "BeginDrawing"] BeginDrawing*();
+PROCEDURE [extern, "EndDrawing"] EndDrawing*();
+PROCEDURE [extern, "GetMouseX"] GetMouseX*(): INTEGER;
+PROCEDURE [extern, "GetMouseY"] GetMouseY*(): INTEGER;
+PROCEDURE [extern, "IsMouseButtonPressed"] IsMouseButtonPressed*(button: INTEGER): BOOLEAN;
+PROCEDURE [extern, "_CreateFont"] CreateFont*(): Font;
+PROCEDURE [extern, "_DestroyFont"] DestroyFont*(font: Font);
 
-PROCEDURE [extern, "InitWindow"] _InitWindow(w, h: INTEGER; title: ADDRESS); END;
-PROCEDURE [extern, "_ClearBackground"] _ClearBackground(color: ADDRESS); END;
-PROCEDURE [extern, "_DrawCircle"] _DrawCircle(cx, cy: INTEGER; r: REAL; color: ADDRESS); END;
-PROCEDURE [extern, "_DrawRectangle"] _DrawRectangle(x, y, w, h: INTEGER; color: ADDRESS); END;
-PROCEDURE [extern, "_DrawText"] _DrawText(str: ADDRESS; x, y, font: INTEGER; color: ADDRESS); END;
-PROCEDURE [extern, "_LoadFont"] _LoadFont(fileName: ADDRESS; font: Font); END;
-
-PROCEDURE [extern, "_LoadFontEx"] _LoadFontEx(fileName: ADDRESS; font: Font; fontSize: INTEGER; codepoints: ADDRESS; coudepointsCount: INTEGER); END;
+PROCEDURE [extern, "InitWindow"] _InitWindow(w, h: INTEGER; title: ADDRESS);
+PROCEDURE [extern, "_ClearBackground"] _ClearBackground(color: ADDRESS);
+PROCEDURE [extern, "_DrawCircle"] _DrawCircle(cx, cy: INTEGER; r: REAL; color: ADDRESS);
+PROCEDURE [extern, "_DrawRectangle"] _DrawRectangle(x, y, w, h: INTEGER; color: ADDRESS);
+PROCEDURE [extern, "_DrawText"] _DrawText(str: ADDRESS; x, y, font: INTEGER; color: ADDRESS);
+PROCEDURE [extern, "_LoadFont"] _LoadFont(fileName: ADDRESS; font: Font);
+PROCEDURE [extern, "_LoadFontEx"] _LoadFontEx(fileName: ADDRESS; font: Font; 
+	fontSize: INTEGER; codepoints: ADDRESS; coudepointsCount: INTEGER);
 
 
 PROCEDURE InitWindow*(w, h: INTEGER; title: ARRAY OF CHAR);

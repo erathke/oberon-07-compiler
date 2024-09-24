@@ -6,17 +6,17 @@ CFLAGS=-m32 -no-pie
 OBC=../../../compilerX
 SRCC=lib/glue.c
 SRCO=HelloGui.ob07
-OBJC=glue.o
-OBJO=HelloGui.xo
+OBJC=lib/glue.o
+OBJO=lib/HelloGui.xo
 EXE=HelloGui
 
 exe: $(OBJC) $(OBJO)
-	$(CC) $(CFLAGS) -o $(EXE) $^ $(LIBS) -lm
+	$(CC) $(CFLAGS) -nostartfiles -o $(EXE) $^ $(LIBS) -lm
 
-glue.o: $(SRCC)
+lib/glue.o: $(SRCC)
 	$(CC) $(CFLAGS) -c $^ -o $@ -I$(INCLUDE)
 
-HelloGui.xo: $(SRCO)
+lib/HelloGui.xo: $(SRCO)
 	$(OBC) $^ linux32o -out $@
 
 clean:

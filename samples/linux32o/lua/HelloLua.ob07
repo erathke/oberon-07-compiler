@@ -1,20 +1,24 @@
 MODULE HelloLua;
-IMPORT Lua IN "./Lua.ob07", Args, Out;
+IMPORT SYSTEM, Args, Out := Out_sys, 
+	Lua IN "./Lua.ob07";
 
 VAR
 	state: Lua.State;
 	script: ARRAY 32 OF CHAR;
 BEGIN
+	
 	IF Args.argc # 2 THEN
 		Out.String("usage: HelloLua <script.lua>"); Out.Ln;
 	ELSE
 		Args.GetArg(1, script);
+		
 		state := Lua.newstate();
 		Lua.openlibs(state);
+		
 		IF Lua.dofile(state, script) # Lua.LUA_OK THEN
 			ASSERT(FALSE);
 		END;
 		Lua.close(state);
 	END; 
-	
+
 END HelloLua.

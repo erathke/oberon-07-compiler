@@ -4,12 +4,10 @@ IMPORT SYSTEM, MUI IN "MicroUI.ob07", RL IN "./Raylib.ob07";
 CONST
 	NULL = 0;
 
-TYPE
-	ADDRESS = INTEGER;
 
-PROCEDURE [extern, "murl_setup_font_ex"] SetupFontEx*(ctx: MUI.Context; font: RL.Font); END;
-PROCEDURE [extern, "murl_handle_input"] HandleInput*(ctx: MUI.Context); END;
-PROCEDURE [extern, "murl_render"] Render*(ctx: MUI.Context); END;
+PROCEDURE [extern, "murl_setup_font_ex"] SetupFontEx*(ctx: MUI.Context; font: RL.Font);
+PROCEDURE [extern, "murl_handle_input"] HandleInput*(ctx: MUI.Context);
+PROCEDURE [extern, "murl_render"] Render*(ctx: MUI.Context);
 
 PROCEDURE [ccall] SetupFont*(ctx: MUI.Context);
 BEGIN
