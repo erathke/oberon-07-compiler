@@ -1132,7 +1132,7 @@ VAR
 				END;
             END;
 
-            IF ~codeProc THEN
+            IF ~codeProc & (call # PROG.extcall)THEN
                 b := DeclarationSequence(parser)
             END;
 
@@ -1169,8 +1169,8 @@ VAR
 					proc.proc.leave := IL.Leave(t.base # NIL, (t.base # NIL) & (t.base.typ = PROG.tREAL), PROG.program.locsize,
 						t.parSize * ORD((t.call IN PROG.callee_clean_up) OR (t.call IN {PROG.systemv, PROG._systemv})));
 					enter.param2 := PROG.program.locsize;
+					checklex(parser, SCAN.lxEND)
 				END;
-				checklex(parser, SCAN.lxEND)
             ELSE
                 proc.proc.leave := IL.LeaveC()
             END;
