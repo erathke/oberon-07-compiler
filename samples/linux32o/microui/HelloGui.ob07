@@ -10,7 +10,7 @@ VAR
 	bgColor: RL.Color;
 	fontSize: INTEGER;
 	ctx: MUI.Context;
-	wrect, wrect2: MUI.Rect;
+	wr1, wr2: MUI.Rect;
 	font: RL.Font;
 	widths2: ARRAY 1 OF INTEGER;
 	buf2: ARRAY 32 OF CHAR;
@@ -20,8 +20,8 @@ BEGIN
 
 	RL.IntToColor(RL.WHITE, bgColor);
 	fontSize := 16;
-	wrect := MUI.ToRect(20, 20, 200, 150);
-	wrect2 := MUI.ToRect(300, 20, 200, 200);
+	wr1.x := 20; wr1.y := 20; wr1.w := 200; wr1.h := 150;
+	wr2.x := 300; wr2.y := 20; wr2.w := 200; wr2.h := 200;
 	widths2[0] := -1;
 	font := RL.CreateFont();
 	
@@ -43,7 +43,7 @@ BEGIN
 		MURL.HandleInput(ctx);
 		MUI.Begin(ctx);
 		
-		IF MUI.BeginWindowEx(ctx, "Hello", wrect, MUI.OPT_NOCLOSE) THEN
+		IF MUI.BeginWindowEx(ctx, "Hello", wr1, MUI.OPT_NOCLOSE) THEN
 			MUI.Label(ctx, "Hello, raylib");
 			
 			IF MUI.Button(ctx, "The button") THEN
@@ -58,7 +58,7 @@ BEGIN
 			MUI.EndWindow(ctx);
 		END;
 		
-		IF MUI.BeginWindowEx(ctx, "Font", wrect2, MUI.OPT_NORESIZE + MUI.OPT_NOTITLE) THEN
+		IF MUI.BeginWindowEx(ctx, "Font", wr2, MUI.OPT_NORESIZE + MUI.OPT_NOTITLE) THEN
 			MUI.LayoutRow(ctx, 1, widths2, 0);
 			MUI.Label(ctx, "Hello, World");
 			
