@@ -1,0 +1,81 @@
+MODULE Messages;
+IMPORT Out := Out_sys;
+
+CONST 
+	MAX_BOX_MESSAGES = 10;
+	MAX_MESSAGE_BODY = 32;
+
+TYPE 
+	Message* = POINTER TO RECORD
+		subject*: BYTE
+	END;
+	
+	MailMessage* = POINTER TO RECORD(Message)
+		body*: ARRAY MAX_MESSAGE_BODY OF CHAR
+	END;
+	
+	Data* = ARRAY MAX_MESSAGE_BODY OF BYTE;
+	
+	BinMessage* = POINTER TO RECORD(Message)
+		data*: Data
+	END;
+
+	Box* = RECORD
+		messages: ARRAY MAX_BOX_MESSAGES OF Message;
+		count: INTEGER
+	END;
+
+PROCEDURE New*(subject: BYTE; body: ARRAY OF CHAR): Message;
+VAR
+	msg: MailMessage;
+BEGIN
+	NEW(msg);
+	msg.subject := subject; msg.body := body;
+	RETURN msg
+END New;
+
+PROCEDURE NewBin*(subject: BYTE; data: Data): BinMessage;
+VAR
+	msg: BinMessage;
+BEGIN
+	NEW(msg);
+	msg.subject := subject; msg.data := data;
+	RETURN msg
+END NewBin;
+
+PROCEDURE Send*(msg: Message; VAR box: Box): BOOLEAN;
+VAR
+	sent: BOOLEAN;
+	mail: MailMessage;
+	bin: BinMessage;
+BEGIN
+	IF box.count < MAX_BOX_MESSAGES THEN
+		CASE msg OF
+		| MailMessage:	
+			NEW(mail);
+			mail^ := msg^;
+			box.messages[box.count] := mail;
+		| BinMessage:
+			NEW(bin);
+			bin^ := msg^;
+			box.messages[box.count] := bin;
+		END;
+		INC(box.count);
+		sent := TRUE;
+	END;
+	RETURN sent
+END Send;
+
+PROCEDURE Read*(VAR box: Box; VAR msg: Message): BOOLEAN;
+VAR
+	red: BOOLEAN;
+BEGIN
+	IF box.count > 0 THEN
+		DEC(box.count);
+		msg := box.messages[box.count];
+		red := TRUE;
+	END;
+	RETURN red
+END Read;
+
+END Messages.

@@ -1,0 +1,30 @@
+MODULE Screen;
+IMPORT SYSTEM, Out := Out_sys, M := Messages;
+
+VAR 
+	msgCount: INTEGER;
+
+PROCEDURE Init*();
+BEGIN
+	Out.String("initializing screen..."); Out.Ln;
+END Init;
+
+PROCEDURE Update*(msg: M.Message; VAR outbox: M.Box);
+VAR
+	response: M.Message;
+BEGIN
+	CASE msg.subject OF
+	|1:
+		INC(msgCount);
+		response := M.New(msgCount, "I got it!");
+		IF ~ M.Send(response, outbox) THEN
+			Out.String("Sorry..."); Out.Ln;
+		END
+	ELSE
+		Out.String("unknown message"); Out.Ln;
+	END;
+END Update;
+
+END Screen.
+
+Posso escrever depois?

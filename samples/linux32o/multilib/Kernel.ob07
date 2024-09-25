@@ -1,0 +1,82 @@
+MODULE Kernel;
+IMPORT SYSTEM, Out := Out_sys,
+	M := Messages, D := Devices, Screen;
+
+
+TYPE 
+	MDevice = RECORD (D.Device)
+		outbox: M.Box
+	END;
+
+
+PROCEDURE Run(): INTEGER;
+BEGIN
+	RETURN 0
+END Run;
+
+
+PROCEDURE main();
+VAR 
+	acc: INTEGER;
+	screen, mouse: MDevice;
+	msg: M.Message;
+	i: INTEGER;
+	body: ARRAY 2 OF CHAR;
+BEGIN
+	Out.String("kernel main..."); Out.Ln;
+	
+	D.Load("screen", screen); screen.init();
+	D.Load("mouse", mouse);   mouse.init();
+		
+	FOR i := 1 TO 11 DO
+		body[0] := CHR(i + 48);
+		msg := M.New(1, body);
+		screen.update(msg, screen.outbox);
+		mouse.update(msg, mouse.outbox);
+		msg := NIL;
+	END;
+	
+	WHILE M.Read(screen.outbox, msg) DO
+		CASE msg OF
+		| M.MailMessage: 
+			Out.String("Received: ["); Out.Int(msg.subject, 2); Out.String("] = ");
+			Out.String(msg.body); Out.Ln;
+		END;
+	END;
+	
+	WHILE M.Read(mouse.outbox, msg) DO
+		CASE msg OF
+		| M.BinMessage: 
+			Out.String("Received: ["); Out.Int(msg.subject, 2); Out.String("] = ");
+			SYSTEM.GET(SYSTEM.ADR(msg.data), i);
+			Out.Int(i, 0); Out.Ln;
+		END;
+	END;
+	
+	acc := Run();
+	Out.String("Result: "); Out.Int(acc, 3); Out.Ln;
+	Out.String("Bye!"); Out.Ln;
+
+END main;
+
+
+PROCEDURE kernel_config*(i: INTEGER);
+VAR
+	s, o: ARRAY 16 OF CHAR;
+	len: INTEGER;
+BEGIN
+	Out.String("config: "); Out.Int(i, 0); Out.Ln;
+	s := "Evandro Rathke";
+	len := LENGTH(s);
+	//SYSTEM.PUT(i, SYSTEM.ADR(s));
+	SYSTEM.MOVE(SYSTEM.ADR(s), i, len);
+	SYSTEM.MOVE(i, SYSTEM.ADR(o), len);
+	Out.String(o); Out.Ln;
+END;
+
+
+BEGIN
+	Out.String("opening..."); Out.Ln;
+	main()
+
+END Kernel.
