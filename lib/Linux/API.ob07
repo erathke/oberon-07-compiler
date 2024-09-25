@@ -23,28 +23,12 @@ CONST
 TYPE
 
     SOFINI = PROCEDURE;
-    
 
-$IF (linux32o)
-
-VAR	
-
-	MainParam*: INTEGER;
-    fini: SOFINI;
-
-    PROCEDURE [extern, "exit"] exit*(code: INTEGER); END exit;
-    PROCEDURE [extern, "exit"] exit_thread*(code: INTEGER); END exit_thread;
-    PROCEDURE [extern, "puts"] puts(pStr: INTEGER); END puts;
-    PROCEDURE [extern, "malloc"] malloc(size: INTEGER): INTEGER; END malloc;
-    PROCEDURE [extern, "free"] free(size: INTEGER); END free;
-    
-$ELSE
 
 VAR
 
-	MainParam*, libc*: INTEGER;
-    fini: SOFINI;
-	
+    MainParam*, libc*: INTEGER;
+
     dlopen*       : PROCEDURE [linux] (filename, flag: INTEGER): INTEGER;
     dlsym*        : PROCEDURE [linux] (handle, symbol: INTEGER): INTEGER;
 
@@ -53,8 +37,8 @@ VAR
     puts          : PROCEDURE [linux] (pStr: INTEGER);
     malloc        : PROCEDURE [linux] (size: INTEGER): INTEGER;
     free          : PROCEDURE [linux] (ptr: INTEGER);
-	
-$END
+
+    fini: SOFINI;
 
 
 PROCEDURE DebugMsg* (lpText, lpCaption: INTEGER);
@@ -91,8 +75,6 @@ BEGIN
 END _DISPOSE;
 
 
-$IF (linux32exe)
-
 PROCEDURE GetSym (lib: INTEGER; name: ARRAY OF CHAR; VarAdr: INTEGER);
 VAR
     sym: INTEGER;
@@ -103,18 +85,10 @@ BEGIN
     SYSTEM.PUT(VarAdr, sym)
 END GetSym;
 
-$END
 
 PROCEDURE init* (sp, code: INTEGER);
 BEGIN
     fini := NIL;
-
-$IF (linux32o) 
-    
-    MainParam := sp;
-    
-$ELSE
-    
     SYSTEM.GET(code - 1000H - SYSTEM.SIZE(INTEGER) * 2, dlopen);
     SYSTEM.GET(code - 1000H - SYSTEM.SIZE(INTEGER),     dlsym);
     MainParam := sp;
@@ -125,9 +99,6 @@ $ELSE
     GetSym(libc, "puts", SYSTEM.ADR(puts));
     GetSym(libc, "malloc", SYSTEM.ADR(malloc));
     GetSym(libc, "free", SYSTEM.ADR(free));
-    
-$END
-    
 END init;
 
 

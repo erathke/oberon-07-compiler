@@ -7,12 +7,7 @@
 
 MODULE Args;
 
-IMPORT SYSTEM, 
-$IF (linux32exe)
-	API;
-$ELSE
-	API IN "./API_sys.ob07";
-$END
+IMPORT SYSTEM, API;
 
 
 VAR
@@ -71,5 +66,5 @@ END init;
 
 
 BEGIN
-	init
+    init
 END Args.
