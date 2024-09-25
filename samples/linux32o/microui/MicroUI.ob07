@@ -23,8 +23,8 @@ TYPE
 	ADDRESS = INTEGER;
 	Context* = ADDRESS;
 	
-	Rect* = POINTER TO RECORD
-		x, y, w, h: INTEGER
+	Rect* = RECORD
+		x*, y*, w*, h*: INTEGER
 	END;
 	
 
@@ -36,7 +36,7 @@ PROCEDURE [extern, "mu_end_popup"] EndPopup*(ctx: Context);
 
 PROCEDURE [extern, "_mu_create_ctx"] _mu_create_ctx(): Context;
 PROCEDURE [extern, "mu_init"] _mu_init(ctx: Context);
-PROCEDURE [extern, "_mu_begin_window_ex"] _mu_begin_window_ex(ctx: Context; title: ADDRESS; rect: Rect; opt: INTEGER): INTEGER;
+PROCEDURE [extern, "_mu_begin_window_ex"] _mu_begin_window_ex(ctx: Context; title: ADDRESS; rect: ADDRESS; opt: INTEGER): INTEGER;
 PROCEDURE [extern, "mu_button_ex"] _mu_button_ex(ctx: Context; title: ADDRESS; icon, opt: INTEGER): INTEGER;
 PROCEDURE [extern, "mu_label"] _mu_label(ctx: Context; text: ADDRESS);
 PROCEDURE [extern, "mu_text"] _mu_text(ctx: Context; text: ADDRESS);
@@ -46,16 +46,6 @@ PROCEDURE [extern, "mu_begin_popup"] _mu_begin_popup(ctx: Context; name: ADDRESS
 PROCEDURE [extern, "mu_layout_row"] _mu_layout_row(ctx: Context; items: INTEGER; widths: ADDRESS; height: INTEGER);
 PROCEDURE [extern, "mu_slider_ex"] _mu_slider_ex(ctx: Context; VAR value: REAL; low, high, step: REAL; fmt: ADDRESS; opt: INTEGER): INTEGER;
 
-PROCEDURE ToRect*(x, y, w, h: INTEGER): Rect;
-VAR
-	rect: Rect;
-BEGIN
-	NEW(rect);
-	rect.x := x; rect.y := y;
-	rect.w := w; rect.h := h;
-	RETURN rect
-END ToRect;
-
 
 PROCEDURE Init*(VAR ctx: Context);
 BEGIN
@@ -63,15 +53,15 @@ BEGIN
 	_mu_init(ctx);
 END Init;
 
-PROCEDURE BeginWindowEx*(ctx: Context; title: ARRAY OF CHAR; rect: Rect; opt: SET): BOOLEAN; 
+PROCEDURE BeginWindowEx*(ctx: Context; title: ARRAY OF CHAR; VAR rect: Rect; opt: SET): BOOLEAN; 
 BEGIN
-	RETURN _mu_begin_window_ex(ctx, SYSTEM.ADR(title[0]), rect, ORD(opt)) > 0
+	RETURN _mu_begin_window_ex(ctx, SYSTEM.ADR(title[0]), SYSTEM.ADR(rect), ORD(opt)) > 0
 END BeginWindowEx;
 
 
-PROCEDURE BeginWindow*(ctx: Context; title: ARRAY OF CHAR; rect: Rect): BOOLEAN; 
+PROCEDURE BeginWindow*(ctx: Context; title: ARRAY OF CHAR; VAR rect: Rect): BOOLEAN; 
 BEGIN
-	RETURN _mu_begin_window_ex(ctx, SYSTEM.ADR(title[0]), rect, 0) > 0
+	RETURN _mu_begin_window_ex(ctx, SYSTEM.ADR(title[0]), SYSTEM.ADR(rect), 0) > 0
 END BeginWindow;
 
 
