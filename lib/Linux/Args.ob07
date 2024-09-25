@@ -7,7 +7,12 @@
 
 MODULE Args;
 
-IMPORT SYSTEM, API;
+IMPORT SYSTEM, 
+$IF (API_sys)
+	API IN "./API_sys.ob07";
+$ELSE
+	API;
+$END
 
 
 VAR
