@@ -150,7 +150,11 @@ BEGIN
             INC(i);
             UTILS.GetArg(i, param);
             SCAN.NewDef(param)
-
+            
+		ELSIF param = "-entry" THEN
+            INC(i);
+            UTILS.GetArg(i, options.entry);
+            
         ELSIF param = "" THEN
             _end := TRUE
 
@@ -260,6 +264,7 @@ BEGIN
         C.StringLn("  -tab <width>          set width for tabs"); C.Ln;
         C.StringLn("  -uses                 list imported modules"); C.Ln;
         C.StringLn("  -fa <size>            set PE32 file alignment {512 (def.), 1024, 2048, 4096}"); C.Ln;
+        C.StringLn("  -entry <symbol name>  define symbol entry name (Linux32 Relocatable)"); C.Ln;
         UTILS.Exit(0)
     END;
 
