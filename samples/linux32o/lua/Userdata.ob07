@@ -1,8 +1,5 @@
 MODULE Userdata;
-IMPORT Args, 
-	Out  := Out_sys, 
-	Lua IN "./Lua.ob07", 
-	Array IN "./Array.ob07";
+IMPORT Args, Out  := Out_sys, Lua IN "./Lua.ob07", Array IN "./Array.ob07";
 
 VAR
 	L: Lua.State;

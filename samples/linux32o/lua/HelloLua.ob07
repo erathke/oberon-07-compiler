@@ -1,10 +1,11 @@
 MODULE HelloLua;
-IMPORT SYSTEM, Args, Out := Out_sys, 
-	Lua IN "./Lua.ob07";
+IMPORT SYSTEM, Args, Out := Out_sys, Lua IN "./Lua.ob07";
 
 VAR
 	state: Lua.State;
 	script: ARRAY 32 OF CHAR;
+
+
 BEGIN
 	
 	IF Args.argc # 2 THEN
@@ -15,9 +16,8 @@ BEGIN
 		state := Lua.newstate();
 		Lua.openlibs(state);
 		
-		IF Lua.dofile(state, script) # Lua.LUA_OK THEN
-			ASSERT(FALSE);
-		END;
+		ASSERT(Lua.dofile(state, script) = Lua.LUA_OK);
+		
 		Lua.close(state);
 	END; 
 

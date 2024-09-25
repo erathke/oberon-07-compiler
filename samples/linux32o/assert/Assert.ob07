@@ -1,10 +1,5 @@
 MODULE Assert;
-IMPORT Args,
-$IF (linux32exe)
-	Out;
-$ELSE
-	Out := Out_sys;
-$END
+IMPORT Args, Out := Out_sys;
 
 CONST
 	MEM_SIZE = 1 * 1024 * 1024;

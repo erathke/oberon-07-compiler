@@ -1,5 +1,5 @@
 MODULE Nuklear;
-IMPORT SYSTEM, Out;
+IMPORT SYSTEM;
 
 CONST
 	WINDOW_BORDER*            = {0};

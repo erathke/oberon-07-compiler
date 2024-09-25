@@ -1,16 +1,14 @@
 #/bin/bash
 
-CC="gcc"
-#CC="i686-linux-gnu-gcc"
+CC="cc"
 CFLAGS="-m32 -no-pie"
-COPTIONS="-nostartfiles -Wl,--gc-sections"
-#COPTIONS="-static -nostartfiles -Wl,--gc-sections"
+COPTS="-nostartfiles -Wl,--gc-sections"
 LIBS="liblua-i686-posix.a"
 #LIBS="liblua-i686-linux.a"
-#DEF="-def API_DEBUG"
-OPTS="-entry _start"
+DEF="-def API_sys"
+OPTS="-entry _start -rtl RTL_sys"
 OBC="../../../compilerX"
 
 mkdir -p bin;
 $OBC $1.ob07 linux32o $DEF $OPTS && 
-	$CC $CFLAGS $COPTIONS -o bin/$1 $1.xo $LIBS -lm
+	$CC $CFLAGS $COPTS -o bin/$1 $1.xo $LIBS -lm
