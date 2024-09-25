@@ -27,7 +27,6 @@ CONST
     Date* = "10-feb-2023";
 
     FILE_EXT* = ".ob07";
-    RTL_NAME* = "RTL";
 
     MAX_GLOBAL_SIZE* = 1600000000;
 
@@ -53,6 +52,8 @@ VAR
       END;
 
     bit_diff*: INTEGER;
+    
+    RTL_NAME*: ARRAY 2048 OF CHAR; (* FIXME: correct case *)
 
 
 PROCEDURE FileRead* (F: INTEGER; VAR Buffer: ARRAY OF CHAR; bytes: INTEGER): INTEGER;
@@ -210,8 +211,15 @@ BEGIN
 END hexdgt;
 
 
+PROCEDURE SetRTL*(name: ARRAY OF CHAR);
+BEGIN
+	COPY(name, RTL_NAME);
+END SetRTL;
+
+
 BEGIN
     time := HOST.GetTickCount();
     inf := HOST.inf;
-    maxreal := HOST.maxreal
+    maxreal := HOST.maxreal;
+    RTL_NAME := "RTL"
 END UTILS.
