@@ -60,23 +60,21 @@ BEGIN
 END main;
 
 
-PROCEDURE kernel_config*(i: INTEGER);
+PROCEDURE kernel_config*(mem, memsize: INTEGER);
 VAR
-	s, o: ARRAY 16 OF CHAR;
+	s, o: ARRAY 64 OF CHAR;
 	len: INTEGER;
 BEGIN
-	Out.String("config: "); Out.Int(i, 0); Out.Ln;
 	s := "Evandro Rathke";
 	len := LENGTH(s);
-	//SYSTEM.PUT(i, SYSTEM.ADR(s));
-	SYSTEM.MOVE(SYSTEM.ADR(s), i, len);
-	SYSTEM.MOVE(i, SYSTEM.ADR(o), len);
+	SYSTEM.MOVE(SYSTEM.ADR(s), mem, MIN(len, memsize));
+	SYSTEM.MOVE(mem, SYSTEM.ADR(o), len);
 	Out.String(o); Out.Ln;
+	Out.String(s); Out.Ln;
 END;
 
 
 BEGIN
-	Out.String("opening..."); Out.Ln;
 	main()
 
 END Kernel.
