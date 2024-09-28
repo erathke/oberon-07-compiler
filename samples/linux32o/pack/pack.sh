@@ -1,7 +1,9 @@
 #!/bin/bash
 
+EXE=$( basename "$0" )
+
 if [[ $# -lt 2 ]] ; then
-	echo "Usage: $0 <name> <folder>"
+	echo "Usage: $EXE <name> <folder>"
 	exit 1
 fi
 
@@ -21,6 +23,7 @@ fi
 read -r -d '' "RUN_SCRIPT" << "EOF"
 #!/bin/bash
 WORKDIR=$( mktemp -d )
+EXE=$( basename "$0" )
  
 #find last line +1
 SCRIPT_END=$( awk '
@@ -40,7 +43,7 @@ fi
 tail -n +$SCRIPT_END $0 >"$WORKDIR/file"
 
 # Do something with the file
-unzip -q "$WORKDIR/file" -d "$WORKDIR" && cd "$WORKDIR" && exec "$0" "${@:1}" &
+unzip -q "$WORKDIR/file" -d "$WORKDIR" && cd "$WORKDIR" && exec "./$EXE" "${@:1}" &
 
 # Wait for finishing the execution
 trap ' ' INT
