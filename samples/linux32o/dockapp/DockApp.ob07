@@ -6,11 +6,15 @@ IMPORT SYSTEM, Out := Out_sys,
 CONST
 	NULL = 0;
 
+	DONone* = 0;    // simple on/off flag
+	DOInteger* = 1; // an integer number
+	DOString* = 2;  // a string
+	DONatural* = 3; // positive integer number
+
 TYPE
 	ADDRESS = INTEGER;
 	DAShapedPixmap* = ADDRESS;
 	DACallbacks* = PROCEDURE;
-	DAProgramOption = INTEGER;
 	cstr = INTEGER;
 	
 	Callbacks* = RECORD
@@ -30,13 +34,35 @@ TYPE
 		timeout*: PROCEDURE [ccall]
 	END;
 
+	ProgramOption* = POINTER TO RECORD
+		shortForm: ARRAY 3 OF CHAR;
+		longForm: ARRAY 32 OF CHAR;
+		description: ARRAY 128 OF CHAR;
+		_type: BYTE;
+		used: BOOLEAN;
+		value*: RECORD 
+			ptr: INTEGER;
+			integer*: INTEGER;
+			string*: ARRAY 32 OF CHAR
+		END
+	END;
+	
+	DAProgramOption = RECORD
+		shortForm: INTEGER;
+		longForm: INTEGER;
+		description: INTEGER;
+		_type: ARRAY 2 OF BYTE; // short
+		used: INTEGER;
+		value: INTEGER // a ptr for the value that was passed
+	END;
+
 VAR
 	Window*: X11.Window;
 	Display*: X11.Display;
 	GC*: X11.GC;
 	
-
-PROCEDURE [extern, "DAParseArguments"] DAParseArguments(argc: INTEGER; argv: cstr; options: DAProgramOption; 
+// libdockapp
+PROCEDURE [extern, "DAParseArguments"] DAParseArguments(argc: INTEGER; argv: cstr; options: INTEGER; 
 	count: INTEGER; programDesc, versionDesc: cstr);
 PROCEDURE [extern, "DASetExpectedVersion"] SetExpectedVersion*(version: INTEGER);
 PROCEDURE [extern, "DAOpenDisplay"] DAOpenDisplay(display: cstr; argc: INTEGER; argv: cstr);
@@ -48,9 +74,24 @@ PROCEDURE [extern, "DAMakePixmapFromFile"] DAMakePixmapFromFile(filename: cstr; 
 PROCEDURE [extern, "DASetCallbacks"] DASetCallbacks(callbacks: INTEGER);
 PROCEDURE [extern, "DASetTimeout"] SetTimeout*(milis: INTEGER);
 PROCEDURE [extern, "DAShow"] Show*();
-PROCEDURE [extern, "DAEventLoop"] EventLoop*(); END;
+PROCEDURE [extern, "DAEventLoop"] EventLoop*();
+// glue
 PROCEDURE [extern, "setWindowAndDisplay"] SetWindowAndDisplay(window, display: INTEGER);
 PROCEDURE [extern, "setGC"] SetGC(gc: INTEGER);
+
+
+PROCEDURE NewOption*(shortForm: ARRAY OF CHAR; longForm: ARRAY OF CHAR; 
+	description: ARRAY OF CHAR; _type: BYTE): ProgramOption;
+VAR
+	option: ProgramOption;
+BEGIN
+	NEW(option);
+	option.shortForm := shortForm;
+	option.longForm := longForm;
+	option.description := description;
+	option._type := _type;
+	RETURN option
+END NewOption;
 
 
 PROCEDURE MakePixmap*(VAR pixmap: X11.Pixmap);
@@ -65,10 +106,51 @@ BEGIN
 END MakePixmapFromFile;
 
 
-PROCEDURE ParseArguments*(argc: INTEGER; argv: ARRAY OF ARRAY OF CHAR; opts: DAProgramOption; 
+PROCEDURE ParseArguments*(argc: INTEGER; argv: ARRAY OF ARRAY OF CHAR; VAR opt: ProgramOption; 
 	count: INTEGER; programDesc, versionDesc: ARRAY OF CHAR);
+CONST
+	MAX_PARAMS = 6;
+VAR
+	i: INTEGER;
+	params: ARRAY MAX_PARAMS OF INTEGER;
+	dopt: DAProgramOption;
+	ch: CHAR;
 BEGIN
-	DAParseArguments(argc, SYSTEM.ADR(argv), opts, count, SYSTEM.ADR(programDesc[0]), SYSTEM.ADR(versionDesc[0]));
+	FOR i := 0 TO argc - 1 DO
+		params[i] := SYSTEM.ADR(argv[i]);
+	END;
+	IF count > 0 THEN
+		dopt.shortForm := SYSTEM.ADR(opt.shortForm);
+		dopt.longForm := SYSTEM.ADR(opt.longForm);
+		dopt.description := SYSTEM.ADR(opt.description);
+		
+		CASE opt._type OF
+		| DOInteger, DONatural:
+			dopt._type[0] := opt._type;
+			dopt.value := SYSTEM.ADR(opt.value.integer);
+		| DOString:
+			dopt._type[0] := DOString;
+			dopt.value := SYSTEM.ADR(opt.value.ptr);
+		ELSE
+			dopt._type[0] := DONone;
+		END;
+		
+		DAParseArguments(argc, SYSTEM.ADR(params), SYSTEM.ADR(dopt), count, SYSTEM.ADR(programDesc[0]), SYSTEM.ADR(versionDesc[0]));
+		
+		CASE opt._type OF
+		| DOString:
+			i := 0;
+			REPEAT
+				SYSTEM.GET(opt.value.ptr, ch);
+				opt.value.string[i] := ch;
+				INC(opt.value.ptr); INC(i);
+			UNTIL ch = 0X;
+		ELSE
+		END;
+		
+	ELSE
+		DAParseArguments(argc, SYSTEM.ADR(params), NULL, count, SYSTEM.ADR(programDesc[0]), SYSTEM.ADR(versionDesc[0]));
+	END;
 END ParseArguments;
 
 
@@ -91,5 +173,5 @@ BEGIN
 	DASetCallbacks(SYSTEM.ADR(callbacks));
 END;
 
-	
+
 END DockApp.
