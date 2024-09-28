@@ -1,0 +1,95 @@
+MODULE DockApp;
+IMPORT SYSTEM, Out := Out_sys,
+	File IN "./File.ob07",
+	X11 IN "./X11.ob07";
+
+CONST
+	NULL = 0;
+
+TYPE
+	ADDRESS = INTEGER;
+	DAShapedPixmap* = ADDRESS;
+	DACallbacks* = PROCEDURE;
+	DAProgramOption = INTEGER;
+	cstr = INTEGER;
+	
+	Callbacks* = RECORD
+		// the dockapp window was destroyed
+		destroy*: PROCEDURE [ccall];
+		// button pressed
+		buttonPressed*: PROCEDURE [ccall] (button, state, x, y: INTEGER);
+		// button released
+		buttonReleased*: PROCEDURE [ccall] (button, state, x, y: INTEGER);
+		// pointer motion
+		motion*: PROCEDURE [ccall] (x, y: INTEGER);
+		// pointer entered dockapp window
+		enter*: PROCEDURE [ccall];
+		// pointer left dockapp window
+		leave*: PROCEDURE [ccall];
+		// timer expired
+		timeout*: PROCEDURE [ccall]
+	END;
+
+VAR
+	Window*: X11.Window;
+	Display*: X11.Display;
+	GC*: X11.GC;
+	
+
+PROCEDURE [extern, "DAParseArguments"] DAParseArguments(argc: INTEGER; argv: cstr; options: DAProgramOption; 
+	count: INTEGER; programDesc, versionDesc: cstr);
+PROCEDURE [extern, "DASetExpectedVersion"] SetExpectedVersion*(version: INTEGER);
+PROCEDURE [extern, "DAOpenDisplay"] DAOpenDisplay(display: cstr; argc: INTEGER; argv: cstr);
+PROCEDURE [extern, "DAInitialize"] DAInitialize(display, name: cstr; width, height: INTEGER; argc: INTEGER; argv: cstr);
+PROCEDURE [extern, "DAMakePixmap"] DMakePixmap(): X11.Pixmap;
+PROCEDURE [extern, "DASetPixmap"] SetPixmap*(pixmap: X11.Pixmap);
+PROCEDURE [extern, "DASetShapeWithOffset"] SetShapeWithOffset*(pixmap: X11.Pixmap; offsx, offsy: INTEGER);
+PROCEDURE [extern, "DAMakePixmapFromFile"] DAMakePixmapFromFile(filename: cstr; pixmap: X11.Pixmap; mask: ADDRESS; w, h: INTEGER): INTEGER;
+PROCEDURE [extern, "DASetCallbacks"] DASetCallbacks(callbacks: INTEGER);
+PROCEDURE [extern, "DASetTimeout"] SetTimeout*(milis: INTEGER);
+PROCEDURE [extern, "DAShow"] Show*();
+PROCEDURE [extern, "DAEventLoop"] EventLoop*(); END;
+PROCEDURE [extern, "setWindowAndDisplay"] SetWindowAndDisplay(window, display: INTEGER);
+PROCEDURE [extern, "setGC"] SetGC(gc: INTEGER);
+
+
+PROCEDURE MakePixmap*(VAR pixmap: X11.Pixmap);
+BEGIN
+	pixmap := DMakePixmap();
+END MakePixmap;
+
+
+PROCEDURE MakePixmapFromFile*(filename: ARRAY OF CHAR; VAR pixmap, mask: X11.Pixmap; VAR w, h: INTEGER): BOOLEAN;
+BEGIN 
+	RETURN DAMakePixmapFromFile(SYSTEM.ADR(filename[0]), SYSTEM.ADR(pixmap), SYSTEM.ADR(mask), SYSTEM.ADR(w), SYSTEM.ADR(h)) > 0
+END MakePixmapFromFile;
+
+
+PROCEDURE ParseArguments*(argc: INTEGER; argv: ARRAY OF ARRAY OF CHAR; opts: DAProgramOption; 
+	count: INTEGER; programDesc, versionDesc: ARRAY OF CHAR);
+BEGIN
+	DAParseArguments(argc, SYSTEM.ADR(argv), opts, count, SYSTEM.ADR(programDesc[0]), SYSTEM.ADR(versionDesc[0]));
+END ParseArguments;
+
+
+PROCEDURE OpenDisplay*(display: INTEGER; argc: INTEGER; argv: ARRAY OF ARRAY OF CHAR);
+BEGIN
+	DAOpenDisplay(display, argc, SYSTEM.ADR(argv));
+END OpenDisplay;
+
+
+PROCEDURE Initialize*(display, name: ARRAY OF CHAR; width, height: INTEGER; argc: INTEGER; argv: ARRAY OF ARRAY OF CHAR);
+BEGIN
+	DAInitialize(SYSTEM.ADR(display[0]), SYSTEM.ADR(name[0]), width, height, 0, NULL);
+	SetWindowAndDisplay(SYSTEM.ADR(Window), SYSTEM.ADR(Display));
+	SetGC(SYSTEM.ADR(GC));
+END Initialize;
+
+
+PROCEDURE SetCallbacks*(callbacks: Callbacks);
+BEGIN
+	DASetCallbacks(SYSTEM.ADR(callbacks));
+END;
+
+	
+END DockApp.

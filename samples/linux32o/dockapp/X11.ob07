@@ -1,0 +1,17 @@
+﻿MODULE X11;
+IMPORT SYSTEM;
+
+TYPE 
+	
+	Window* = INTEGER;
+	Display* = INTEGER;
+	Pixmap* = INTEGER;
+	GC* = INTEGER;
+
+
+PROCEDURE [extern, "XCopyArea"] XCopyArea*(display: Display; source, dest: Pixmap; 
+	gc: GC; sx, sy, w, h, dx, dy: INTEGER); END;
+
+
+END X11.
+

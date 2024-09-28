@@ -1,0 +1,192 @@
+MODULE HelloDA;
+IMPORT SYSTEM, Out := Out_sys, Args, 
+	File IN "./File.ob07",
+	DA IN "./DockApp.ob07",
+	X11 IN "./X11.ob07";
+
+CONST 
+	PROGRAM_DESC = "Backlight control.";
+	PROGRAM_VERSION = "0.1";
+	
+	MAX_BRIGHTNESS = 100;
+	MIN_BRIGHTNESS = 30;
+	BRIGHTNESS_STEP = 5;
+	
+	
+VAR
+	forepm, outpm: X11.Pixmap;
+	foremk: X11.Pixmap;
+	width, height: INTEGER;
+	updated: BOOLEAN;
+	brightness: INTEGER;
+	config: ARRAY 2048 OF CHAR;
+
+
+PROCEDURE ChangeBrightness();
+VAR
+	configFile: INTEGER;
+BEGIN
+	configFile := File.Open(config, File.OPEN_W);
+	IF configFile > 0 THEN
+		ASSERT(File.WriteInt(configFile, brightness) > 0);
+		File.Close(configFile);
+	ELSE
+		Out.String("could not open "); Out.String(config); Out.Ln;
+	END;
+
+END ChangeBrightness;
+
+
+PROCEDURE IncreaseBrightness();
+BEGIN
+	IF brightness < MAX_BRIGHTNESS THEN
+		INC(brightness, BRIGHTNESS_STEP);
+		ChangeBrightness();
+	END;
+END IncreaseBrightness;
+
+
+PROCEDURE DecreaseBrightness();
+BEGIN
+	IF brightness > MIN_BRIGHTNESS THEN
+		DEC(brightness, BRIGHTNESS_STEP);
+		ChangeBrightness();
+	END;
+END DecreaseBrightness;
+
+
+PROCEDURE [ccall] ButtonPressed(button, state, x, y: INTEGER);
+CONST
+	SCROLL_UP = 4;
+	SCROLL_DOWN = 5;
+BEGIN
+	CASE button OF
+	| SCROLL_UP:
+		IncreaseBrightness();
+	| SCROLL_DOWN:
+		DecreaseBrightness();
+	ELSE
+	END;
+END ButtonPressed;
+
+
+PROCEDURE [ccall] Update();
+BEGIN
+	IF ~ updated THEN
+		// Update state
+		X11.XCopyArea(DA.Display, forepm, outpm, DA.GC, 0, 0, 48, 48, 0, 0 );
+		DA.SetPixmap(outpm);
+		DA.SetShapeWithOffset(foremk, 0, 0);
+		updated := TRUE;
+	END;
+END;
+
+
+PROCEDURE LoadPixmap(filename: ARRAY OF CHAR; VAR pixmap, mask: X11.Pixmap);
+VAR
+	w, h: INTEGER;
+BEGIN
+	ASSERT(DA.MakePixmapFromFile(filename, pixmap, mask, w, h))
+END LoadPixmap;
+
+
+PROCEDURE Run();
+CONST
+	NULL = 0;
+	SPEED = 50;
+	DISPLAY = ":0";
+VAR
+	callbacks: DA.Callbacks;
+	argc: INTEGER;
+	argv: ARRAY 1, 32 OF CHAR;
+BEGIN
+	
+	callbacks.buttonPressed := ButtonPressed;
+	callbacks.timeout := Update;
+	
+	// FIXME: args
+	argc := 1; argv[0] := "-h";
+	width := 48; height := 48;
+	
+	DA.ParseArguments(argc, argv, NULL, 0, PROGRAM_DESC, PROGRAM_VERSION);
+	DA.Initialize(DISPLAY, "example", width, height, argc, argv);
+	DA.SetCallbacks(callbacks);
+	DA.SetTimeout(SPEED);
+	
+	LoadPixmap("main.xpm", forepm, foremk);
+	DA.MakePixmap(outpm);
+	
+	Update(); // first update before timeout
+	DA.Show();
+	DA.EventLoop();
+	
+	
+END Run;
+
+
+PROCEDURE CheckConfigFile(device: ARRAY OF CHAR): BOOLEAN;
+VAR
+	prefix, suffix: ARRAY 32 OF CHAR;
+	lenPrefix, lenSuffix, lenDevice: INTEGER;
+	offset: INTEGER;
+	i: INTEGER;
+BEGIN
+	//sys/class/backlight/acpi_video0/brightness
+	prefix := "/sys/class/backlight/";
+	lenPrefix := LENGTH(prefix);
+	suffix := "/brightness";
+	lenSuffix := LENGTH(suffix);
+	
+	COPY(prefix, config);
+	
+	lenDevice := LENGTH(device);
+	i := 0;
+	offset := lenPrefix;
+	WHILE i < lenDevice DO
+		config[offset + i] := device[i];
+		INC(i);
+	END;
+	
+	i := 0;
+	offset := lenPrefix + lenDevice ;
+	WHILE i < lenSuffix DO
+		config[offset + i] := suffix[i]; 
+		INC(i);
+	END;
+	
+	RETURN File.Exists(config)
+
+END CheckConfigFile;
+
+
+PROCEDURE LoadBrightness();
+VAR
+	configFile: INTEGER;
+BEGIN
+	configFile := File.Open(config, File.OPEN_R);
+	ASSERT(configFile > 0);
+	ASSERT(File.ReadInt(configFile, brightness) > 0);
+END;
+
+
+PROCEDURE Init();
+VAR 
+	device: ARRAY 32 OF CHAR;
+BEGIN
+	IF Args.argc # 2 THEN
+		Out.String("Usage: wmbacklight <device>"); Out.Ln;
+	ELSE
+		Args.GetArg(1, device);
+		IF CheckConfigFile(device) THEN 
+			LoadBrightness();
+			Run();
+		ELSE
+			Out.String("Invalid device"); Out.Ln;
+		END;
+	END;
+END ;
+
+
+BEGIN
+	Init();
+END HelloDA.

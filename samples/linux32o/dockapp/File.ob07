@@ -1,0 +1,124 @@
+﻿(*
+    BSD 2-Clause License
+
+    Copyright (c) 2020-2021, Anton Krotov
+    All rights reserved.
+*)
+
+MODULE File;
+IMPORT SYSTEM, API := API_sys;
+
+
+CONST
+
+    OPEN_R* = "rb";  OPEN_W* = "wb";  OPEN_RW* = "r+b";
+    SEEK_BEG* = 0;   SEEK_CUR* = 1;   SEEK_END* = 2;
+
+
+PROCEDURE [extern, "fwrite"] fwrite(buffer, bytes, blocks, file: INTEGER): INTEGER;
+PROCEDURE [extern, "fread"] fread(buffer, bytes, blocks, file: INTEGER): INTEGER;
+PROCEDURE [extern, "fseek"] fseek(file, offset, origin: INTEGER): INTEGER;
+PROCEDURE [extern, "ftell"] ftell(file: INTEGER): INTEGER;
+PROCEDURE [extern, "fopen"] fopen(fname, fmode: INTEGER): INTEGER;
+PROCEDURE [extern, "fclose"] fclose(file: INTEGER): INTEGER;
+PROCEDURE [extern, "remove"] remove(file: INTEGER): INTEGER;
+PROCEDURE [extern, "fprintf"] fprintf(file: INTEGER; fmt: INTEGER; value: INTEGER): INTEGER;
+PROCEDURE [extern, "fscanf"] fscanf(file: INTEGER; fmt: INTEGER; VAR value: INTEGER): INTEGER;
+
+
+PROCEDURE Delete* (FName: ARRAY OF CHAR): BOOLEAN;
+    RETURN remove(SYSTEM.ADR(FName[0])) = 0
+END Delete;
+
+
+PROCEDURE Close* (F: INTEGER);
+BEGIN
+    F := fclose(F)
+END Close;
+
+
+PROCEDURE Open* (FName, Mode: ARRAY OF CHAR): INTEGER;
+    RETURN fopen(SYSTEM.ADR(FName[0]), SYSTEM.ADR(Mode[0]))
+END Open;
+
+
+PROCEDURE Create* (FName: ARRAY OF CHAR): INTEGER;
+    RETURN Open(FName, OPEN_W)
+END Create;
+
+
+PROCEDURE Seek* (F, Offset, Origin: INTEGER): INTEGER;
+VAR
+    res: INTEGER;
+
+BEGIN
+    IF fseek(F, Offset, Origin) = 0 THEN
+        res := ftell(F)
+    ELSE
+        res := -1
+    END
+
+    RETURN res
+END Seek;
+
+
+PROCEDURE Write* (F, Buffer, Count: INTEGER): INTEGER;
+    RETURN fwrite(Buffer, 1, Count, F)
+END Write;
+
+
+PROCEDURE WriteInt* (F, value: INTEGER): INTEGER;
+    RETURN fprintf(F, SYSTEM.SADR("%d"), value)
+END WriteInt;
+
+
+PROCEDURE Read* (F, Buffer, Count: INTEGER): INTEGER;
+    RETURN fread(Buffer, 1, Count, F)
+END Read;
+
+
+PROCEDURE ReadInt* (F: INTEGER; VAR value: INTEGER): INTEGER;
+    RETURN fscanf(F, SYSTEM.SADR("%d"), value)
+END ReadInt;
+
+
+PROCEDURE Load* (FName: ARRAY OF CHAR; VAR Size: INTEGER): INTEGER;
+VAR
+    res, n, F: INTEGER;
+
+BEGIN
+    res := 0;
+    F := Open(FName, OPEN_R);
+
+    IF F > 0 THEN
+        Size := Seek(F, 0, SEEK_END);
+        n    := Seek(F, 0, SEEK_BEG);
+        res  := API._NEW(Size);
+        IF (res = 0) OR (Read(F, res, Size) # Size) THEN
+            IF res # 0 THEN
+                res := API._DISPOSE(res);
+                Size := 0
+            END
+        END;
+        Close(F)
+    END
+
+    RETURN res
+END Load;
+
+
+PROCEDURE Exists*(FName: ARRAY OF CHAR): BOOLEAN;
+VAR
+	exists: BOOLEAN;
+	F: INTEGER;
+BEGIN
+	F := Open(FName, OPEN_R);
+    IF F > 0 THEN
+		exists := TRUE;
+		Close(F);
+	END;
+	RETURN exists
+END Exists;
+
+
+END File.
