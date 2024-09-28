@@ -174,7 +174,7 @@ VAR
 BEGIN
 	
 	argc := Args.argc;
-	IF argc > MAX_ARGS THEN
+	IF (argc > MAX_ARGS) OR (argc = 1) THEN
 		Args.GetArg(0, argv[0]);
 		argv[1] := "-h"; argc := 2;
 	ELSE
