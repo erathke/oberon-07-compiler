@@ -1,5 +1,7 @@
 IRQ_BASE = 0x20
 
+interruptnumber: rb 1
+
 macro HandleException num {
 	public HandleException#num
 	
@@ -15,8 +17,7 @@ macro HandleInterruptRequest num {
         mov [interruptnumber], dword num + IRQ_BASE
         jmp     common_interrupt_handler    ; jump to the common handler
 }
-
-
+; Exceptions
 HandleException 0x00
 HandleException 0x01
 HandleException 0x02
@@ -38,6 +39,7 @@ HandleException 0x11
 HandleException 0x12
 HandleException 0x13
 
+; Hardware interrupts
 HandleInterruptRequest 0x00
 HandleInterruptRequest 0x01
 HandleInterruptRequest 0x02
@@ -56,11 +58,10 @@ HandleInterruptRequest 0x0E
 HandleInterruptRequest 0x0F
 HandleInterruptRequest 0x31
 
+; Syscalls
 HandleInterruptRequest 0x80
 
-
 common_interrupt_handler:               ; the common parts of the generic interrupt handler
-	
 	; save the registers
 	push ebp
     push edi
@@ -69,7 +70,6 @@ common_interrupt_handler:               ; the common parts of the generic interr
     push ecx
     push ebx
     push eax
-	
 	
 	push dword [interruptnumber]
 	call kernelInterruptHandler
@@ -88,3 +88,59 @@ InterruptIgnore:
 	; return to the code that got interrupted
 	iret
 
+
+set_handlers:
+	push ebp
+	mov ebp, esp
+	push eax
+	
+	mov eax, [ebp + 8]
+	; exceptions offset = 0x00
+	mov [eax + 0], dword HandleException0x00
+	mov [eax + 4], dword HandleException0x01
+	mov [eax + 8], dword HandleException0x02
+	mov [eax + 12], dword HandleException0x03
+	mov [eax + 16], dword HandleException0x04
+	mov [eax + 20], dword HandleException0x05
+	mov [eax + 24], dword HandleException0x06
+	mov [eax + 28], dword HandleException0x07
+	mov [eax + 32], dword HandleException0x08
+	mov [eax + 36], dword HandleException0x09
+	mov [eax + 40], dword HandleException0x0A
+	mov [eax + 44], dword HandleException0x0B
+	mov [eax + 48], dword HandleException0x0C
+	mov [eax + 52], dword HandleException0x0D
+	mov [eax + 56], dword HandleException0x0E
+	mov [eax + 60], dword HandleException0x0F
+	mov [eax + 64], dword HandleException0x10
+	mov [eax + 68], dword HandleException0x11
+	mov [eax + 72], dword HandleException0x12
+	mov [eax + 76], dword HandleException0x13
+	; hardware offset = 0x20
+	mov eax, [ebp + 8]
+	add eax, 0x20 * 4 ; offset * 4
+	mov [eax + 0], dword HandleInterruptRequest0x00
+	mov [eax + 4], dword HandleInterruptRequest0x01
+	mov [eax + 8], dword HandleInterruptRequest0x02
+	mov [eax + 12], dword HandleInterruptRequest0x03
+	mov [eax + 16], dword HandleInterruptRequest0x04
+	mov [eax + 20], dword HandleInterruptRequest0x05
+	mov [eax + 24], dword HandleInterruptRequest0x06
+	mov [eax + 28], dword HandleInterruptRequest0x07
+	mov [eax + 32], dword HandleInterruptRequest0x08
+	mov [eax + 36], dword HandleInterruptRequest0x09
+	mov [eax + 40], dword HandleInterruptRequest0x0A
+	mov [eax + 44], dword HandleInterruptRequest0x0B
+	mov [eax + 48], dword HandleInterruptRequest0x0C
+	mov [eax + 52], dword HandleInterruptRequest0x0D
+	mov [eax + 56], dword HandleInterruptRequest0x0E
+	mov [eax + 60], dword HandleInterruptRequest0x0F
+	mov [eax + 64], dword HandleInterruptRequest0x31
+	; syscall offset = 0x80
+	mov eax, [ebp + 8]
+	add eax, 0x80 * 4 ; offset * 4
+	mov [eax + 0], dword HandleInterruptRequest0x80
+	
+	pop eax
+	pop ebp
+	ret
