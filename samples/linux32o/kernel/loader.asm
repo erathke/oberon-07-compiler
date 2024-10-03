@@ -28,13 +28,9 @@ section '.text' executable
 	extrn kernelPrint
 	extrn kernelPrintInt
 	extrn kernelInterruptHandler
-	extrn CKernelInterruptHandler
 
 loader:
 	mov esp, kernel_stack ; stack pointer offset
-  
-	cli
-	sti
   
     push eax ; multiboot_magic
     push ebx ; multiboot_structure

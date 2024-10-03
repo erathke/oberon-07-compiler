@@ -232,10 +232,9 @@ END Write16;
 
 PROCEDURE [oberon] Write8(port: UINT32; value: UINT8);
 BEGIN
-	SYSTEM.CODE(
-		66H, 89H, 55H, 08H,	(* mov    %dx,0x8(%ebp) *)
-		66H, 89H, 45H, 12H,	(* mov    %ax,0x12(%ebp) *)
-		66H, 0EFH			(* out    %ax,(%dx) *)
+	SYSTEM.CODE(66H, 8bH, 55H, 08H, (* mov    0x8(%ebp),%dx *)
+		66H, 8bH, 45H, 0cH,			(* mov    0xc(%ebp),%ax *)
+		66H, 0efH                	(* out    %ax,(%dx) *)
 	);
 END Write8;
 
@@ -593,18 +592,28 @@ BEGIN
 END kernelPrintInt;
 
 
-PROCEDURE [oberon] kernelInterruptHandler*(interrupt: UINT8; code: UINT32);
+PROCEDURE [oberon] kernelInterruptHandler*(interrupt: UINT8);
+CONST
+	TIMER = 020H;
+	KEYBOARD = 021H;
 BEGIN
 
-	PrintLn();
-	Print("Interrupt Handler: number=", BLACK, MAGENTA); PrintHex32(interrupt, BLACK, MAGENTA);
-	Print(", code=", BLACK, MAGENTA); PrintInt(code, BLACK, MAGENTA);
-	PrintLn();
-	
+	CASE interrupt OF
+	| TIMER: // does nothing for now
+	| KEYBOARD: // does nothing for now
+	ELSE
+		PrintLn();
+		Print("Interrupt Handler: number=", BLACK, MAGENTA); PrintHex8(interrupt, BLACK, MAGENTA);
+		//Print(", code=", BLACK, MAGENTA); PrintInt(esp, BLACK, MAGENTA);
+		PrintLn();
+	END;
+
+	// Acknowledge the PICs to message received
 	Write8(020H, 020H);
 	IF interrupt >= 28H THEN
 		Write8(0A0H, 020H);
 	END;
+	
 	
 END kernelInterruptHandler;
 

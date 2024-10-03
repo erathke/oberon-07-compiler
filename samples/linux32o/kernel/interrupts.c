@@ -198,7 +198,7 @@ unsigned int CKernelInterruptHandler(unsigned char interrupt, unsigned int esp) 
 	//if (!isInterruptActive)
 	//	return esp;
 	
-	//print("InterruptHandler:"); kernelPrintInt(interrupt); print(","); kernelPrintInt(esp);
+	print("InterruptHandler:"); kernelPrintInt(interrupt); print(","); kernelPrintInt(esp);
 	
 	
 	switch (interrupt) {
@@ -265,8 +265,8 @@ unsigned int CKernelInterruptHandler(unsigned char interrupt, unsigned int esp) 
 	}
 	
 	write8(picMasterCmd, 0x20);
-			if(hwInterruptOffset + 8 <= interrupt)
-				write8(picSlaveCmd, 0x20);
+	if(hwInterruptOffset + 8 <= interrupt)
+		write8(picSlaveCmd, 0x20);
 	
 	return esp;
 }

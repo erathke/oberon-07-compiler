@@ -4,10 +4,7 @@ macro HandleException num {
 	public HandleException#num
 	
 	HandleException#num:
-        ;push    dword 0                     ; push 0 as error code
-        ;push    dword num                   ; push the interrupt number
-        mov eax, num
-        mov [interruptnumber], eax
+        mov [interruptnumber], dword num
         jmp     common_interrupt_handler    ; jump to the common handler
 }
 
@@ -15,10 +12,7 @@ macro HandleInterruptRequest num {
 	public HandleInterruptRequest#num
 	
 	HandleInterruptRequest#num:
-        ;push    dword 0                     ; push 0 as error code
-        ;push    dword num + IRQ_BASE       ; push the interrupt number
-        mov eax, num + IRQ_BASE
-        mov [interruptnumber], eax
+        mov [interruptnumber], dword num + IRQ_BASE
         jmp     common_interrupt_handler    ; jump to the common handler
 }
 
@@ -76,11 +70,8 @@ common_interrupt_handler:               ; the common parts of the generic interr
     push ebx
     push eax
 	
-	;call    kernelInterruptHandler
-	push 0x00
 	push dword [interruptnumber]
 	call kernelInterruptHandler
-	;call CKernelInterruptHandler
 	
 	; restore the registers
 	pop eax
@@ -90,10 +81,6 @@ common_interrupt_handler:               ; the common parts of the generic interr
 	pop esi
 	pop edi
 	pop ebp
-	
-
-	; restore the esp
-	;add     esp, 8
 
 public InterruptIgnore
 InterruptIgnore:
