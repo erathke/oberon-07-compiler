@@ -232,10 +232,10 @@ END Write16;
 
 PROCEDURE [oberon] Write8(port: UINT32; value: UINT8);
 BEGIN
-	SYSTEM.CODE(66H, 8bH, 55H, 08H, (* mov    0x8(%ebp),%dx *)
-		66H, 8bH, 45H, 0cH,			(* mov    0xc(%ebp),%ax *)
-		66H, 0efH                	(* out    %ax,(%dx) *)
-	);
+	SYSTEM.CODE(66H, 8BH, 55H, 08H, (* mov    0x8(%ebp),%dx *)
+		8AH, 45H, 0CH,			(* mov    0xc(%ebp),%al *)
+		0EEH                	(* out    %al,(%dx) *)
+	);             	
 END Write8;
 
 
@@ -255,7 +255,6 @@ PROCEDURE Read8(port: UINT32; VAR value: UINT8);
 BEGIN
 	//  __asm__ volatile("inb %1, %0" : "=a" (result) : "Nd" (_port));
 END Read8;
-
 
 
 // ------------------------KERNEL: BOOT-----------------------------------------
@@ -409,122 +408,47 @@ BEGIN
 		8bH, 45H, 08H,	(* mov    0x8(%ebp), %eax *)
 		0FH, 01H, 18H	(* lidt  (%eax) *)
 	);
-	Print("IDT Loaded.", YELLOW, BLUE); PrintLn();
 END;
 
-PROCEDURE [extern, "InterruptIgnore"] InterruptIgnore();
 
-PROCEDURE [extern, "HandleException0x00"] HandleException0x00();
-PROCEDURE [extern, "HandleException0x01"] HandleException0x01();
-PROCEDURE [extern, "HandleException0x02"] HandleException0x02();
-PROCEDURE [extern, "HandleException0x03"] HandleException0x03();
-PROCEDURE [extern, "HandleException0x04"] HandleException0x04();
-PROCEDURE [extern, "HandleException0x05"] HandleException0x05();
-PROCEDURE [extern, "HandleException0x06"] HandleException0x06();
-PROCEDURE [extern, "HandleException0x07"] HandleException0x07();
-PROCEDURE [extern, "HandleException0x08"] HandleException0x08();
-PROCEDURE [extern, "HandleException0x09"] HandleException0x09();
-PROCEDURE [extern, "HandleException0x0A"] HandleException0x0A();
-PROCEDURE [extern, "HandleException0x0B"] HandleException0x0B();
-PROCEDURE [extern, "HandleException0x0C"] HandleException0x0C();
-PROCEDURE [extern, "HandleException0x0D"] HandleException0x0D();
-PROCEDURE [extern, "HandleException0x0E"] HandleException0x0E();
-PROCEDURE [extern, "HandleException0x0F"] HandleException0x0F();
-PROCEDURE [extern, "HandleException0x10"] HandleException0x10();
-PROCEDURE [extern, "HandleException0x11"] HandleException0x11();
-PROCEDURE [extern, "HandleException0x12"] HandleException0x12();
-PROCEDURE [extern, "HandleException0x13"] HandleException0x13();
+PROCEDURE [extern, "set_handlers"] SetHandlers(addr: UINT32);
 
-PROCEDURE [extern, "HandleInterruptRequest0x00"] HandleInterruptRequest0x00();
-PROCEDURE [extern, "HandleInterruptRequest0x01"] HandleInterruptRequest0x01();
-PROCEDURE [extern, "HandleInterruptRequest0x02"] HandleInterruptRequest0x02();
-PROCEDURE [extern, "HandleInterruptRequest0x03"] HandleInterruptRequest0x03();
-PROCEDURE [extern, "HandleInterruptRequest0x04"] HandleInterruptRequest0x04();
-PROCEDURE [extern, "HandleInterruptRequest0x05"] HandleInterruptRequest0x05();
-PROCEDURE [extern, "HandleInterruptRequest0x06"] HandleInterruptRequest0x06();
-PROCEDURE [extern, "HandleInterruptRequest0x07"] HandleInterruptRequest0x07();
-PROCEDURE [extern, "HandleInterruptRequest0x08"] HandleInterruptRequest0x08();
-PROCEDURE [extern, "HandleInterruptRequest0x09"] HandleInterruptRequest0x09();
-PROCEDURE [extern, "HandleInterruptRequest0x0A"] HandleInterruptRequest0x0A();
-PROCEDURE [extern, "HandleInterruptRequest0x0B"] HandleInterruptRequest0x0B();
-PROCEDURE [extern, "HandleInterruptRequest0x0C"] HandleInterruptRequest0x0C();
-PROCEDURE [extern, "HandleInterruptRequest0x0D"] HandleInterruptRequest0x0D();
-PROCEDURE [extern, "HandleInterruptRequest0x0E"] HandleInterruptRequest0x0E();
-PROCEDURE [extern, "HandleInterruptRequest0x0F"] HandleInterruptRequest0x0F();
-PROCEDURE [extern, "HandleInterruptRequest0x31"] HandleInterruptRequest0x31();
-PROCEDURE [extern, "HandleInterruptRequest0x80"] HandleInterruptRequest0x80();
-
-PROCEDURE [extern, "InstallIDT"] CInstallIDT(hardwareInterruptOffset, codeSegment: UINT16);
 
 PROCEDURE InstallIDT(VAR idt: IDT; VAR gdt: GDT);
 CONST
 	IDT_INTERRUPT_GATE = 0EH;
 	HW_INTERRUPT_OFFSET = 20H;
+	SYS_INTERRUPT_OFFSET = 080H;
+
 VAR
-	
 	gdtCodeSeg: UINT16;
 	gdtCodeSegOffs: INTEGER;
-	hardwareOffset: UINT16;
-
 	i: INTEGER;
-	handlerAddr: UINT32;
 	idtp: InterruptTableDesc;
 	masterPortData, slavePortData: UINT32;
 	masterPortCmd, slavePortCmd: UINT32;
+	handlers: ARRAY 256 OF UINT32;
 
 BEGIN
 	gdtCodeSegOffs := SYSTEM.ADR(gdt[GDT_CODE]) - SYSTEM.ADR(gdt[GDT_NULL]);
 	SYSTEM.PUT16(SYSTEM.ADR(gdtCodeSeg), gdtCodeSegOffs);
-	SYSTEM.PUT16(SYSTEM.ADR(hardwareOffset), HW_INTERRUPT_OFFSET);
 	
-	CInstallIDT(hardwareOffset,  gdtCodeSeg);
+	SetHandlers(SYSTEM.ADR(handlers));
 	
-	(*
-	handlerAddr := SYSTEM.ADR(InterruptIgnore);
-	FOR i := 0 TO IDT_SIZE - 1 DO
-		NewGateDescriptor(idt[i], gdtCodeSeg, handlerAddr, 0, IDT_INTERRUPT_GATE);
+	// Exceptions
+	FOR i := 00H TO 13H DO
+		NewGateDescriptor(idt[i], gdtCodeSeg, handlers[i], 0, IDT_INTERRUPT_GATE);
 	END;
 	
+	// Hardware interrupts
+	FOR i := HW_INTERRUPT_OFFSET TO HW_INTERRUPT_OFFSET + 0FH DO
+		NewGateDescriptor(idt[i], gdtCodeSeg, handlers[i], 0, IDT_INTERRUPT_GATE);
+	END;
 	
-	NewGateDescriptor(idt[00H], gdtCodeSeg, SYSTEM.ADR(HandleException0x00), 0, IDT_INTERRUPT_GATE);
-	NewGateDescriptor(idt[01H], gdtCodeSeg, SYSTEM.ADR(HandleException0x01), 0, IDT_INTERRUPT_GATE);
-	NewGateDescriptor(idt[02H], gdtCodeSeg, SYSTEM.ADR(HandleException0x02), 0, IDT_INTERRUPT_GATE);
-	NewGateDescriptor(idt[03H], gdtCodeSeg, SYSTEM.ADR(HandleException0x03), 0, IDT_INTERRUPT_GATE);
-	NewGateDescriptor(idt[04H], gdtCodeSeg, SYSTEM.ADR(HandleException0x04), 0, IDT_INTERRUPT_GATE);
-	NewGateDescriptor(idt[05H], gdtCodeSeg, SYSTEM.ADR(HandleException0x05), 0, IDT_INTERRUPT_GATE);
-	NewGateDescriptor(idt[06H], gdtCodeSeg, SYSTEM.ADR(HandleException0x06), 0, IDT_INTERRUPT_GATE);
-	NewGateDescriptor(idt[07H], gdtCodeSeg, SYSTEM.ADR(HandleException0x07), 0, IDT_INTERRUPT_GATE);
-	NewGateDescriptor(idt[08H], gdtCodeSeg, SYSTEM.ADR(HandleException0x08), 0, IDT_INTERRUPT_GATE);
-	NewGateDescriptor(idt[09H], gdtCodeSeg, SYSTEM.ADR(HandleException0x09), 0, IDT_INTERRUPT_GATE);
-	NewGateDescriptor(idt[0AH], gdtCodeSeg, SYSTEM.ADR(HandleException0x0A), 0, IDT_INTERRUPT_GATE);
-	NewGateDescriptor(idt[0BH], gdtCodeSeg, SYSTEM.ADR(HandleException0x0B), 0, IDT_INTERRUPT_GATE);
-	NewGateDescriptor(idt[0CH], gdtCodeSeg, SYSTEM.ADR(HandleException0x0C), 0, IDT_INTERRUPT_GATE);
-	NewGateDescriptor(idt[0DH], gdtCodeSeg, SYSTEM.ADR(HandleException0x0D), 0, IDT_INTERRUPT_GATE);
-	NewGateDescriptor(idt[0EH], gdtCodeSeg, SYSTEM.ADR(HandleException0x0E), 0, IDT_INTERRUPT_GATE);
-	NewGateDescriptor(idt[0FH], gdtCodeSeg, SYSTEM.ADR(HandleException0x0F), 0, IDT_INTERRUPT_GATE);
-	NewGateDescriptor(idt[10H], gdtCodeSeg, SYSTEM.ADR(HandleException0x10), 0, IDT_INTERRUPT_GATE);
-	NewGateDescriptor(idt[11H], gdtCodeSeg, SYSTEM.ADR(HandleException0x11), 0, IDT_INTERRUPT_GATE);
-	NewGateDescriptor(idt[12H], gdtCodeSeg, SYSTEM.ADR(HandleException0x12), 0, IDT_INTERRUPT_GATE);
-	NewGateDescriptor(idt[13H], gdtCodeSeg, SYSTEM.ADR(HandleException0x13), 0, IDT_INTERRUPT_GATE);
-	
-	
-	NewGateDescriptor(idt[00H + HW_INTERRUPT_OFFSET], gdtCodeSeg, SYSTEM.ADR(HandleInterruptRequest0x00), 0, IDT_INTERRUPT_GATE);
-	NewGateDescriptor(idt[01H + HW_INTERRUPT_OFFSET], gdtCodeSeg, SYSTEM.ADR(HandleInterruptRequest0x01), 0, IDT_INTERRUPT_GATE);
-	NewGateDescriptor(idt[02H + HW_INTERRUPT_OFFSET], gdtCodeSeg, SYSTEM.ADR(HandleInterruptRequest0x02), 0, IDT_INTERRUPT_GATE);
-	NewGateDescriptor(idt[03H + HW_INTERRUPT_OFFSET], gdtCodeSeg, SYSTEM.ADR(HandleInterruptRequest0x03), 0, IDT_INTERRUPT_GATE);
-	NewGateDescriptor(idt[04H + HW_INTERRUPT_OFFSET], gdtCodeSeg, SYSTEM.ADR(HandleInterruptRequest0x04), 0, IDT_INTERRUPT_GATE);
-	NewGateDescriptor(idt[05H + HW_INTERRUPT_OFFSET], gdtCodeSeg, SYSTEM.ADR(HandleInterruptRequest0x05), 0, IDT_INTERRUPT_GATE);
-	NewGateDescriptor(idt[06H + HW_INTERRUPT_OFFSET], gdtCodeSeg, SYSTEM.ADR(HandleInterruptRequest0x06), 0, IDT_INTERRUPT_GATE);
-	NewGateDescriptor(idt[07H + HW_INTERRUPT_OFFSET], gdtCodeSeg, SYSTEM.ADR(HandleInterruptRequest0x07), 0, IDT_INTERRUPT_GATE);
-	NewGateDescriptor(idt[08H + HW_INTERRUPT_OFFSET], gdtCodeSeg, SYSTEM.ADR(HandleInterruptRequest0x08), 0, IDT_INTERRUPT_GATE);
-	NewGateDescriptor(idt[09H + HW_INTERRUPT_OFFSET], gdtCodeSeg, SYSTEM.ADR(HandleInterruptRequest0x09), 0, IDT_INTERRUPT_GATE);
-	NewGateDescriptor(idt[0AH + HW_INTERRUPT_OFFSET], gdtCodeSeg, SYSTEM.ADR(HandleInterruptRequest0x0A), 0, IDT_INTERRUPT_GATE);
-	NewGateDescriptor(idt[0BH + HW_INTERRUPT_OFFSET], gdtCodeSeg, SYSTEM.ADR(HandleInterruptRequest0x0B), 0, IDT_INTERRUPT_GATE);
-	NewGateDescriptor(idt[0CH + HW_INTERRUPT_OFFSET], gdtCodeSeg, SYSTEM.ADR(HandleInterruptRequest0x0C), 0, IDT_INTERRUPT_GATE);
-	NewGateDescriptor(idt[0DH + HW_INTERRUPT_OFFSET], gdtCodeSeg, SYSTEM.ADR(HandleInterruptRequest0x0D), 0, IDT_INTERRUPT_GATE);
-	NewGateDescriptor(idt[0EH + HW_INTERRUPT_OFFSET], gdtCodeSeg, SYSTEM.ADR(HandleInterruptRequest0x0E), 0, IDT_INTERRUPT_GATE);
-	NewGateDescriptor(idt[0EH + HW_INTERRUPT_OFFSET], gdtCodeSeg, SYSTEM.ADR(HandleInterruptRequest0x0F), 0, IDT_INTERRUPT_GATE);
-	NewGateDescriptor(idt[080H], gdtCodeSeg, SYSTEM.ADR(HandleInterruptRequest0x80), 0, IDT_INTERRUPT_GATE);
+	// Syscall
+	FOR i := SYS_INTERRUPT_OFFSET TO SYS_INTERRUPT_OFFSET DO
+		NewGateDescriptor(idt[i], gdtCodeSeg, handlers[i], 0, IDT_INTERRUPT_GATE);
+	END;
 	
 	
 	// Initialize PICs
@@ -548,12 +472,13 @@ BEGIN
 	Write8(masterPortData, 00H);
 	Write8(slavePortData, 00H);
 	
+	
 	// Load IDT
 	SYSTEM.PUT32(SYSTEM.ADR(idtp.addr), SYSTEM.ADR(idt));
 	SYSTEM.PUT16(SYSTEM.ADR(idtp.size), SYSTEM.SIZE(IDT) - 1);
 	
 	LoadIDT(SYSTEM.ADR(idtp));
-	*)
+	
 END;
 
 
@@ -603,8 +528,7 @@ BEGIN
 	| KEYBOARD: // does nothing for now
 	ELSE
 		PrintLn();
-		Print("Interrupt Handler: number=", BLACK, MAGENTA); PrintHex8(interrupt, BLACK, MAGENTA);
-		//Print(", code=", BLACK, MAGENTA); PrintInt(esp, BLACK, MAGENTA);
+		Print("UNHANDLED INTERRUPT: ", BLACK, MAGENTA); PrintHex8(interrupt, BLACK, MAGENTA);
 		PrintLn();
 	END;
 
