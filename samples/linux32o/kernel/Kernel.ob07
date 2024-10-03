@@ -47,7 +47,6 @@ TYPE
 	UINT16 = WCHAR;
 	UINT8 = BYTE;
 	
-	
 	SegmentDescriptor = RECORD [noalign]
 		limit_low: UINT16;
 		base_low: UINT16;
@@ -55,12 +54,6 @@ TYPE
 	END;
 	
 	GDT = ARRAY GDT_SIZE OF SegmentDescriptor;
-	
-	
-	GDTTableDesc = RECORD [noalign]
-		size: UINT16;
-		addr: UINT32
-	END;
 	
 	GateDescriptor = RECORD [noalign]
 		handlerAddrLow, gdtCodeSeg: UINT16;
@@ -70,9 +63,7 @@ TYPE
 
 	IDT = ARRAY IDT_SIZE OF GateDescriptor;
 	
-	InterruptHandler = PROCEDURE;
-	
-	InterruptTableDesc = RECORD [noalign]
+	TableDesc = RECORD [noalign]
 		size: UINT16;
 		addr: UINT32
 	END;
@@ -232,9 +223,10 @@ END Write16;
 
 PROCEDURE [oberon] Write8(port: UINT32; value: UINT8);
 BEGIN
-	SYSTEM.CODE(66H, 8BH, 55H, 08H, (* mov    0x8(%ebp),%dx *)
-		8AH, 45H, 0CH,			(* mov    0xc(%ebp),%al *)
-		0EEH                	(* out    %al,(%dx) *)
+	SYSTEM.CODE(
+		66H, 8BH, 55H, 08H,	(* mov    0x8(%ebp),%dx *)
+		8AH, 45H, 0CH,		(* mov    0xc(%ebp),%al *)
+		0EEH                (* out    %al,(%dx) *)
 	);             	
 END Write8;
 
@@ -334,7 +326,7 @@ CONST
 	SEGMENT_FLAGS_PART = 00CH;
 
 VAR
-	gdtAddr: GDTTableDesc;
+	gdtAddr: TableDesc;
 
 	PROCEDURE NewSegmentDescriptor(VAR segment: SegmentDescriptor; base_address, limit: UINT32; access_byte, flags: UINT8);
 	VAR
@@ -424,7 +416,7 @@ VAR
 	gdtCodeSeg: UINT16;
 	gdtCodeSegOffs: INTEGER;
 	i: INTEGER;
-	idtp: InterruptTableDesc;
+	idtp: TableDesc;
 	masterPortData, slavePortData: UINT32;
 	masterPortCmd, slavePortCmd: UINT32;
 	handlers: ARRAY 256 OF UINT32;
