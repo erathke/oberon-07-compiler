@@ -1,0 +1,612 @@
+MODULE Kernel;
+IMPORT SYSTEM;
+
+CONST 
+	VideoMemoryAddr = 0b8000H;
+	ScreenWidth = 80;
+	ScreenHeight = 25;
+	
+	// Colors
+	BLACK    = 00H;
+	BLUE     = 01H;
+	GREEN    = 02H;
+	CYAN     = 03H;
+	RED      = 04H;
+	MAGENTA  = 05H;
+	BROWN    = 06H;
+	WHITE    = 07H;
+	GRAY     = 08H;
+	LBLUE    = 09H;
+	LGREEN   = 0AH;
+	LCYAN    = 0BH;
+	LRED     = 0CH;
+	LMAGENTA = 0DH;
+	YELLOW   = 0EH;
+	BWHITE   = 0FH;
+	
+	// Characters
+	SPACE = 20H;
+	
+	// GDT
+	GDT_NULL = 0;
+	GDT_CODE = 1;
+	GDT_DATA = 2;
+	
+	GDT_SIZE = 3;
+	
+	// IDT
+	IDT_SIZE = 256;
+	
+TYPE
+	Message = POINTER TO RECORD
+		i: INTEGER;
+		s: ARRAY 32 OF CHAR
+	END;
+	
+	UINT32 = INTEGER;
+	UINT16 = WCHAR;
+	UINT8 = BYTE;
+	
+	
+	SegmentDescriptor = RECORD [noalign]
+		limit_low: UINT16;
+		base_low: UINT16;
+		base_middle, access_byte, limit_and_flags, base_high: UINT8
+	END;
+	
+	GDT = ARRAY GDT_SIZE OF SegmentDescriptor;
+	
+	
+	GDTTableDesc = RECORD [noalign]
+		size: UINT16;
+		addr: UINT32
+	END;
+	
+	GateDescriptor = RECORD [noalign]
+		handlerAddrLow, gdtCodeSeg: UINT16;
+		reserved, access: UINT8;
+		handlerAddrHi: UINT16
+	END;
+
+	IDT = ARRAY IDT_SIZE OF GateDescriptor;
+	
+	InterruptHandler = PROCEDURE;
+	
+	InterruptTableDesc = RECORD [noalign]
+		size: UINT16;
+		addr: UINT32
+	END;
+	
+VAR
+	cursor: RECORD
+		line, column: INTEGER
+	END;
+
+// ----------------------------SCREEN-------------------------------------------
+
+PROCEDURE ClearScreen(bgColor: BYTE);
+VAR
+	x, y: INTEGER;
+	offset: INTEGER;
+BEGIN
+	// clear screen
+	offset := VideoMemoryAddr;
+	FOR y:= 0 TO ScreenHeight - 1 DO
+		FOR x:= 0 TO ScreenWidth - 1 DO
+			SYSTEM.PUT16(offset, LSL(bgColor, 12) + SPACE);
+			INC(offset, 2);
+		END;
+	END;
+	
+	cursor.line := 0;
+	cursor.column := 0;
+
+END ClearScreen;
+
+
+PROCEDURE PrintLn();
+BEGIN
+	INC(cursor.line);
+	cursor.column := 0;
+	IF cursor.line = ScreenHeight THEN
+		ClearScreen(BLACK);
+		cursor.line := 0;
+	END;
+END PrintLn;
+
+
+PROCEDURE Print(msg: ARRAY OF CHAR; fgColor, bgColor: BYTE);
+VAR
+	i: INTEGER;
+	offset: INTEGER;
+	ch: INTEGER;
+	msgLen: INTEGER;
+BEGIN
+	i := 0;
+	msgLen := LENGTH(msg);
+	offset := VideoMemoryAddr + (cursor.line * ScreenWidth * 2) + (cursor.column * 2);
+	WHILE i < msgLen DO
+		ch :=  LSL(bgColor, 12) + LSL(fgColor, 8) + ORD(msg[i]);
+		SYSTEM.PUT16(offset, ch);
+		INC(i); INC(offset, 2);
+	END;
+	
+	cursor.column := cursor.column + i;
+	IF cursor.column >= ScreenWidth THEN
+		PrintLn();
+	END;
+	
+END;
+
+
+PROCEDURE PrintHex8(value: BYTE; fgColor, bgColor: BYTE);
+VAR
+	str: ARRAY 3 OF CHAR;
+	hex: ARRAY 17 OF CHAR;
+	s, mask: SET;
+	i: INTEGER;
+BEGIN
+    str := "00";
+    hex := "0123456789ABCDEF";
+    mask := BITS(0FH);
+    
+    s := BITS(LSR(value, 4)) * mask;
+    i := ORD(s);
+    str[0] := hex[i];
+    
+    s := BITS(value) * mask;
+    i := ORD(s);
+    str[1] := hex[i];
+    
+    Print(str, fgColor, bgColor);
+END PrintHex8;
+
+
+PROCEDURE PrintHex32(value: INTEGER; fgColor, bgColor: BYTE);
+VAR
+	value8: BYTE;
+	i: INTEGER;
+	addr: INTEGER;
+BEGIN
+	addr := SYSTEM.ADR(value);
+	FOR i := 3 to 0 BY -1 DO
+		SYSTEM.MOVE(addr + i, SYSTEM.ADR(value8), 1);
+		PrintHex8(value8, fgColor, bgColor);
+	END;
+END PrintHex32;
+
+
+PROCEDURE IntToStr (x: INTEGER; VAR str: ARRAY OF CHAR);
+VAR
+    i, a: INTEGER;
+	zero: INTEGER;
+BEGIN
+	i := 0;
+	a := x;
+	zero := ORD('0');
+
+	IF x < 0 THEN
+		str[i] := "-";
+		a := -a;
+		x := -x;
+		INC(i);
+	END;
+
+	REPEAT
+		INC(i); a := a DIV 10
+	UNTIL a = 0;
+
+	str[i] := 0X;
+
+	REPEAT
+		DEC(i);
+		str[i] := CHR(x MOD 10 + zero);
+		x := x DIV 10
+	UNTIL x = 0
+END IntToStr;
+
+
+PROCEDURE PrintInt(i: INTEGER; fgColor, bgColor: BYTE);
+VAR
+	str: ARRAY 32 OF CHAR;
+BEGIN
+	IntToStr(i, str);
+	Print(str, fgColor, bgColor);
+END PrintInt;
+
+
+// ----------------------------KERNEL-------------------------------------------
+
+// ------------------------KERNEL: PORTS----------------------------------------
+PROCEDURE Write32(port, value: UINT32);
+BEGIN
+	// __asm__ volatile("outl %0, %1" : : "a"(_data), "Nd" (_port));
+END Write32;
+
+
+PROCEDURE Write16(port: UINT32; value: UINT16);
+BEGIN
+	// __asm__ volatile("outw %0, %1" : : "a" (_data), "Nd" (_port));
+END Write16;
+
+
+PROCEDURE [oberon] Write8(port: UINT32; value: UINT8);
+BEGIN
+	SYSTEM.CODE(
+		66H, 89H, 55H, 08H,	(* mov    %dx,0x8(%ebp) *)
+		66H, 89H, 45H, 12H,	(* mov    %ax,0x12(%ebp) *)
+		66H, 0EFH			(* out    %ax,(%dx) *)
+	);
+END Write8;
+
+
+PROCEDURE Read32(port: UINT32; VAR value: UINT32);
+BEGIN
+	//  __asm__ volatile("inl %1, %0" : "=a" (result) : "Nd" (_port));
+END Read32;
+
+
+PROCEDURE Read16(port: UINT32; VAR value: UINT16);
+BEGIN
+	// __asm__ volatile("inw %1, %0" : "=a" (result) : "Nd" (_port));
+END Read16;
+
+
+PROCEDURE Read8(port: UINT32; VAR value: UINT8);
+BEGIN
+	//  __asm__ volatile("inb %1, %0" : "=a" (result) : "Nd" (_port));
+END Read8;
+
+
+
+// ------------------------KERNEL: BOOT-----------------------------------------
+PROCEDURE Process(steps: INTEGER);
+VAR
+	i, j: INTEGER;
+	msg: Message;
+BEGIN
+	FOR i := 0 to steps DO
+		NEW(msg);
+		msg.s := ".";
+		Print(msg.s, LGREEN, BLACK);
+		FOR j := 0 TO 999999 DO END;
+		DISPOSE(msg);
+	END;
+END Process;
+
+
+PROCEDURE ShowMultibootInfo*(multiboot_structure: INTEGER; multiboot_magic: INTEGER);
+VAR
+	magic, mem_up, mem_low, boot_dev: INTEGER;
+	
+	PROCEDURE ShowMemInfo(mem: INTEGER);
+	CONST
+		KB = 1024;
+	VAR
+		mem_mkb: INTEGER;
+	BEGIN
+		PrintHex32(mem, CYAN, BLACK);
+		Print(" => [", CYAN, BLACK);
+		IF mem < KB THEN
+			PrintInt(mem, CYAN, BLACK);
+			Print(" Kbytes]", CYAN, BLACK);
+		ELSE
+			mem_mkb := mem DIV KB;
+			PrintInt(mem_mkb, CYAN, BLACK);
+			Print(" Mbytes]", CYAN, BLACK);
+		END;
+	END ShowMemInfo;
+
+BEGIN
+// https://www.gnu.org/software/grub/manual/multiboot/multiboot.html#Boot-information-format
+	SYSTEM.GET32(multiboot_structure, magic);
+	SYSTEM.GET32(multiboot_structure + 4, mem_low);
+	SYSTEM.GET32(multiboot_structure + 8, mem_up);
+	SYSTEM.GET32(multiboot_structure + 12, boot_dev);
+	
+	Print("--------------------------------------------------------------------------------", WHITE, BLACK);
+	Print("multiboot_magic: ", BLUE, BLACK); PrintHex32(multiboot_magic, CYAN, BLACK); PrintLn();
+	Print("multiboot_structure: ", BLUE, BLACK); PrintHex32(multiboot_structure, CYAN, BLACK); PrintLn();
+	Print("multiboot_structure/magic: ", BLUE, BLACK); PrintHex32(magic, CYAN, BLACK); PrintLn();
+	Print("multiboot_structure/mem_lower: ", BLUE, BLACK); ShowMemInfo(mem_low); PrintLn();
+	Print("multiboot_structure/mem_upper: ", BLUE, BLACK); ShowMemInfo(mem_up); PrintLn();
+	Print("multiboot_structure/boot_device: ", BLUE, BLACK); PrintHex32(boot_dev, CYAN, BLACK); PrintLn();
+	Print("--------------------------------------------------------------------------------", WHITE, BLACK); 
+	PrintLn();
+
+END ShowMultibootInfo;
+
+
+PROCEDURE [oberon] LoadGDT(addr: UINT32);
+BEGIN
+	SYSTEM.CODE(
+		8bH, 45H, 08H,	(* mov    0x8(%ebp), %eax *)
+		0FH, 01H, 10H	(* lgdtl  (%eax) *)
+	);
+END LoadGDT;
+
+
+PROCEDURE [extern, "reload_segs"] ReloadSegments();
+
+
+PROCEDURE InstallGDT(VAR gdt: GDT);
+CONST
+	SEGMENT_CODE_TYPE  = 09AH;
+	SEGMENT_DATA_TYPE  = 092H;
+	SEGMENT_FLAGS_PART = 00CH;
+
+VAR
+	gdtAddr: GDTTableDesc;
+
+	PROCEDURE NewSegmentDescriptor(VAR segment: SegmentDescriptor; base_address, limit: UINT32; access_byte, flags: UINT8);
+	VAR
+		s1, s2: SET;
+	BEGIN
+		s1 := BITS(base_address) * BITS(0FFFFH);
+		SYSTEM.PUT16(SYSTEM.ADR(segment.base_low), ORD(s1));
+		s1 := BITS(LSR(base_address, 16)) * BITS(0FFH);
+		SYSTEM.PUT8(SYSTEM.ADR(segment.base_middle), ORD(s1));
+		s1 := BITS(LSR(base_address, 24)) * BITS(0FFH);
+		SYSTEM.PUT8(SYSTEM.ADR(segment.base_high), ORD(s1));
+		
+		s1 := BITS(limit) * BITS(0FFFFH);
+		SYSTEM.PUT16(SYSTEM.ADR(segment.limit_low), ORD(s1));
+		
+		s1 := BITS(LSR(limit, 16)) * BITS(0FH);
+		SYSTEM.PUT8(SYSTEM.ADR(segment.limit_and_flags), ORD(s1));
+		
+		s1 := BITS(segment.limit_and_flags);
+		s2 := BITS(LSL(flags, 4)) * BITS(0F0H);
+		s1 := s1 + s2;
+		SYSTEM.PUT8(SYSTEM.ADR(segment.limit_and_flags), ORD(s1));
+		
+		segment.access_byte := access_byte;
+	END;
+
+BEGIN
+	// segments
+	NewSegmentDescriptor(gdt[GDT_NULL], 0, 0, 0, 0); // null
+	NewSegmentDescriptor(gdt[GDT_CODE], 0, 0FFFFFH, SEGMENT_CODE_TYPE, SEGMENT_FLAGS_PART); // code
+	NewSegmentDescriptor(gdt[GDT_DATA], 0, 0FFFFFH, SEGMENT_DATA_TYPE, SEGMENT_FLAGS_PART); // data
+	
+	// Load GDT
+	SYSTEM.PUT32(SYSTEM.ADR(gdtAddr.addr), SYSTEM.ADR(gdt));
+	SYSTEM.PUT16(SYSTEM.ADR(gdtAddr.size), SYSTEM.SIZE(GDT) - 1);
+	
+	LoadGDT(SYSTEM.ADR(gdtAddr));
+	ReloadSegments();
+
+END InstallGDT;
+
+
+// ----------------------KERNEL: INTERRUPTS-------------------------------------
+PROCEDURE NewGateDescriptor(VAR gd: GateDescriptor; gdtCodeSeg: UINT16; handlerAddr: UINT32; privilegeLvl, _type: UINT8);
+CONST 
+	IDT_DESC_PRESENT = 080H;
+VAR
+	accessMask, presentMask, privMask, _typeMask: SET;
+	s1: SET;
+BEGIN
+	s1 := BITS(handlerAddr) * BITS(0FFFFH);
+	SYSTEM.PUT16(SYSTEM.ADR(gd.handlerAddrLow), ORD(s1));
+	s1 := BITS(LSR(handlerAddr, 16)) * BITS(0FFFFH);
+	SYSTEM.PUT16(SYSTEM.ADR(gd.handlerAddrHi), ORD(s1));
+	gd.gdtCodeSeg := gdtCodeSeg;
+	
+	presentMask := BITS(IDT_DESC_PRESENT);
+	privMask := BITS(LSL(ORD(BITS(privilegeLvl) * {03H}), 5));
+	_typeMask := BITS(_type);
+	accessMask := presentMask + privMask + _typeMask;
+	
+	gd.access := ORD(accessMask);
+	gd.reserved := 0;
+
+END NewGateDescriptor;
+
+
+PROCEDURE LoadIDT(addr: UINT32);
+BEGIN
+	SYSTEM.CODE(
+		8bH, 45H, 08H,	(* mov    0x8(%ebp), %eax *)
+		0FH, 01H, 18H	(* lidt  (%eax) *)
+	);
+	Print("IDT Loaded.", YELLOW, BLUE); PrintLn();
+END;
+
+PROCEDURE [extern, "InterruptIgnore"] InterruptIgnore();
+
+PROCEDURE [extern, "HandleException0x00"] HandleException0x00();
+PROCEDURE [extern, "HandleException0x01"] HandleException0x01();
+PROCEDURE [extern, "HandleException0x02"] HandleException0x02();
+PROCEDURE [extern, "HandleException0x03"] HandleException0x03();
+PROCEDURE [extern, "HandleException0x04"] HandleException0x04();
+PROCEDURE [extern, "HandleException0x05"] HandleException0x05();
+PROCEDURE [extern, "HandleException0x06"] HandleException0x06();
+PROCEDURE [extern, "HandleException0x07"] HandleException0x07();
+PROCEDURE [extern, "HandleException0x08"] HandleException0x08();
+PROCEDURE [extern, "HandleException0x09"] HandleException0x09();
+PROCEDURE [extern, "HandleException0x0A"] HandleException0x0A();
+PROCEDURE [extern, "HandleException0x0B"] HandleException0x0B();
+PROCEDURE [extern, "HandleException0x0C"] HandleException0x0C();
+PROCEDURE [extern, "HandleException0x0D"] HandleException0x0D();
+PROCEDURE [extern, "HandleException0x0E"] HandleException0x0E();
+PROCEDURE [extern, "HandleException0x0F"] HandleException0x0F();
+PROCEDURE [extern, "HandleException0x10"] HandleException0x10();
+PROCEDURE [extern, "HandleException0x11"] HandleException0x11();
+PROCEDURE [extern, "HandleException0x12"] HandleException0x12();
+PROCEDURE [extern, "HandleException0x13"] HandleException0x13();
+
+PROCEDURE [extern, "HandleInterruptRequest0x00"] HandleInterruptRequest0x00();
+PROCEDURE [extern, "HandleInterruptRequest0x01"] HandleInterruptRequest0x01();
+PROCEDURE [extern, "HandleInterruptRequest0x02"] HandleInterruptRequest0x02();
+PROCEDURE [extern, "HandleInterruptRequest0x03"] HandleInterruptRequest0x03();
+PROCEDURE [extern, "HandleInterruptRequest0x04"] HandleInterruptRequest0x04();
+PROCEDURE [extern, "HandleInterruptRequest0x05"] HandleInterruptRequest0x05();
+PROCEDURE [extern, "HandleInterruptRequest0x06"] HandleInterruptRequest0x06();
+PROCEDURE [extern, "HandleInterruptRequest0x07"] HandleInterruptRequest0x07();
+PROCEDURE [extern, "HandleInterruptRequest0x08"] HandleInterruptRequest0x08();
+PROCEDURE [extern, "HandleInterruptRequest0x09"] HandleInterruptRequest0x09();
+PROCEDURE [extern, "HandleInterruptRequest0x0A"] HandleInterruptRequest0x0A();
+PROCEDURE [extern, "HandleInterruptRequest0x0B"] HandleInterruptRequest0x0B();
+PROCEDURE [extern, "HandleInterruptRequest0x0C"] HandleInterruptRequest0x0C();
+PROCEDURE [extern, "HandleInterruptRequest0x0D"] HandleInterruptRequest0x0D();
+PROCEDURE [extern, "HandleInterruptRequest0x0E"] HandleInterruptRequest0x0E();
+PROCEDURE [extern, "HandleInterruptRequest0x0F"] HandleInterruptRequest0x0F();
+PROCEDURE [extern, "HandleInterruptRequest0x31"] HandleInterruptRequest0x31();
+PROCEDURE [extern, "HandleInterruptRequest0x80"] HandleInterruptRequest0x80();
+
+PROCEDURE [extern, "InstallIDT"] CInstallIDT(hardwareInterruptOffset, codeSegment: UINT16);
+
+PROCEDURE InstallIDT(VAR idt: IDT; VAR gdt: GDT);
+CONST
+	IDT_INTERRUPT_GATE = 0EH;
+	HW_INTERRUPT_OFFSET = 20H;
+VAR
+	
+	gdtCodeSeg: UINT16;
+	gdtCodeSegOffs: INTEGER;
+	hardwareOffset: UINT16;
+
+	i: INTEGER;
+	handlerAddr: UINT32;
+	idtp: InterruptTableDesc;
+	masterPortData, slavePortData: UINT32;
+	masterPortCmd, slavePortCmd: UINT32;
+
+BEGIN
+	gdtCodeSegOffs := SYSTEM.ADR(gdt[GDT_CODE]) - SYSTEM.ADR(gdt[GDT_NULL]);
+	SYSTEM.PUT16(SYSTEM.ADR(gdtCodeSeg), gdtCodeSegOffs);
+	SYSTEM.PUT16(SYSTEM.ADR(hardwareOffset), HW_INTERRUPT_OFFSET);
+	
+	CInstallIDT(hardwareOffset,  gdtCodeSeg);
+	
+	(*
+	handlerAddr := SYSTEM.ADR(InterruptIgnore);
+	FOR i := 0 TO IDT_SIZE - 1 DO
+		NewGateDescriptor(idt[i], gdtCodeSeg, handlerAddr, 0, IDT_INTERRUPT_GATE);
+	END;
+	
+	
+	NewGateDescriptor(idt[00H], gdtCodeSeg, SYSTEM.ADR(HandleException0x00), 0, IDT_INTERRUPT_GATE);
+	NewGateDescriptor(idt[01H], gdtCodeSeg, SYSTEM.ADR(HandleException0x01), 0, IDT_INTERRUPT_GATE);
+	NewGateDescriptor(idt[02H], gdtCodeSeg, SYSTEM.ADR(HandleException0x02), 0, IDT_INTERRUPT_GATE);
+	NewGateDescriptor(idt[03H], gdtCodeSeg, SYSTEM.ADR(HandleException0x03), 0, IDT_INTERRUPT_GATE);
+	NewGateDescriptor(idt[04H], gdtCodeSeg, SYSTEM.ADR(HandleException0x04), 0, IDT_INTERRUPT_GATE);
+	NewGateDescriptor(idt[05H], gdtCodeSeg, SYSTEM.ADR(HandleException0x05), 0, IDT_INTERRUPT_GATE);
+	NewGateDescriptor(idt[06H], gdtCodeSeg, SYSTEM.ADR(HandleException0x06), 0, IDT_INTERRUPT_GATE);
+	NewGateDescriptor(idt[07H], gdtCodeSeg, SYSTEM.ADR(HandleException0x07), 0, IDT_INTERRUPT_GATE);
+	NewGateDescriptor(idt[08H], gdtCodeSeg, SYSTEM.ADR(HandleException0x08), 0, IDT_INTERRUPT_GATE);
+	NewGateDescriptor(idt[09H], gdtCodeSeg, SYSTEM.ADR(HandleException0x09), 0, IDT_INTERRUPT_GATE);
+	NewGateDescriptor(idt[0AH], gdtCodeSeg, SYSTEM.ADR(HandleException0x0A), 0, IDT_INTERRUPT_GATE);
+	NewGateDescriptor(idt[0BH], gdtCodeSeg, SYSTEM.ADR(HandleException0x0B), 0, IDT_INTERRUPT_GATE);
+	NewGateDescriptor(idt[0CH], gdtCodeSeg, SYSTEM.ADR(HandleException0x0C), 0, IDT_INTERRUPT_GATE);
+	NewGateDescriptor(idt[0DH], gdtCodeSeg, SYSTEM.ADR(HandleException0x0D), 0, IDT_INTERRUPT_GATE);
+	NewGateDescriptor(idt[0EH], gdtCodeSeg, SYSTEM.ADR(HandleException0x0E), 0, IDT_INTERRUPT_GATE);
+	NewGateDescriptor(idt[0FH], gdtCodeSeg, SYSTEM.ADR(HandleException0x0F), 0, IDT_INTERRUPT_GATE);
+	NewGateDescriptor(idt[10H], gdtCodeSeg, SYSTEM.ADR(HandleException0x10), 0, IDT_INTERRUPT_GATE);
+	NewGateDescriptor(idt[11H], gdtCodeSeg, SYSTEM.ADR(HandleException0x11), 0, IDT_INTERRUPT_GATE);
+	NewGateDescriptor(idt[12H], gdtCodeSeg, SYSTEM.ADR(HandleException0x12), 0, IDT_INTERRUPT_GATE);
+	NewGateDescriptor(idt[13H], gdtCodeSeg, SYSTEM.ADR(HandleException0x13), 0, IDT_INTERRUPT_GATE);
+	
+	
+	NewGateDescriptor(idt[00H + HW_INTERRUPT_OFFSET], gdtCodeSeg, SYSTEM.ADR(HandleInterruptRequest0x00), 0, IDT_INTERRUPT_GATE);
+	NewGateDescriptor(idt[01H + HW_INTERRUPT_OFFSET], gdtCodeSeg, SYSTEM.ADR(HandleInterruptRequest0x01), 0, IDT_INTERRUPT_GATE);
+	NewGateDescriptor(idt[02H + HW_INTERRUPT_OFFSET], gdtCodeSeg, SYSTEM.ADR(HandleInterruptRequest0x02), 0, IDT_INTERRUPT_GATE);
+	NewGateDescriptor(idt[03H + HW_INTERRUPT_OFFSET], gdtCodeSeg, SYSTEM.ADR(HandleInterruptRequest0x03), 0, IDT_INTERRUPT_GATE);
+	NewGateDescriptor(idt[04H + HW_INTERRUPT_OFFSET], gdtCodeSeg, SYSTEM.ADR(HandleInterruptRequest0x04), 0, IDT_INTERRUPT_GATE);
+	NewGateDescriptor(idt[05H + HW_INTERRUPT_OFFSET], gdtCodeSeg, SYSTEM.ADR(HandleInterruptRequest0x05), 0, IDT_INTERRUPT_GATE);
+	NewGateDescriptor(idt[06H + HW_INTERRUPT_OFFSET], gdtCodeSeg, SYSTEM.ADR(HandleInterruptRequest0x06), 0, IDT_INTERRUPT_GATE);
+	NewGateDescriptor(idt[07H + HW_INTERRUPT_OFFSET], gdtCodeSeg, SYSTEM.ADR(HandleInterruptRequest0x07), 0, IDT_INTERRUPT_GATE);
+	NewGateDescriptor(idt[08H + HW_INTERRUPT_OFFSET], gdtCodeSeg, SYSTEM.ADR(HandleInterruptRequest0x08), 0, IDT_INTERRUPT_GATE);
+	NewGateDescriptor(idt[09H + HW_INTERRUPT_OFFSET], gdtCodeSeg, SYSTEM.ADR(HandleInterruptRequest0x09), 0, IDT_INTERRUPT_GATE);
+	NewGateDescriptor(idt[0AH + HW_INTERRUPT_OFFSET], gdtCodeSeg, SYSTEM.ADR(HandleInterruptRequest0x0A), 0, IDT_INTERRUPT_GATE);
+	NewGateDescriptor(idt[0BH + HW_INTERRUPT_OFFSET], gdtCodeSeg, SYSTEM.ADR(HandleInterruptRequest0x0B), 0, IDT_INTERRUPT_GATE);
+	NewGateDescriptor(idt[0CH + HW_INTERRUPT_OFFSET], gdtCodeSeg, SYSTEM.ADR(HandleInterruptRequest0x0C), 0, IDT_INTERRUPT_GATE);
+	NewGateDescriptor(idt[0DH + HW_INTERRUPT_OFFSET], gdtCodeSeg, SYSTEM.ADR(HandleInterruptRequest0x0D), 0, IDT_INTERRUPT_GATE);
+	NewGateDescriptor(idt[0EH + HW_INTERRUPT_OFFSET], gdtCodeSeg, SYSTEM.ADR(HandleInterruptRequest0x0E), 0, IDT_INTERRUPT_GATE);
+	NewGateDescriptor(idt[0EH + HW_INTERRUPT_OFFSET], gdtCodeSeg, SYSTEM.ADR(HandleInterruptRequest0x0F), 0, IDT_INTERRUPT_GATE);
+	NewGateDescriptor(idt[080H], gdtCodeSeg, SYSTEM.ADR(HandleInterruptRequest0x80), 0, IDT_INTERRUPT_GATE);
+	
+	
+	// Initialize PICs
+	masterPortCmd := 020H;
+	masterPortData := 021H;
+	slavePortCmd := 0A0H;
+	slavePortData := 0A1H;
+	
+	Write8(masterPortCmd, 011H);
+	Write8(slavePortCmd, 011H);
+	
+	Write8(masterPortData, HW_INTERRUPT_OFFSET);
+	Write8(slavePortData, HW_INTERRUPT_OFFSET + 8);
+	
+	Write8(masterPortData, 04H);
+	Write8(slavePortData, 02H);
+	
+	Write8(masterPortData, 01H);
+	Write8(slavePortData, 01H);
+	
+	Write8(masterPortData, 00H);
+	Write8(slavePortData, 00H);
+	
+	// Load IDT
+	SYSTEM.PUT32(SYSTEM.ADR(idtp.addr), SYSTEM.ADR(idt));
+	SYSTEM.PUT16(SYSTEM.ADR(idtp.size), SYSTEM.SIZE(IDT) - 1);
+	
+	LoadIDT(SYSTEM.ADR(idtp));
+	*)
+END;
+
+
+PROCEDURE kernelMain*(multiboot_structure: INTEGER; multiboot_magic: INTEGER);
+VAR
+	gdt: GDT;
+	idt: IDT;
+BEGIN
+	ClearScreen(BLACK);
+	ShowMultibootInfo(multiboot_structure, multiboot_magic);
+	
+	SYSTEM.CODE(0FAH); (* cli *)
+	InstallGDT(gdt);
+	InstallIDT(idt, gdt);
+	SYSTEM.CODE(0FBH); (* sti *)
+	
+	Print("Booting OS...", BLUE, BLACK);
+	Process(100); PrintHex8(22, YELLOW, BROWN); PrintLn();
+	WHILE TRUE DO END;
+END;
+
+
+PROCEDURE kernelPrint*(addr, size: INTEGER);
+VAR
+	msg: ARRAY 32 OF CHAR;
+BEGIN
+	SYSTEM.MOVE(addr, SYSTEM.ADR(msg), MIN(size, 32));
+	Print(msg, WHITE, BLACK);
+END kernelPrint;
+
+
+PROCEDURE kernelPrintInt*(value: INTEGER);
+BEGIN
+	PrintHex32(value, WHITE, BLACK);
+	PrintLn();
+END kernelPrintInt;
+
+
+PROCEDURE [oberon] kernelInterruptHandler*(interrupt: UINT8; code: UINT32);
+BEGIN
+
+	PrintLn();
+	Print("Interrupt Handler: number=", BLACK, MAGENTA); PrintHex32(interrupt, BLACK, MAGENTA);
+	Print(", code=", BLACK, MAGENTA); PrintInt(code, BLACK, MAGENTA);
+	PrintLn();
+	
+	Write8(020H, 020H);
+	IF interrupt >= 28H THEN
+		Write8(0A0H, 020H);
+	END;
+	
+END kernelInterruptHandler;
+
+
+END Kernel.
