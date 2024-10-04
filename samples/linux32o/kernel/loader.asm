@@ -23,6 +23,7 @@ section '.multiboot'
 section '.text' executable
 	public loader                    ; the entry symbol for ELF
 	public reload_segs
+	public _stop
 	public set_handlers
 	
 	extrn kernelMain
@@ -36,12 +37,11 @@ loader:
     push eax ; multiboot_magic
     push ebx ; multiboot_structure
     call kernelMain
-    
-    push bye.size
-    push bye
-    call kernelPrint
 
 _stop:
+	push bye.size
+    push bye
+    call kernelPrint
     cli
     hlt
     jmp _stop
@@ -58,7 +58,7 @@ reload_segs:
 
 flush_cs:
 	ret
-
+	
 
 ; Interrupts
 include 'interrupts.asm'

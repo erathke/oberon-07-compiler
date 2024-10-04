@@ -71,8 +71,10 @@ common_interrupt_handler:               ; the common parts of the generic interr
     push ebx
     push eax
 	
+	push esp
 	push dword [interruptnumber]
 	call kernelInterruptHandler
+	mov esp, eax
 	
 	; restore the registers
 	pop eax

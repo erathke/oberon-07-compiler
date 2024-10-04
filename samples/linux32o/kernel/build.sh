@@ -2,7 +2,7 @@
 
 LDFLAGS="-T linker.ld --build-id=none"
 DEF="-def API_sys"
-OPTS="-entry kernelInit -rtl RTL_sys"
+OPTS="-entry kernelInit -rtl RTL_metal"
 OBC="../../../compilerX"
 FASM="../../../fasm"
 KERNEL_DIR="bin"

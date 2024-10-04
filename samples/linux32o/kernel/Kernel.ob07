@@ -38,6 +38,14 @@ CONST
 	// IDT
 	IDT_SIZE = 256;
 	
+	// SYSCALL
+	SYS_exit = 1;
+	SYS_write = 4;
+	
+	// In/Out
+	STDIN = 0;
+	STDOUT = 1;
+	
 TYPE
 	Message = POINTER TO RECORD
 		i: INTEGER;
@@ -67,6 +75,12 @@ TYPE
 	TableDesc = RECORD [noalign]
 		size: UINT16;
 		addr: UINT32
+	END;
+	
+	CPU = RECORD [noalign]
+		eax, ebx, ecx, edx: UINT32;
+        esi, edi, ebp: UINT32;
+        error, eip, cs, eflags, esp, ss: UINT32
 	END;
 	
 VAR
@@ -229,6 +243,24 @@ END PrintInt;
 
 // ----------------------------KERNEL-------------------------------------------
 
+
+PROCEDURE [oberon-] syscall(eax, ebx, ecx, edx: INTEGER): INTEGER;
+BEGIN
+    SYSTEM.CODE(
+    053H,               (*  push    ebx                    *)
+    08BH, 045H, 008H,   (*  mov     eax, dword [ebp +  8]  *)
+    08BH, 05DH, 00CH,   (*  mov     ebx, dword [ebp + 12]  *)
+    08BH, 04DH, 010H,   (*  mov     ecx, dword [ebp + 16]  *)
+    08BH, 055H, 014H,   (*  mov     edx, dword [ebp + 20]  *)
+    0CDH, 080H,         (*  int     128                    *)
+    05BH,               (*  pop     ebx                    *)
+    05DH,               (*  pop     ebp                    *)
+    0C2H, 010H, 000H    (*  ret     16                     *)
+    );
+    RETURN 0
+END syscall;
+
+
 // ------------------------KERNEL: BOOT-----------------------------------------
 PROCEDURE Process(steps: INTEGER);
 VAR
@@ -241,6 +273,7 @@ BEGIN
 		Print(msg.s, LGREEN, BLACK);
 		FOR j := 0 TO 999999 DO END;
 		DISPOSE(msg);
+		ASSERT(i # 84);
 	END;
 END Process;
 
@@ -416,7 +449,7 @@ BEGIN
 		NewGateDescriptor(idt[i], gdtCodeSeg, handlers[i], 0, IDT_INTERRUPT_GATE);
 	END;
 	
-	// Syscall
+	// Syscalls
 	FOR i := SYS_INTERRUPT_OFFSET TO SYS_INTERRUPT_OFFSET DO
 		NewGateDescriptor(idt[i], gdtCodeSeg, handlers[i], 0, IDT_INTERRUPT_GATE);
 	END;
@@ -477,7 +510,7 @@ VAR
 BEGIN
 	ClearScreen(BLACK);
 	ShowMultibootInfo(multiboot_structure, multiboot_magic);
-	
+
 	CreateDevices();
 	
 	DisableInterrupts();
@@ -492,11 +525,6 @@ BEGIN
 	WHILE TRUE DO END;
 END;
 
-
-PROCEDURE Test*(VAR p: UINT8);
-BEGIN
-	p := 10;
-END Test;
 
 PROCEDURE kernelPrint*(addr, size: INTEGER);
 VAR
@@ -514,12 +542,27 @@ BEGIN
 END kernelPrintInt;
 
 
-PROCEDURE [oberon] kernelInterruptHandler*(interrupt: UINT8);
+
+PROCEDURE [extern, "_stop"] Halt();
+
+
+PROCEDURE GetSyscall(esp: UINT32; VAR cpu: CPU);
+BEGIN
+	SYSTEM.GET(esp, cpu.eax);
+	SYSTEM.GET(esp + 4, cpu.ebx);
+	SYSTEM.GET(esp + 8, cpu.ecx);
+	SYSTEM.GET(esp + 12, cpu.edx);
+END GetSyscall; 
+
+
+PROCEDURE [oberon] kernelInterruptHandler*(interrupt: UINT8; esp: UINT32): UINT32;
 CONST
 	TIMER = 020H;
 	KEYBOARD = 021H;
+	SYSCALL = 0A0H;
 VAR
 	key: CHAR;
+	cpu: CPU;
 BEGIN
 
 	CASE interrupt OF
@@ -527,6 +570,15 @@ BEGIN
 	| KEYBOARD:
 		IF Devices.ReadKey(keyboard, key) THEN
 			PrintChar(key, BLACK, MAGENTA);
+		END;
+	| SYSCALL:
+		GetSyscall(esp, cpu);
+		CASE cpu.eax OF
+		| SYS_exit: Halt();
+		| SYS_write:
+			kernelPrint(cpu.ecx, cpu.edx);
+		ELSE
+			PrintLn(); Print("Unknown syscall:", BROWN, YELLOW); 
 		END;
 	ELSE
 		PrintLn();
@@ -540,6 +592,7 @@ BEGIN
 		Devices.Write8(slaveCmd, 020H);
 	END;
 	
+	RETURN esp
 	
 END kernelInterruptHandler;
 
