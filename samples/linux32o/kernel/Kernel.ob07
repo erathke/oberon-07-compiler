@@ -5,6 +5,7 @@ CONST
 	VideoMemoryAddr = 0b8000H;
 	ScreenWidth = 80;
 	ScreenHeight = 25;
+	EOL = 0AX;
 	
 	// Colors
 	BLACK    = 00H;
@@ -115,21 +116,29 @@ VAR
 	offset: INTEGER;
 	ch: INTEGER;
 	msgLen: INTEGER;
+	c: CHAR;
 BEGIN
 	i := 0;
 	msgLen := LENGTH(msg);
 	offset := VideoMemoryAddr + (cursor.line * ScreenWidth * 2) + (cursor.column * 2);
 	WHILE i < msgLen DO
-		ch :=  LSL(bgColor, 12) + LSL(fgColor, 8) + ORD(msg[i]);
-		SYSTEM.PUT16(offset, ch);
-		INC(i); INC(offset, 2);
+		c := msg[i];
+		CASE c OF
+		|EOL:
+			PrintLn();
+			offset := VideoMemoryAddr + (cursor.line * ScreenWidth * 2) + (cursor.column * 2);
+		ELSE
+			ch :=  LSL(bgColor, 12) + LSL(fgColor, 8) + ORD(c);
+			SYSTEM.PUT16(offset, ch);
+			INC(offset, 2);
+			INC(cursor.column);
+		END;
+		INC(i);
+		
+		IF cursor.column >= ScreenWidth THEN
+			PrintLn();
+		END;
 	END;
-	
-	cursor.column := cursor.column + i;
-	IF cursor.column >= ScreenWidth THEN
-		PrintLn();
-	END;
-	
 END;
 
 
@@ -179,7 +188,7 @@ BEGIN
 END PrintHex32;
 
 
-PROCEDURE IntToStr (x: INTEGER; VAR str: ARRAY OF CHAR);
+PROCEDURE IntToStr(x: INTEGER; VAR str: ARRAY OF CHAR);
 VAR
     i, a: INTEGER;
 	zero: INTEGER;
@@ -525,7 +534,7 @@ BEGIN
 		PrintLn();
 	END;
 
-	// Acknowledge the PICs to message received
+	// Acknowledge the PICs for message received
 	Devices.Write8(masterCmd, 020H);
 	IF interrupt >= 28H THEN
 		Devices.Write8(slaveCmd, 020H);

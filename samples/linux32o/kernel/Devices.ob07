@@ -1,0 +1,153 @@
+MODULE Devices;
+IMPORT SYSTEM;
+
+TYPE
+	
+	UINT32 = INTEGER;
+	UINT16 = WCHAR;
+	UINT8 = BYTE;
+
+	Device* = RECORD
+	END;
+	
+	Port* = RECORD (Device)
+		number: BYTE
+	END;
+	
+	Keyboard* = RECORD (Device)
+		cmd, data: Port
+	END;
+
+
+PROCEDURE NewPort*(VAR port: Port; number: BYTE);
+BEGIN
+	port.number := number;
+END NewPort;
+
+
+PROCEDURE [oberon] write8(port: UINT32; value: UINT8);
+BEGIN
+	SYSTEM.CODE(
+		66H, 8BH, 55H, 08H,	(* mov    0x8(%ebp),%dx *)
+		8AH, 45H, 0CH,		(* mov    0xc(%ebp),%al *)
+		0EEH                (* out    %al,(%dx) *)
+	);
+END write8;
+
+
+
+PROCEDURE [oberon] read8(port: UINT32; VAR data: UINT8);
+BEGIN
+	SYSTEM.CODE(
+		66H, 8BH, 55H, 08H,	(* mov	0x8(%ebp),%dx	*)
+		0ECH,              	(* in	(%dx),%al		*)
+		8BH, 5DH, 0CH,      (* mov	0xc(%ebp),%ebx	*)
+		89H, 03H            (* mov	%eax,(%ebx)		*)
+	);
+END read8;
+
+
+PROCEDURE Write8*(VAR port: Port; data: UINT8);
+BEGIN
+	write8(port.number, data);
+END Write8;
+
+
+PROCEDURE Read8*(VAR port: Port; VAR data: UINT8);
+BEGIN
+	read8(port.number, data);
+END Read8;
+
+
+PROCEDURE NewKeyboard*(VAR kbd: Keyboard);
+BEGIN
+	NewPort(kbd.cmd, 064H);
+	NewPort(kbd.data, 060H);
+END NewKeyboard;
+
+
+PROCEDURE InitKeyboard*(VAR kbd: Keyboard);
+VAR
+	s1, s2: SET;
+	status: UINT8;
+BEGIN
+	
+	Write8(kbd.cmd, 0AEH);
+	Write8(kbd.cmd, 020H);
+	
+	Read8(kbd.data, status);
+	s1 := BITS(status) + BITS(1H);
+	s2 := BITS(0EFH); // ~0x10
+	s1 := s1 * s2;
+	SYSTEM.PUT8(SYSTEM.ADR(status), ORD(s1));
+
+	Write8(kbd.cmd, 060H);
+	Write8(kbd.data, status);
+	Write8(kbd.data, 0F4H);
+	
+	
+END InitKeyboard;
+
+
+PROCEDURE ReadKey*(VAR kbd: Keyboard; VAR key: CHAR): BOOLEAN;
+VAR
+	code: UINT8;
+	read: BOOLEAN;
+BEGIN 
+
+	Read8(kbd.data, code);
+	IF code < 080H THEN
+		read := TRUE;
+		CASE code OF
+		|02H: key := '1';
+		|03H: key := '2';
+		|04H: key := '3';
+		|05H: key := '4';
+		|06H: key := '5';
+		|07H: key := '6';
+		|08H: key := '7';
+		|09H: key := '8';
+		|0AH: key := '9';
+		|0BH: key := '0';
+		|10H: key := 'q';
+		|11H: key := 'w';
+		|12H: key := 'e';
+		|13H: key := 'r';
+		|14H: key := 't';
+		|15H: key := 'z';
+		|16H: key := 'u';
+		|17H: key := 'i';
+		|18H: key := 'o';
+		|19H: key := 'p';
+		|1EH: key := 'a';
+		|1FH: key := 's';
+		|20H: key := 'd';
+		|21H: key := 'f';
+		|22H: key := 'g';
+		|23H: key := 'h';
+		|24H: key := 'j';
+		|25H: key := 'k';
+		|26H: key := 'l';
+		|2CH: key := 'y';
+		|2DH: key := 'x';
+		|2EH: key := 'c';
+		|2FH: key := 'v';
+		|30H: key := 'b';
+		|31H: key := 'n';
+		|32H: key := 'm';
+		|33H: key := ',';
+		|34H: key := '.';
+		|35H: key := '-';
+		|1CH: key := 0AX;
+		|39H: key := ' ';
+		ELSE
+			//read := FALSE;
+		END;
+	END;
+	
+	RETURN read
+	
+END ReadKey;
+
+
+END Devices.

@@ -27,7 +27,7 @@ section '.text' executable
 	
 	extrn kernelMain
 	extrn kernelPrint
-	;extrn kernelPrintInt
+	extrn kernelPrintInt
 	extrn kernelInterruptHandler
 
 loader:
@@ -58,13 +58,15 @@ reload_segs:
 
 flush_cs:
 	ret
-	
+
+
 ; Interrupts
 include 'interrupts.asm'
 
 
 section '.data'
 bye db 'Bye!',0
+key: rb 1
 
 section '.bss' writeable
 .space rb 128*1024; # 128k
