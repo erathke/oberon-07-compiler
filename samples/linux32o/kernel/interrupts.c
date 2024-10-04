@@ -80,7 +80,16 @@ static inline unsigned char read8(Port port) {
 	return data;
 }
 
-static void installKeyboard() {
+
+unsigned char CRead8(unsigned int port) {
+	unsigned char data = 0;
+	__asm__ volatile("inb %1, %0" : "=a" (data) : "Nd" (port));
+	return data;
+}
+
+
+
+void installKeyboard() {
 	
 	while(read8(kbdCmd) & 0x1)
         read8(kbdData);
@@ -91,6 +100,7 @@ static void installKeyboard() {
 	write8(kbdCmd, 0x60);
 	write8(kbdData, status);
 	write8(kbdData, 0xF4);
+	
 }
 
 static void setTableEntry(unsigned char interrupt,
@@ -189,9 +199,11 @@ void InstallIDT(unsigned short hardwareInterruptOffset, unsigned short CodeSegme
 	print("interrupts active.");
 }
 
+/*
 static void onKeyDown(char c) {
 	print(&c);
 }
+*/
 
 unsigned int CKernelInterruptHandler(unsigned char interrupt, unsigned int esp) {
 	
@@ -200,7 +212,7 @@ unsigned int CKernelInterruptHandler(unsigned char interrupt, unsigned int esp) 
 	
 	print("InterruptHandler:"); kernelPrintInt(interrupt); print(","); kernelPrintInt(esp);
 	
-	
+	/*
 	switch (interrupt) {
 		case 0x21: 
 			unsigned char key = read8(kbdData);
@@ -263,7 +275,7 @@ unsigned int CKernelInterruptHandler(unsigned char interrupt, unsigned int esp) 
 			//kernelPrintInt(interrupt); print(",");
 			break;
 	}
-	
+	*/
 	write8(picMasterCmd, 0x20);
 	if(hwInterruptOffset + 8 <= interrupt)
 		write8(picSlaveCmd, 0x20);

@@ -1,5 +1,5 @@
 MODULE Kernel;
-IMPORT SYSTEM;
+IMPORT SYSTEM, Devices;
 
 CONST 
 	VideoMemoryAddr = 0b8000H;
@@ -56,7 +56,7 @@ TYPE
 	GDT = ARRAY GDT_SIZE OF SegmentDescriptor;
 	
 	GateDescriptor = RECORD [noalign]
-		handlerAddrLow, gdtCodeSeg: UINT16;
+		handlerAddrLow, codeSeg: UINT16;
 		reserved, access: UINT8;
 		handlerAddrHi: UINT16
 	END;
@@ -72,6 +72,9 @@ VAR
 	cursor: RECORD
 		line, column: INTEGER
 	END;
+	masterCmd, masterData: Devices.Port;
+	slaveCmd, slaveData: Devices.Port;
+	keyboard: Devices.Keyboard;
 
 // ----------------------------SCREEN-------------------------------------------
 
@@ -128,6 +131,15 @@ BEGIN
 	END;
 	
 END;
+
+
+PROCEDURE PrintChar(ch: CHAR; fgColor, bgColor: BYTE);
+VAR
+	s: ARRAY 2 OF CHAR;
+BEGIN
+	s[0] := ch;
+	Print(s, fgColor, bgColor);
+END PrintChar;
 
 
 PROCEDURE PrintHex8(value: BYTE; fgColor, bgColor: BYTE);
@@ -207,47 +219,6 @@ END PrintInt;
 
 
 // ----------------------------KERNEL-------------------------------------------
-
-// ------------------------KERNEL: PORTS----------------------------------------
-PROCEDURE Write32(port, value: UINT32);
-BEGIN
-	// __asm__ volatile("outl %0, %1" : : "a"(_data), "Nd" (_port));
-END Write32;
-
-
-PROCEDURE Write16(port: UINT32; value: UINT16);
-BEGIN
-	// __asm__ volatile("outw %0, %1" : : "a" (_data), "Nd" (_port));
-END Write16;
-
-
-PROCEDURE [oberon] Write8(port: UINT32; value: UINT8);
-BEGIN
-	SYSTEM.CODE(
-		66H, 8BH, 55H, 08H,	(* mov    0x8(%ebp),%dx *)
-		8AH, 45H, 0CH,		(* mov    0xc(%ebp),%al *)
-		0EEH                (* out    %al,(%dx) *)
-	);             	
-END Write8;
-
-
-PROCEDURE Read32(port: UINT32; VAR value: UINT32);
-BEGIN
-	//  __asm__ volatile("inl %1, %0" : "=a" (result) : "Nd" (_port));
-END Read32;
-
-
-PROCEDURE Read16(port: UINT32; VAR value: UINT16);
-BEGIN
-	// __asm__ volatile("inw %1, %0" : "=a" (result) : "Nd" (_port));
-END Read16;
-
-
-PROCEDURE Read8(port: UINT32; VAR value: UINT8);
-BEGIN
-	//  __asm__ volatile("inb %1, %0" : "=a" (result) : "Nd" (_port));
-END Read8;
-
 
 // ------------------------KERNEL: BOOT-----------------------------------------
 PROCEDURE Process(steps: INTEGER);
@@ -370,21 +341,21 @@ END InstallGDT;
 
 
 // ----------------------KERNEL: INTERRUPTS-------------------------------------
-PROCEDURE NewGateDescriptor(VAR gd: GateDescriptor; gdtCodeSeg: UINT16; handlerAddr: UINT32; privilegeLvl, _type: UINT8);
+PROCEDURE NewGateDescriptor(VAR gd: GateDescriptor; codeSeg: UINT16; handler: UINT32; privLvl, _type: UINT8);
 CONST 
 	IDT_DESC_PRESENT = 080H;
 VAR
 	accessMask, presentMask, privMask, _typeMask: SET;
 	s1: SET;
 BEGIN
-	s1 := BITS(handlerAddr) * BITS(0FFFFH);
+	s1 := BITS(handler) * BITS(0FFFFH);
 	SYSTEM.PUT16(SYSTEM.ADR(gd.handlerAddrLow), ORD(s1));
-	s1 := BITS(LSR(handlerAddr, 16)) * BITS(0FFFFH);
+	s1 := BITS(LSR(handler, 16)) * BITS(0FFFFH);
 	SYSTEM.PUT16(SYSTEM.ADR(gd.handlerAddrHi), ORD(s1));
-	gd.gdtCodeSeg := gdtCodeSeg;
+	gd.codeSeg := codeSeg;
 	
 	presentMask := BITS(IDT_DESC_PRESENT);
-	privMask := BITS(LSL(ORD(BITS(privilegeLvl) * {03H}), 5));
+	privMask := BITS(LSL(ORD(BITS(privLvl) * {03H}), 5));
 	_typeMask := BITS(_type);
 	accessMask := presentMask + privMask + _typeMask;
 	
@@ -417,15 +388,14 @@ VAR
 	gdtCodeSegOffs: INTEGER;
 	i: INTEGER;
 	idtp: TableDesc;
-	masterPortData, slavePortData: UINT32;
-	masterPortCmd, slavePortCmd: UINT32;
 	handlers: ARRAY 256 OF UINT32;
 
 BEGIN
-	gdtCodeSegOffs := SYSTEM.ADR(gdt[GDT_CODE]) - SYSTEM.ADR(gdt[GDT_NULL]);
-	SYSTEM.PUT16(SYSTEM.ADR(gdtCodeSeg), gdtCodeSegOffs);
 	
 	SetHandlers(SYSTEM.ADR(handlers));
+	
+	gdtCodeSegOffs := SYSTEM.ADR(gdt[GDT_CODE]) - SYSTEM.ADR(gdt[GDT_NULL]);
+	SYSTEM.PUT16(SYSTEM.ADR(gdtCodeSeg), gdtCodeSegOffs);
 	
 	// Exceptions
 	FOR i := 00H TO 13H DO
@@ -442,36 +412,53 @@ BEGIN
 		NewGateDescriptor(idt[i], gdtCodeSeg, handlers[i], 0, IDT_INTERRUPT_GATE);
 	END;
 	
-	
 	// Initialize PICs
-	masterPortCmd := 020H;
-	masterPortData := 021H;
-	slavePortCmd := 0A0H;
-	slavePortData := 0A1H;
+	Devices.Write8(masterCmd, 011H);
+	Devices.Write8(slaveCmd, 011H);
 	
-	Write8(masterPortCmd, 011H);
-	Write8(slavePortCmd, 011H);
+	Devices.Write8(masterData, HW_INTERRUPT_OFFSET);
+	Devices.Write8(slaveData, HW_INTERRUPT_OFFSET + 8);
 	
-	Write8(masterPortData, HW_INTERRUPT_OFFSET);
-	Write8(slavePortData, HW_INTERRUPT_OFFSET + 8);
+	Devices.Write8(masterData, 04H);
+	Devices.Write8(slaveData, 02H);
 	
-	Write8(masterPortData, 04H);
-	Write8(slavePortData, 02H);
+	Devices.Write8(masterData, 01H);
+	Devices.Write8(slaveData, 01H);
 	
-	Write8(masterPortData, 01H);
-	Write8(slavePortData, 01H);
+	Devices.Write8(masterData, 00H);
+	Devices.Write8(slaveData, 00H);
 	
-	Write8(masterPortData, 00H);
-	Write8(slavePortData, 00H);
-	
+	// Initialize keyboard
+	Devices.InitKeyboard(keyboard);
 	
 	// Load IDT
 	SYSTEM.PUT32(SYSTEM.ADR(idtp.addr), SYSTEM.ADR(idt));
 	SYSTEM.PUT16(SYSTEM.ADR(idtp.size), SYSTEM.SIZE(IDT) - 1);
-	
 	LoadIDT(SYSTEM.ADR(idtp));
 	
 END;
+
+
+PROCEDURE CreateDevices();
+BEGIN
+	Devices.NewPort(masterCmd, 020H);
+	Devices.NewPort(masterData, 021H);
+	Devices.NewPort(slaveCmd, 0A0H);
+	Devices.NewPort(slaveData, 0A1H);
+	Devices.NewKeyboard(keyboard);
+END CreateDevices;
+
+
+PROCEDURE DisableInterrupts();
+BEGIN
+	SYSTEM.CODE(0FAH); (* cli *)
+END DisableInterrupts;
+
+
+PROCEDURE EnableInterrupts();
+BEGIN
+	SYSTEM.CODE(0FBH); (* sti *)
+END EnableInterrupts;
 
 
 PROCEDURE kernelMain*(multiboot_structure: INTEGER; multiboot_magic: INTEGER);
@@ -482,16 +469,25 @@ BEGIN
 	ClearScreen(BLACK);
 	ShowMultibootInfo(multiboot_structure, multiboot_magic);
 	
-	SYSTEM.CODE(0FAH); (* cli *)
+	CreateDevices();
+	
+	DisableInterrupts();
+	
 	InstallGDT(gdt);
 	InstallIDT(idt, gdt);
-	SYSTEM.CODE(0FBH); (* sti *)
+	
+	EnableInterrupts();
 	
 	Print("Booting OS...", BLUE, BLACK);
 	Process(100); PrintHex8(22, YELLOW, BROWN); PrintLn();
 	WHILE TRUE DO END;
 END;
 
+
+PROCEDURE Test*(VAR p: UINT8);
+BEGIN
+	p := 10;
+END Test;
 
 PROCEDURE kernelPrint*(addr, size: INTEGER);
 VAR
@@ -513,11 +509,16 @@ PROCEDURE [oberon] kernelInterruptHandler*(interrupt: UINT8);
 CONST
 	TIMER = 020H;
 	KEYBOARD = 021H;
+VAR
+	key: CHAR;
 BEGIN
 
 	CASE interrupt OF
 	| TIMER: // does nothing for now
-	| KEYBOARD: // does nothing for now
+	| KEYBOARD:
+		IF Devices.ReadKey(keyboard, key) THEN
+			PrintChar(key, BLACK, MAGENTA);
+		END;
 	ELSE
 		PrintLn();
 		Print("UNHANDLED INTERRUPT: ", BLACK, MAGENTA); PrintHex8(interrupt, BLACK, MAGENTA);
@@ -525,9 +526,9 @@ BEGIN
 	END;
 
 	// Acknowledge the PICs to message received
-	Write8(020H, 020H);
+	Devices.Write8(masterCmd, 020H);
 	IF interrupt >= 28H THEN
-		Write8(0A0H, 020H);
+		Devices.Write8(slaveCmd, 020H);
 	END;
 	
 	
