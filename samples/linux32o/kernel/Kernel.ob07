@@ -262,23 +262,8 @@ END syscall;
 
 
 // ------------------------KERNEL: BOOT-----------------------------------------
-PROCEDURE Process(steps: INTEGER);
-VAR
-	i, j: INTEGER;
-	msg: Message;
-BEGIN
-	FOR i := 0 to steps DO
-		NEW(msg);
-		msg.s := ".";
-		Print(msg.s, LGREEN, BLACK);
-		FOR j := 0 TO 999999 DO END;
-		DISPOSE(msg);
-		ASSERT(i # 84);
-	END;
-END Process;
 
-
-PROCEDURE ShowMultibootInfo*(multiboot_structure: INTEGER; multiboot_magic: INTEGER);
+PROCEDURE ShowMultibootInfo(multiboot_structure: INTEGER; multiboot_magic: INTEGER);
 VAR
 	magic, mem_up, mem_low, boot_dev: INTEGER;
 	
@@ -503,7 +488,7 @@ BEGIN
 END EnableInterrupts;
 
 
-PROCEDURE kernelMain*(multiboot_structure: INTEGER; multiboot_magic: INTEGER);
+PROCEDURE kernelSetup*(multiboot_structure: INTEGER; multiboot_magic: INTEGER);
 VAR
 	gdt: GDT;
 	idt: IDT;
@@ -519,10 +504,6 @@ BEGIN
 	InstallIDT(idt, gdt);
 	
 	EnableInterrupts();
-	
-	Print("Booting OS...", BLUE, BLACK);
-	Process(100); PrintHex8(22, YELLOW, BROWN); PrintLn();
-	WHILE TRUE DO END;
 END;
 
 
@@ -540,7 +521,6 @@ BEGIN
 	PrintHex32(value, WHITE, BLACK);
 	PrintLn();
 END kernelPrintInt;
-
 
 
 PROCEDURE [extern, "_stop"] Halt();
@@ -597,4 +577,26 @@ BEGIN
 END kernelInterruptHandler;
 
 
+// ----------------------------- USERSPACE -------------------------------------
+PROCEDURE Process(steps: INTEGER);
+VAR
+	i, j: INTEGER;
+	msg: Message;
+BEGIN
+	FOR i := 0 to steps DO
+		NEW(msg);
+		msg.s := ".";
+		Print(msg.s, LGREEN, BLACK);
+		FOR j := 0 TO 999999 DO END;
+		DISPOSE(msg);
+		ASSERT(i # 84);
+	END;
+END Process;
+
+
+BEGIN
+	Print("Booting OS...", BLUE, BLACK);
+	Process(100);
+	PrintHex8(22, YELLOW, BROWN); PrintLn();
+	//WHILE TRUE DO END;
 END Kernel.

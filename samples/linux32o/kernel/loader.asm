@@ -20,22 +20,26 @@ section '.multiboot'
 	dd FLAGS                    	; the flags,
 	dd CHECKSUM
 
+
 section '.text' executable
 	public loader                    ; the entry symbol for ELF
 	public reload_segs
 	public _stop
 	public set_handlers
 	
+	extrn kernelSetup
 	extrn kernelMain
 	extrn kernelPrint
-	extrn kernelPrintInt
 	extrn kernelInterruptHandler
 
 loader:
-	mov esp, kernel_stack ; stack pointer offset
-	
+	; 
     push eax ; multiboot_magic
     push ebx ; multiboot_structure
+    call kernelSetup
+	
+	; userspace?
+    mov esp, kernel_stack ; stack pointer offset
     call kernelMain
 
 _stop:
@@ -68,8 +72,10 @@ section '.data'
 bye db 'Bye!',0
 key: rb 1
 
+
 section '.bss' writeable
 .space rb 128*1024; # 128k
 kernel_stack:
+
 
 section '.note.GNU-stack'

@@ -3,20 +3,17 @@ IRQ_BASE = 0x20
 interruptnumber: rb 1
 
 macro HandleException num {
-	public HandleException#num
-	
 	HandleException#num:
         mov [interruptnumber], dword num
         jmp     common_interrupt_handler    ; jump to the common handler
 }
 
 macro HandleInterruptRequest num {
-	public HandleInterruptRequest#num
-	
 	HandleInterruptRequest#num:
         mov [interruptnumber], dword num + IRQ_BASE
         jmp     common_interrupt_handler    ; jump to the common handler
 }
+
 ; Exceptions
 HandleException 0x00
 HandleException 0x01
@@ -38,7 +35,6 @@ HandleException 0x10
 HandleException 0x11
 HandleException 0x12
 HandleException 0x13
-
 ; Hardware interrupts
 HandleInterruptRequest 0x00
 HandleInterruptRequest 0x01
@@ -57,9 +53,9 @@ HandleInterruptRequest 0x0D
 HandleInterruptRequest 0x0E
 HandleInterruptRequest 0x0F
 HandleInterruptRequest 0x31
-
 ; Syscalls
 HandleInterruptRequest 0x80
+
 
 common_interrupt_handler:               ; the common parts of the generic interrupt handler
 	; save the registers
@@ -85,7 +81,6 @@ common_interrupt_handler:               ; the common parts of the generic interr
 	pop edi
 	pop ebp
 
-public InterruptIgnore
 InterruptIgnore:
 	; return to the code that got interrupted
 	iret

@@ -35,7 +35,6 @@ BEGIN
 END write8;
 
 
-
 PROCEDURE [oberon] read8(port: UINT32; VAR data: UINT8);
 BEGIN
 	SYSTEM.CODE(
