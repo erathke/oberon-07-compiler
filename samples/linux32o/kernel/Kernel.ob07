@@ -319,8 +319,10 @@ PROCEDURE [extern, "reload_segs"] ReloadSegments();
 
 PROCEDURE InstallGDT(VAR gdt: GDT);
 CONST
-	SEGMENT_CODE_TYPE  = 09AH;
-	SEGMENT_DATA_TYPE  = 092H;
+	SEGMENT_0CODE_TYPE  = 09AH;
+	SEGMENT_0DATA_TYPE  = 092H;
+	SEGMENT_3CODE_TYPE  = 0FAH;
+	SEGMENT_3DATA_TYPE  = 0F2H;
 	SEGMENT_FLAGS_PART = 00CH;
 
 VAR
@@ -354,8 +356,10 @@ VAR
 BEGIN
 	// segments
 	NewSegmentDescriptor(gdt[GDT_NULL], 0, 0, 0, 0); // null
-	NewSegmentDescriptor(gdt[GDT_CODE], 0, 0FFFFFH, SEGMENT_CODE_TYPE, SEGMENT_FLAGS_PART); // code
-	NewSegmentDescriptor(gdt[GDT_DATA], 0, 0FFFFFH, SEGMENT_DATA_TYPE, SEGMENT_FLAGS_PART); // data
+	NewSegmentDescriptor(gdt[GDT_CODE], 0, 0FFFFFH, SEGMENT_0CODE_TYPE, SEGMENT_FLAGS_PART); // kernel code
+	NewSegmentDescriptor(gdt[GDT_DATA], 0, 0FFFFFH, SEGMENT_0DATA_TYPE, SEGMENT_FLAGS_PART); // kernel data
+	//NewSegmentDescriptor(gdt[3], 0, 0FFFFFH, SEGMENT_3CODE_TYPE, SEGMENT_FLAGS_PART); // user code
+	//NewSegmentDescriptor(gdt[4], 0, 0FFFFFH, SEGMENT_3DATA_TYPE, SEGMENT_FLAGS_PART); // user data
 	
 	// Load GDT
 	SYSTEM.PUT32(SYSTEM.ADR(gdtAddr.addr), SYSTEM.ADR(gdt));
@@ -541,15 +545,18 @@ CONST
 	KEYBOARD = 021H;
 	SYSCALL = 0A0H;
 VAR
-	key: CHAR;
+	keyEvt: Devices.KeyEvent;
 	cpu: CPU;
 BEGIN
 
 	CASE interrupt OF
 	| TIMER: // does nothing for now
 	| KEYBOARD:
-		IF Devices.ReadKey(keyboard, key) THEN
-			PrintChar(key, BLACK, MAGENTA);
+		Devices.ReadKey(keyboard, keyEvt);
+		IF (keyEvt.code # 0) & (keyEvt.status = Devices.KEY_PRESSED) THEN
+			IF keyEvt.chr # 0X THEN
+				PrintChar(keyEvt.chr, BLACK, MAGENTA);
+			END;
 		END;
 	| SYSCALL:
 		GetSyscall(esp, cpu);
@@ -589,7 +596,8 @@ BEGIN
 		Print(msg.s, LGREEN, BLACK);
 		FOR j := 0 TO 999999 DO END;
 		DISPOSE(msg);
-		ASSERT(i # 84);
+		//ASSERT(i # 84);
+		//j := j DIV (ABS(i - 84));
 	END;
 END Process;
 
@@ -598,5 +606,5 @@ BEGIN
 	Print("Booting OS...", BLUE, BLACK);
 	Process(100);
 	PrintHex8(22, YELLOW, BROWN); PrintLn();
-	//WHILE TRUE DO END;
+	WHILE TRUE DO END;
 END Kernel.

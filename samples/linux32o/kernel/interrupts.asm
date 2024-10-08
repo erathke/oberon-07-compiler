@@ -4,16 +4,19 @@ interruptnumber: rb 1
 
 macro HandleException num {
 	HandleException#num:
+		;cli ; disable interrupts? 
         mov [interruptnumber], dword num
         jmp     common_interrupt_handler    ; jump to the common handler
 }
 
 macro HandleInterruptRequest num {
 	HandleInterruptRequest#num:
+		;cli ; disable interrupts?
         mov [interruptnumber], dword num + IRQ_BASE
         jmp     common_interrupt_handler    ; jump to the common handler
 }
 
+; TODO: check if the exceptions are ok
 ; Exceptions
 HandleException 0x00
 HandleException 0x01
@@ -70,7 +73,7 @@ common_interrupt_handler:               ; the common parts of the generic interr
 	push esp
 	push dword [interruptnumber]
 	call kernelInterruptHandler
-	mov esp, eax
+	mov esp, eax ; restore esp 
 	
 	; restore the registers
 	pop eax
@@ -82,6 +85,7 @@ common_interrupt_handler:               ; the common parts of the generic interr
 	pop ebp
 
 InterruptIgnore:
+	;sti ; enable interrupts?
 	; return to the code that got interrupted
 	iret
 

@@ -1,6 +1,43 @@
 MODULE Devices;
 IMPORT SYSTEM;
 
+CONST
+	UNKNOWN = 0;
+	ESC = 1;
+	CTRL = 29;
+	LSHIFT = 42;
+	RSHIFT = 54;
+	ALT = 56;
+	CAPS = 58;
+	F1 = 57;
+	F2 = 58;
+	F3 = 59;
+	F4 = 60;
+	F5 = 61;
+	F6 = 62;
+	F7 = 63;
+	F8 = 64;
+	F9 = 65;
+	F10 = 66;
+	NUMLCK = 67;
+	SCRLCK = 68;
+	HOME = 69;
+	UP = 70;
+	PGUP = 71;
+	LEFT = 73;
+	RIGHT = 75;
+	ENDK = 77;
+	DOWN = 78;
+	PGDOWN = 79;
+	INS = 80;
+	DEL  = 81;
+	F11 = 85;
+	F12 = 86;
+	
+	KEYS = 128;
+	KEY_PRESSED* = 0;
+	KEY_RELEASED* = 1;
+
 TYPE
 	
 	UINT32 = INTEGER;
@@ -17,7 +54,16 @@ TYPE
 	Keyboard* = RECORD (Device)
 		cmd, data: Port
 	END;
+	
+	KeyEvent* = RECORD
+		code*, status*: BYTE;
+		chr*: CHAR
+	END;
 
+
+VAR
+	lowerKeys, upperKeys: ARRAY 128 OF BYTE;
+	isCapsLockOn, isShiftPressed: BOOLEAN; 
 
 PROCEDURE NewPort*(VAR port: Port; number: BYTE);
 BEGIN
@@ -70,7 +116,7 @@ VAR
 	s1, s2: SET;
 	status: UINT8;
 BEGIN
-	
+
 	Write8(kbd.cmd, 0AEH);
 	Write8(kbd.cmd, 020H);
 	
@@ -84,69 +130,179 @@ BEGIN
 	Write8(kbd.data, status);
 	Write8(kbd.data, 0F4H);
 	
-	
 END InitKeyboard;
 
 
-PROCEDURE ReadKey*(VAR kbd: Keyboard; VAR key: CHAR): BOOLEAN;
+PROCEDURE ReadKey*(VAR kbd: Keyboard; VAR evt: KeyEvent);
 VAR
-	code: UINT8;
-	read: BOOLEAN;
+	s: SET;
+	code, status: BYTE;
 BEGIN 
 
 	Read8(kbd.data, code);
-	IF code < 080H THEN
-		read := TRUE;
-		CASE code OF
-		|02H: key := '1';
-		|03H: key := '2';
-		|04H: key := '3';
-		|05H: key := '4';
-		|06H: key := '5';
-		|07H: key := '6';
-		|08H: key := '7';
-		|09H: key := '8';
-		|0AH: key := '9';
-		|0BH: key := '0';
-		|10H: key := 'q';
-		|11H: key := 'w';
-		|12H: key := 'e';
-		|13H: key := 'r';
-		|14H: key := 't';
-		|15H: key := 'z';
-		|16H: key := 'u';
-		|17H: key := 'i';
-		|18H: key := 'o';
-		|19H: key := 'p';
-		|1EH: key := 'a';
-		|1FH: key := 's';
-		|20H: key := 'd';
-		|21H: key := 'f';
-		|22H: key := 'g';
-		|23H: key := 'h';
-		|24H: key := 'j';
-		|25H: key := 'k';
-		|26H: key := 'l';
-		|2CH: key := 'y';
-		|2DH: key := 'x';
-		|2EH: key := 'c';
-		|2FH: key := 'v';
-		|30H: key := 'b';
-		|31H: key := 'n';
-		|32H: key := 'm';
-		|33H: key := ',';
-		|34H: key := '.';
-		|35H: key := '-';
-		|1CH: key := 0AX;
-		|39H: key := ' ';
+	s := BITS(code) * BITS(7FH);
+	SYSTEM.PUT8(SYSTEM.ADR(evt.code), ORD(s));
+	
+	Read8(kbd.data, status);
+	s := BITS(status) * BITS(80H);
+	SYSTEM.PUT8(SYSTEM.ADR(evt.status), ORD(s));
+	
+	CASE evt.code OF
+	| CAPS:
+		IF evt.status = KEY_PRESSED THEN
+			isCapsLockOn := ~ isCapsLockOn;		
+		END;
+	| LSHIFT, RSHIFT:
+		IF evt.status = KEY_PRESSED THEN
+			isShiftPressed := (evt.code = LSHIFT) OR (evt.code = RSHIFT);
 		ELSE
-			//read := FALSE;
+			isShiftPressed := FALSE;
+		END;
+	ELSE
+		IF isCapsLockOn & isShiftPressed THEN
+			evt.chr := CHR(lowerKeys[evt.code]);
+		ELSIF isCapsLockOn OR isShiftPressed THEN
+			evt.chr := CHR(upperKeys[evt.code]);
+		ELSE
+			evt.chr := CHR(lowerKeys[evt.code]);
 		END;
 	END;
-	
-	RETURN read
 	
 END ReadKey;
 
 
+PROCEDURE InitKeys();
+VAR 
+	i: INTEGER;
+BEGIN
+
+	isCapsLockOn := FALSE;
+	isShiftPressed := FALSE;
+	
+	FOR i := 0 TO KEYS - 1 DO
+		lowerKeys[i] := UNKNOWN;
+		upperKeys[i] := UNKNOWN;
+	END;
+	
+	lowerKeys[ESC] := ESC;
+	lowerKeys[CTRL] := CTRL;
+	lowerKeys[LSHIFT] := LSHIFT;
+	lowerKeys[RSHIFT] := RSHIFT;
+	lowerKeys[ALT] := ALT;
+	lowerKeys[CAPS] := CAPS;
+	
+	lowerKeys[2] := ORD('1');
+	lowerKeys[3] := ORD('2');
+	lowerKeys[4] := ORD('3');
+	lowerKeys[5] := ORD('4');
+	lowerKeys[6] := ORD('5');
+	lowerKeys[7] := ORD('6');
+	lowerKeys[8] := ORD('7');
+	lowerKeys[9] := ORD('8');
+	lowerKeys[10] := ORD('9');
+	lowerKeys[11] := ORD('0');
+	lowerKeys[12] := ORD('-');
+	lowerKeys[13] := ORD('=');
+	//lowerKeys[14] := ORD('\b');
+	//lowerKeys[15] := ORD('\t');
+	lowerKeys[16] := ORD('q');
+	lowerKeys[17] := ORD('w');
+	lowerKeys[18] := ORD('e');
+	lowerKeys[19] := ORD('r');
+	lowerKeys[20] := ORD('t');
+	lowerKeys[21] := ORD('y');
+	lowerKeys[22] := ORD('u');
+	lowerKeys[23] := ORD('i');
+	lowerKeys[24] := ORD('o');
+	lowerKeys[25] := ORD('p');
+	lowerKeys[26] := ORD('[');
+	lowerKeys[27] := ORD(']');
+	lowerKeys[28] := ORD(0AX);
+	lowerKeys[30] := ORD('a');
+	lowerKeys[31] := ORD('s');
+	lowerKeys[32] := ORD('d');
+	lowerKeys[33] := ORD('f');
+	lowerKeys[34] := ORD('g');
+	lowerKeys[35] := ORD('h');
+	lowerKeys[36] := ORD('j');
+	lowerKeys[37] := ORD('k');
+	lowerKeys[38] := ORD('l');
+	lowerKeys[39] := ORD(';');
+	lowerKeys[40] := ORD("'");
+	lowerKeys[43] := ORD('\');
+	lowerKeys[44] := ORD('z');
+	lowerKeys[45] := ORD('x');
+	lowerKeys[46] := ORD('c');
+	lowerKeys[47] := ORD('v');
+	lowerKeys[48] := ORD('b');
+	lowerKeys[49] := ORD('n');
+	lowerKeys[50] := ORD('m');
+	lowerKeys[51] := ORD(',');
+	lowerKeys[52] := ORD('.');
+	lowerKeys[53] := ORD('/');	
+	lowerKeys[57] := ORD(' ');
+	
+	// Upper keys
+	upperKeys[ESC] := ESC;
+	upperKeys[CTRL] := CTRL;
+	upperKeys[LSHIFT] := LSHIFT;
+	upperKeys[RSHIFT] := RSHIFT;
+	upperKeys[ALT] := ALT;
+	upperKeys[CAPS] := CAPS;
+	
+	upperKeys[2] := ORD('!');
+	upperKeys[3] := ORD('@');
+	upperKeys[4] := ORD('#');
+	upperKeys[5] := ORD('$');
+	upperKeys[6] := ORD('%');
+	upperKeys[7] := ORD('^');
+	upperKeys[8] := ORD('&');
+	upperKeys[9] := ORD('*');
+	upperKeys[10] := ORD('(');
+	upperKeys[11] := ORD(')');
+	upperKeys[12] := ORD('_');
+	upperKeys[13] := ORD('+');
+	//upperKeys[14] := ORD('\b');
+	//upperKeys[15] := ORD('\t');
+	upperKeys[16] := ORD('Q');
+	upperKeys[17] := ORD('W');
+	upperKeys[18] := ORD('E');
+	upperKeys[19] := ORD('R');
+	upperKeys[20] := ORD('T');
+	upperKeys[21] := ORD('Y');
+	upperKeys[22] := ORD('U');
+	upperKeys[23] := ORD('I');
+	upperKeys[24] := ORD('O');
+	upperKeys[25] := ORD('P');
+	upperKeys[26] := ORD('{');
+	upperKeys[27] := ORD('}');
+	upperKeys[28] := ORD(0AX);
+	upperKeys[30] := ORD('A');
+	upperKeys[31] := ORD('S');
+	upperKeys[32] := ORD('D');
+	upperKeys[33] := ORD('F');
+	upperKeys[34] := ORD('G');
+	upperKeys[35] := ORD('H');
+	upperKeys[36] := ORD('J');
+	upperKeys[37] := ORD('K');
+	upperKeys[38] := ORD('L');
+	upperKeys[39] := ORD(':');
+	upperKeys[40] := ORD('"');
+	upperKeys[43] := ORD('|');
+	upperKeys[44] := ORD('Z');
+	upperKeys[45] := ORD('X');
+	upperKeys[46] := ORD('C');
+	upperKeys[47] := ORD('V');
+	upperKeys[48] := ORD('B');
+	upperKeys[49] := ORD('N');
+	upperKeys[50] := ORD('M');
+	upperKeys[51] := ORD('<');
+	upperKeys[52] := ORD('>');
+	upperKeys[53] := ORD('?');	
+
+END InitKeys;
+
+
+BEGIN
+	InitKeys();
 END Devices.
