@@ -87,6 +87,8 @@ common_interrupt_handler:               ; the common parts of the generic interr
 InterruptIgnore:
 	;sti ; enable interrupts?
 	; return to the code that got interrupted
+	;push 0x22
+	;call kernelPrintInt
 	iret
 
 

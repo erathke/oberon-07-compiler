@@ -32,6 +32,7 @@ section '.text' executable
 	extrn kernelSetup
 	extrn kernelMain
 	extrn kernelPrint
+	extrn kernelPrintInt
 	extrn kernelInterruptHandler
 
 loader:

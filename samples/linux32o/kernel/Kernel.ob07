@@ -84,8 +84,8 @@ TYPE
 	
 	CPU = RECORD [noalign]
 		eax, ebx, ecx, edx: UINT32;
-        esi, edi, ebp, esp: UINT32;
-        error, eip, cs, eflags, ss: UINT32
+        esi, edi, ebp: UINT32;
+        error, eip, cs, eflags, esp, ss: UINT32
 	END;
 	
 	CPUState = POINTER TO CPU;
@@ -104,6 +104,7 @@ VAR
 	cursor: RECORD
 		line, column: INTEGER
 	END;
+	gdtCodeSeg: UINT16;
 	masterCmd, masterData: Devices.Port;
 	slaveCmd, slaveData: Devices.Port;
 	keyboard: Devices.Keyboard;
@@ -111,6 +112,8 @@ VAR
 	tasks: ARRAY TASKS OF Task;
 	taskCount: INTEGER;
 	currentThread: INTEGER;
+	timerCount: INTEGER;
+	mainState: CPUState;
 
 // ----------------------------SCREEN-------------------------------------------
 
@@ -418,7 +421,6 @@ CONST
 	SYS_INTERRUPT_OFFSET = 080H;
 
 VAR
-	gdtCodeSeg: UINT16;
 	gdtCodeSegOffs: INTEGER;
 	i: INTEGER;
 	idtp: TableDesc;
@@ -537,25 +539,55 @@ PROCEDURE [extern, "setjmp"] SetJmp(addr: UINT32): INTEGER;
 PROCEDURE [extern, "longjmp"] LongJmp(addr: UINT32; status: INTEGER);
 
 
-PROCEDURE [oberon] kernelInterruptHandler*(interrupt: UINT8; esp: UINT32): CPUState;
+PROCEDURE ScheduleTask(state: CPUState): CPUState;
+VAR
+	currentState: CPUState;
+BEGIN
+	IF taskCount = 0 THEN
+		currentState := state;
+	ELSE
+		IF currentThread = TASKS - 1 THEN // tasks done 
+			taskCount := 0;
+			currentThread := 0;
+			currentState := state;
+		ELSE
+			currentState := tasks[currentThread].state;
+		END;
+		INC(currentThread);
+	END;
+    
+    RETURN currentState
+END ScheduleTask;
+
+
+PROCEDURE [oberon] kernelInterruptHandler*(interrupt: UINT8; esp: UINT32): UINT32;
 
 CONST
 	TIMER = 020H;
 	KEYBOARD = 021H;
 	SYSCALL = 0A0H;
-
-TYPE 
-
-
+	GPF = 00DH;
 VAR
 	keyEvt: Devices.KeyEvent;
-	cpu: CPUState;
+	cpu, task: CPUState;
+	//entry: TaskEntry;
 BEGIN
 	
 	cpu := SYSTEM.VAL(esp, CPUState);
 
 	CASE interrupt OF
-	| TIMER: // does nothing for now
+	| TIMER:
+		IF timerCount = 0 THEN
+			mainState := cpu;
+			INC(timerCount);
+		ELSE
+			cpu := ScheduleTask(cpu);
+			//entry := SYSTEM.VAL(cpu.eip, TaskEntry);
+			//entry(100);
+			//Print("CPU state: ", BLUE, WHITE); PrintHex32(SYSTEM.ADR(cpu^), BLUE, WHITE); PrintLn();
+			//Print("ESP state: ", BLUE, WHITE); PrintHex32(esp, BLUE, WHITE); PrintLn();
+			//Halt()
+		END;
 	| KEYBOARD:
 		Devices.ReadKey(keyboard, keyEvt);
 		IF (keyEvt.code # 0) & (keyEvt.status = Devices.KEY_PRESSED) THEN
@@ -579,6 +611,10 @@ BEGIN
 			PrintInt(cpu.eax, BROWN, YELLOW);
 			Halt();
 		END;
+	| GPF:
+		Print("CPU state: ", BLUE, WHITE); PrintHex32(SYSTEM.ADR(cpu^), BLUE, WHITE); PrintLn();
+			//Print("ESP state: ", BLUE, WHITE); PrintHex32(esp, BLUE, WHITE); PrintLn();
+		cpu := mainState;
 	ELSE
 		PrintLn();
 		Print("UNHANDLED INTERRUPT: ", BLACK, MAGENTA); PrintHex8(interrupt, BLACK, MAGENTA);
@@ -592,7 +628,7 @@ BEGIN
 		Devices.Write8(slaveCmd, 020H);
 	END;
 	
-	RETURN cpu
+	RETURN SYSTEM.ADR(cpu^)
 	
 END kernelInterruptHandler;
 
@@ -615,25 +651,27 @@ BEGIN
 END Process;
 
 
-PROCEDURE NewTask(VAR task: Task; entry: TaskEntry);
+PROCEDURE NewTask(VAR task: Task; entryAddr: UINT32);
 VAR
 	stateAddr: UINT32;
 BEGIN
-	stateAddr := SYSTEM.ADR(task.stack[0]) + STACK_SIZE - SYSTEM.SIZE(CPU); // -1?
+	stateAddr := SYSTEM.ADR(task.stack[0]) + STACK_SIZE - SYSTEM.SIZE(CPU);
 	task.state := SYSTEM.VAL(stateAddr, CPUState);
+	
 	task.state.eax := 0;
-    task.state.ebx := 0;
-    task.state.ecx := 0;
-    task.state.edx := 0;
-    task.state.esi := 0;
-    task.state.edi := 0;
-    task.state.ebp := 0;
-    // cpustate -> error = 0;    
-    // cpustate -> esp = ;
-    task.state.eip := SYSTEM.ADR(entry);
-    task.state.cs := 010H; // gdt->CodeSegmentSelector();
-    // cpustate -> ss = ;
-    task.state.eflags := 202H;
+	task.state.ebx := 0;
+	task.state.ecx := 0;
+	task.state.edx := 0;
+	task.state.esi := 0;
+	task.state.edi := 0;
+	task.state.ebp := 0;
+	// cpustate -> error = 0;    
+	// cpustate -> esp = ;
+	task.state.eip := entryAddr;
+	//task.state.cs := 010H;
+	SYSTEM.PUT32(SYSTEM.ADR(task.state.cs), gdtCodeSeg);
+	// cpustate -> ss = ;
+	task.state.eflags := 202H;
 
 END NewTask;
 
@@ -645,7 +683,7 @@ BEGIN
 	currentThread := 0;
 	taskCount := TASKS;
 	FOR i := 0 TO TASKS - 1 DO
-		NewTask(tasks[i], Process);
+		NewTask(tasks[i], SYSTEM.ADR(Process));
 	END;
 END InitTasks;
 
@@ -654,4 +692,5 @@ BEGIN
 	Print("Booting OS...", BLUE, BLACK);
 	InitTasks();
 	PrintHex8(22, YELLOW, BROWN); PrintLn();
+	WHILE TRUE DO END;
 END Kernel.
