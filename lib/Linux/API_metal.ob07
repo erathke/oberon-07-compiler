@@ -123,9 +123,11 @@ $END
 END exit;
 
 
-PROCEDURE exit_thread*(code: INTEGER); 
+PROCEDURE exit_thread*(code: INTEGER);
+CONST 
+	SYS_exitthread = 2;
 BEGIN
-	exit(code)
+	syscall(SYS_exitthread, code, 0, 0);
 END exit_thread;
 
 

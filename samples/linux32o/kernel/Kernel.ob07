@@ -40,11 +40,16 @@ CONST
 	
 	// SYSCALL
 	SYS_exit = 1;
+	SYS_exitthread = 2;
 	SYS_write = 4;
 	
 	// In/Out
 	STDIN = 0;
 	STDOUT = 1;
+	
+	// Tasks
+	TASKS = 5;
+	STACK_SIZE = 4096;
 	
 TYPE
 	Message = POINTER TO RECORD
@@ -79,9 +84,21 @@ TYPE
 	
 	CPU = RECORD [noalign]
 		eax, ebx, ecx, edx: UINT32;
-        esi, edi, ebp: UINT32;
-        error, eip, cs, eflags, esp, ss: UINT32
+        esi, edi, ebp, esp: UINT32;
+        error, eip, cs, eflags, ss: UINT32
 	END;
+	
+	CPUState = POINTER TO CPU;
+	
+	TaskEntry = PROCEDURE(n: INTEGER);
+	
+	Task = RECORD 
+		id: INTEGER;
+		stack: ARRAY STACK_SIZE OF BYTE;
+		state: CPUState;
+		entry: TaskEntry
+	END;
+		
 	
 VAR
 	cursor: RECORD
@@ -90,6 +107,10 @@ VAR
 	masterCmd, masterData: Devices.Port;
 	slaveCmd, slaveData: Devices.Port;
 	keyboard: Devices.Keyboard;
+	
+	tasks: ARRAY TASKS OF Task;
+	taskCount: INTEGER;
+	currentThread: INTEGER;
 
 // ----------------------------SCREEN-------------------------------------------
 
@@ -242,24 +263,6 @@ END PrintInt;
 
 
 // ----------------------------KERNEL-------------------------------------------
-
-
-PROCEDURE [oberon-] syscall(eax, ebx, ecx, edx: INTEGER): INTEGER;
-BEGIN
-    SYSTEM.CODE(
-    053H,               (*  push    ebx                    *)
-    08BH, 045H, 008H,   (*  mov     eax, dword [ebp +  8]  *)
-    08BH, 05DH, 00CH,   (*  mov     ebx, dword [ebp + 12]  *)
-    08BH, 04DH, 010H,   (*  mov     ecx, dword [ebp + 16]  *)
-    08BH, 055H, 014H,   (*  mov     edx, dword [ebp + 20]  *)
-    0CDH, 080H,         (*  int     128                    *)
-    05BH,               (*  pop     ebx                    *)
-    05DH,               (*  pop     ebp                    *)
-    0C2H, 010H, 000H    (*  ret     16                     *)
-    );
-    RETURN 0
-END syscall;
-
 
 // ------------------------KERNEL: BOOT-----------------------------------------
 
@@ -529,25 +532,27 @@ END kernelPrintInt;
 
 PROCEDURE [extern, "_stop"] Halt();
 
+PROCEDURE [extern, "setjmp"] SetJmp(addr: UINT32): INTEGER;
 
-PROCEDURE GetSyscall(esp: UINT32; VAR cpu: CPU);
-BEGIN
-	SYSTEM.GET(esp, cpu.eax);
-	SYSTEM.GET(esp + 4, cpu.ebx);
-	SYSTEM.GET(esp + 8, cpu.ecx);
-	SYSTEM.GET(esp + 12, cpu.edx);
-END GetSyscall; 
+PROCEDURE [extern, "longjmp"] LongJmp(addr: UINT32; status: INTEGER);
 
 
-PROCEDURE [oberon] kernelInterruptHandler*(interrupt: UINT8; esp: UINT32): UINT32;
+PROCEDURE [oberon] kernelInterruptHandler*(interrupt: UINT8; esp: UINT32): CPUState;
+
 CONST
 	TIMER = 020H;
 	KEYBOARD = 021H;
 	SYSCALL = 0A0H;
+
+TYPE 
+
+
 VAR
 	keyEvt: Devices.KeyEvent;
-	cpu: CPU;
+	cpu: CPUState;
 BEGIN
+	
+	cpu := SYSTEM.VAL(esp, CPUState);
 
 	CASE interrupt OF
 	| TIMER: // does nothing for now
@@ -559,18 +564,26 @@ BEGIN
 			END;
 		END;
 	| SYSCALL:
-		GetSyscall(esp, cpu);
 		CASE cpu.eax OF
 		| SYS_exit: Halt();
+		| SYS_exitthread: 
+			IF cpu.eax # 0 THEN
+				Print("[exitthread]", BROWN, YELLOW);
+			END;
+			Halt();
 		| SYS_write:
 			kernelPrint(cpu.ecx, cpu.edx);
 		ELSE
-			PrintLn(); Print("Unknown syscall:", BROWN, YELLOW); 
+			PrintLn(); 
+			Print("Unknown syscall:", BROWN, YELLOW);
+			PrintInt(cpu.eax, BROWN, YELLOW);
+			Halt();
 		END;
 	ELSE
 		PrintLn();
 		Print("UNHANDLED INTERRUPT: ", BLACK, MAGENTA); PrintHex8(interrupt, BLACK, MAGENTA);
 		PrintLn();
+		Halt();
 	END;
 
 	// Acknowledge the PICs for message received
@@ -579,7 +592,7 @@ BEGIN
 		Devices.Write8(slaveCmd, 020H);
 	END;
 	
-	RETURN esp
+	RETURN cpu
 	
 END kernelInterruptHandler;
 
@@ -596,15 +609,49 @@ BEGIN
 		Print(msg.s, LGREEN, BLACK);
 		FOR j := 0 TO 999999 DO END;
 		DISPOSE(msg);
-		//ASSERT(i # 84);
-		//j := j DIV (ABS(i - 84));
+		//ASSERT(i # 15);
+		//j := j DIV (ABS(i - 15));
 	END;
 END Process;
 
 
+PROCEDURE NewTask(VAR task: Task; entry: TaskEntry);
+VAR
+	stateAddr: UINT32;
+BEGIN
+	stateAddr := SYSTEM.ADR(task.stack[0]) + STACK_SIZE - SYSTEM.SIZE(CPU); // -1?
+	task.state := SYSTEM.VAL(stateAddr, CPUState);
+	task.state.eax := 0;
+    task.state.ebx := 0;
+    task.state.ecx := 0;
+    task.state.edx := 0;
+    task.state.esi := 0;
+    task.state.edi := 0;
+    task.state.ebp := 0;
+    // cpustate -> error = 0;    
+    // cpustate -> esp = ;
+    task.state.eip := SYSTEM.ADR(entry);
+    task.state.cs := 010H; // gdt->CodeSegmentSelector();
+    // cpustate -> ss = ;
+    task.state.eflags := 202H;
+
+END NewTask;
+
+
+PROCEDURE InitTasks();
+VAR
+	i: INTEGER;
+BEGIN
+	currentThread := 0;
+	taskCount := TASKS;
+	FOR i := 0 TO TASKS - 1 DO
+		NewTask(tasks[i], Process);
+	END;
+END InitTasks;
+
+
 BEGIN
 	Print("Booting OS...", BLUE, BLACK);
-	Process(100);
+	InitTasks();
 	PrintHex8(22, YELLOW, BROWN); PrintLn();
-	WHILE TRUE DO END;
 END Kernel.
