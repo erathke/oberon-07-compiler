@@ -5,6 +5,7 @@ interruptnumber: rb 1
 macro HandleException num {
 	HandleException#num:
 		;cli ; disable interrupts? 
+		push 0x00
         mov [interruptnumber], dword num
         jmp     common_interrupt_handler    ; jump to the common handler
 }

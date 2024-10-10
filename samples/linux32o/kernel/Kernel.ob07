@@ -85,7 +85,7 @@ TYPE
 	CPU = RECORD [noalign]
 		eax, ebx, ecx, edx: UINT32;
         esi, edi, ebp: UINT32;
-        error, eip, cs, eflags, esp, ss: UINT32
+        eip, error, cs, eflags, esp, ss: UINT32
 	END;
 	
 	CPUState = POINTER TO CPU;
@@ -544,7 +544,7 @@ VAR
 	currentState: CPUState;
 BEGIN
 	IF taskCount = 0 THEN
-		currentState := state;
+		currentState := mainState;
 	ELSE
 		IF currentThread = TASKS - 1 THEN // tasks done 
 			taskCount := 0;
@@ -560,6 +560,38 @@ BEGIN
 END ScheduleTask;
 
 
+PROCEDURE LogCPU(cpu: CPUState);
+
+PROCEDURE LogHex32(label: ARRAY OF CHAR; value: UINT32; comma: BOOLEAN);
+BEGIN
+	Print(label, BLUE, WHITE); PrintHex32(value, BLUE, WHITE);
+	IF comma THEN Print(", ", BLUE, WHITE); END;
+END LogHex32;
+
+BEGIN
+
+	LogHex32("eax: ", cpu.eax, TRUE);
+	LogHex32("ebx: ", cpu.ebx, TRUE);
+	LogHex32("ecx: ", cpu.ecx, TRUE);
+	LogHex32("edx: ", cpu.edx, TRUE);
+	PrintLn();
+	LogHex32("esi: ", cpu.esi, TRUE);
+	LogHex32("edi: ", cpu.edi, TRUE);
+	LogHex32("ebp: ", cpu.ebp, TRUE);
+	PrintLn();
+	
+	LogHex32("error: ", cpu.error, TRUE);
+	LogHex32("eip: ", cpu.eip, TRUE);
+	LogHex32("cs: ", cpu.cs, TRUE);
+	PrintLn();
+	LogHex32("eflags: ", cpu.eflags, TRUE);
+	LogHex32("esp: ", cpu.esp, TRUE);
+	LogHex32("ss: ", cpu.ss, TRUE);
+	PrintLn();
+	
+END LogCPU;
+
+
 PROCEDURE [oberon] kernelInterruptHandler*(interrupt: UINT8; esp: UINT32): UINT32;
 
 CONST
@@ -571,17 +603,21 @@ VAR
 	keyEvt: Devices.KeyEvent;
 	cpu, task: CPUState;
 	//entry: TaskEntry;
+	addr: UINT32;
 BEGIN
-	
-	cpu := SYSTEM.VAL(esp, CPUState);
+	addr := esp;
+	cpu := SYSTEM.VAL(addr, CPUState);
 
 	CASE interrupt OF
 	| TIMER:
 		IF timerCount = 0 THEN
+			LogCPU(cpu);
 			mainState := cpu;
 			INC(timerCount);
 		ELSE
+			//LogCPU(cpu);
 			cpu := ScheduleTask(cpu);
+			//LogCPU(cpu);
 			//entry := SYSTEM.VAL(cpu.eip, TaskEntry);
 			//entry(100);
 			//Print("CPU state: ", BLUE, WHITE); PrintHex32(SYSTEM.ADR(cpu^), BLUE, WHITE); PrintLn();
@@ -615,6 +651,8 @@ BEGIN
 		Print("CPU state: ", BLUE, WHITE); PrintHex32(SYSTEM.ADR(cpu^), BLUE, WHITE); PrintLn();
 			//Print("ESP state: ", BLUE, WHITE); PrintHex32(esp, BLUE, WHITE); PrintLn();
 		cpu := mainState;
+		LogCPU(cpu);
+		Halt()
 	ELSE
 		PrintLn();
 		Print("UNHANDLED INTERRUPT: ", BLACK, MAGENTA); PrintHex8(interrupt, BLACK, MAGENTA);
@@ -669,9 +707,11 @@ BEGIN
 	// cpustate -> esp = ;
 	task.state.eip := entryAddr;
 	//task.state.cs := 010H;
-	SYSTEM.PUT32(SYSTEM.ADR(task.state.cs), gdtCodeSeg);
+	task.state.cs := 283H;
+	task.state.ss := 01010101H;
+	//SYSTEM.PUT32(SYSTEM.ADR(task.state.cs), gdtCodeSeg);
 	// cpustate -> ss = ;
-	task.state.eflags := 202H;
+	//task.state.eflags := 202H;
 
 END NewTask;
 
