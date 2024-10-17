@@ -109,6 +109,7 @@ VAR
 	taskCount: INTEGER;
 	kbdPressedQueue: ARRAY TASKS OF Task;
 	kbdPressedQueueCount: INTEGER;
+	uptime: INTEGER;
 
 // ----------------------------SCREEN-------------------------------------------
 
@@ -562,9 +563,11 @@ END LogCPU;
 
 PROCEDURE Send(task: Task; msg: Message): BOOLEAN;
 BEGIN
-	NEW(task.inbox[task.msgCount]);
-	task.inbox[task.msgCount]^ := msg^;
-	INC(task.msgCount);
+	IF task.msgCount < 10 THEN
+		NEW(task.inbox[task.msgCount]);
+		task.inbox[task.msgCount]^ := msg^;
+		INC(task.msgCount);
+	END;
 	RETURN task.msgCount <= 10
 END Send; 
 
@@ -588,7 +591,7 @@ BEGIN
 	cpu := SYSTEM.VAL(addr, CPUState);
 
 	CASE interrupt OF
-	| TIMER:
+	| TIMER: INC(uptime)
 	| KEYBOARD:
 		Devices.ReadKey(keyboard, keyEvt);
 		IF (keyEvt.code # 0) & (keyEvt.status = Devices.KEY_PRESSED) THEN
@@ -704,23 +707,27 @@ END IsNumber;
 
 PROCEDURE GreaterThan(s1, s2: ARRAY OF CHAR): BOOLEAN;
 VAR
-	i, len: INTEGER;
-	ch: CHAR;
-	s1sum, s2sum: INTEGER;
+	i: INTEGER;
+	ch1, ch2: CHAR;
+	s1len, s2len: INTEGER;
+	greater: BOOLEAN;
 BEGIN
-	len := LENGTH(s1);
-	FOR i := len - 1 TO 0 BY -1 DO
-		ch := s1[i];
-		INC(s1sum, ORD(ch));
+	
+	s1len := LENGTH(s1);
+	s2len := LENGTH(s2);
+	IF s1len = s2len THEN
+		FOR i := 0 TO s2len - 1 DO
+			ch1 := s1[i]; ch2 := s2[i];
+			IF ORD(ch1) > ORD(ch2) THEN
+				greater := TRUE;
+				i := s2len;
+			END;
+		END;
+	ELSE
+		greater := FALSE;
 	END;
 	
-	len := LENGTH(s2);
-	FOR i := len - 1 TO 0 BY -1 DO
-		ch := s2[i];
-		INC(s2sum, ORD(ch));
-	END;
-	
-	RETURN s1sum > s2sum
+	RETURN greater
 END GreaterThan;
 
 
