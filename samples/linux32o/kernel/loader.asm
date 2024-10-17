@@ -26,8 +26,6 @@ section '.text' executable
 	public reload_segs
 	public _stop
 	public set_handlers
-	public setjmp
-	public longjmp
 	
 	extrn kernelSetup
 	extrn kernelMain
@@ -70,9 +68,6 @@ flush_cs:
 ; Interrupts
 include 'interrupts.asm'
 
-
-; Coroutines
-include 'coroutines.asm'
 
 section '.data'
 bye db 'Bye!',0

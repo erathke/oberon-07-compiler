@@ -48,8 +48,7 @@ CONST
 	STDOUT = 1;
 	
 	// Tasks
-	TASKS = 5;
-	STACK_SIZE = 4096;
+	TASKS = 6;
 	
 TYPE
 	Message = POINTER TO RECORD
@@ -90,15 +89,13 @@ TYPE
 	
 	CPUState = POINTER TO CPU;
 	
-	TaskEntry = PROCEDURE(n: INTEGER);
-	
-	Task = RECORD 
-		id: INTEGER;
-		stack: ARRAY STACK_SIZE OF BYTE;
-		state: CPUState;
-		entry: TaskEntry
+	Task = POINTER TO RECORD 
+		inbox: ARRAY 10 OF Message;
+		msgCount: INTEGER;
+		handler: PROCEDURE(task: Task)
 	END;
-		
+	
+	TaskHandler = PROCEDURE(task: Task);
 	
 VAR
 	cursor: RECORD
@@ -108,12 +105,10 @@ VAR
 	masterCmd, masterData: Devices.Port;
 	slaveCmd, slaveData: Devices.Port;
 	keyboard: Devices.Keyboard;
-	
 	tasks: ARRAY TASKS OF Task;
 	taskCount: INTEGER;
-	currentThread: INTEGER;
-	timerCount: INTEGER;
-	mainState: CPUState;
+	kbdPressedQueue: ARRAY TASKS OF Task;
+	kbdPressedQueueCount: INTEGER;
 
 // ----------------------------SCREEN-------------------------------------------
 
@@ -327,8 +322,6 @@ PROCEDURE InstallGDT(VAR gdt: GDT);
 CONST
 	SEGMENT_0CODE_TYPE  = 09AH;
 	SEGMENT_0DATA_TYPE  = 092H;
-	SEGMENT_3CODE_TYPE  = 0FAH;
-	SEGMENT_3DATA_TYPE  = 0F2H;
 	SEGMENT_FLAGS_PART = 00CH;
 
 VAR
@@ -364,8 +357,7 @@ BEGIN
 	NewSegmentDescriptor(gdt[GDT_NULL], 0, 0, 0, 0); // null
 	NewSegmentDescriptor(gdt[GDT_CODE], 0, 0FFFFFH, SEGMENT_0CODE_TYPE, SEGMENT_FLAGS_PART); // kernel code
 	NewSegmentDescriptor(gdt[GDT_DATA], 0, 0FFFFFH, SEGMENT_0DATA_TYPE, SEGMENT_FLAGS_PART); // kernel data
-	//NewSegmentDescriptor(gdt[3], 0, 0FFFFFH, SEGMENT_3CODE_TYPE, SEGMENT_FLAGS_PART); // user code
-	//NewSegmentDescriptor(gdt[4], 0, 0FFFFFH, SEGMENT_3DATA_TYPE, SEGMENT_FLAGS_PART); // user data
+	
 	
 	// Load GDT
 	SYSTEM.PUT32(SYSTEM.ADR(gdtAddr.addr), SYSTEM.ADR(gdt));
@@ -534,33 +526,9 @@ END kernelPrintInt;
 
 PROCEDURE [extern, "_stop"] Halt();
 
-PROCEDURE [extern, "setjmp"] SetJmp(addr: UINT32): INTEGER;
-
-PROCEDURE [extern, "longjmp"] LongJmp(addr: UINT32; status: INTEGER);
-
-
-PROCEDURE ScheduleTask(state: CPUState): CPUState;
-VAR
-	currentState: CPUState;
-BEGIN
-	IF taskCount = 0 THEN
-		currentState := mainState;
-	ELSE
-		IF currentThread = TASKS - 1 THEN // tasks done 
-			taskCount := 0;
-			currentThread := 0;
-			currentState := state;
-		ELSE
-			currentState := tasks[currentThread].state;
-		END;
-		INC(currentThread);
-	END;
-    
-    RETURN currentState
-END ScheduleTask;
-
 
 PROCEDURE LogCPU(cpu: CPUState);
+
 
 PROCEDURE LogHex32(label: ARRAY OF CHAR; value: UINT32; comma: BOOLEAN);
 BEGIN
@@ -592,6 +560,15 @@ BEGIN
 END LogCPU;
 
 
+PROCEDURE Send(task: Task; msg: Message): BOOLEAN;
+BEGIN
+	NEW(task.inbox[task.msgCount]);
+	task.inbox[task.msgCount]^ := msg^;
+	INC(task.msgCount);
+	RETURN task.msgCount <= 10
+END Send; 
+
+
 PROCEDURE [oberon] kernelInterruptHandler*(interrupt: UINT8; esp: UINT32): UINT32;
 
 CONST
@@ -601,34 +578,31 @@ CONST
 	GPF = 00DH;
 VAR
 	keyEvt: Devices.KeyEvent;
-	cpu, task: CPUState;
-	//entry: TaskEntry;
+	cpu: CPUState;
 	addr: UINT32;
+	i: INTEGER;
+	msg: Message;
+	task: Task;
 BEGIN
 	addr := esp;
 	cpu := SYSTEM.VAL(addr, CPUState);
 
 	CASE interrupt OF
 	| TIMER:
-		IF timerCount = 0 THEN
-			LogCPU(cpu);
-			mainState := cpu;
-			INC(timerCount);
-		ELSE
-			//LogCPU(cpu);
-			cpu := ScheduleTask(cpu);
-			//LogCPU(cpu);
-			//entry := SYSTEM.VAL(cpu.eip, TaskEntry);
-			//entry(100);
-			//Print("CPU state: ", BLUE, WHITE); PrintHex32(SYSTEM.ADR(cpu^), BLUE, WHITE); PrintLn();
-			//Print("ESP state: ", BLUE, WHITE); PrintHex32(esp, BLUE, WHITE); PrintLn();
-			//Halt()
-		END;
 	| KEYBOARD:
 		Devices.ReadKey(keyboard, keyEvt);
 		IF (keyEvt.code # 0) & (keyEvt.status = Devices.KEY_PRESSED) THEN
 			IF keyEvt.chr # 0X THEN
-				PrintChar(keyEvt.chr, BLACK, MAGENTA);
+				FOR i := 0 TO kbdPressedQueueCount - 1 DO
+					task := kbdPressedQueue[i];
+					NEW(msg);
+					msg.i := 1; // KeyEvent
+					msg.s[0] := keyEvt.chr;
+					IF ~ Send(task, msg) THEN
+						Print("message not sent", RED, GREEN); PrintLn();
+					END;
+					DISPOSE(msg);
+				END;
 			END;
 		END;
 	| SYSCALL:
@@ -648,9 +622,6 @@ BEGIN
 			Halt();
 		END;
 	| GPF:
-		Print("CPU state: ", BLUE, WHITE); PrintHex32(SYSTEM.ADR(cpu^), BLUE, WHITE); PrintLn();
-			//Print("ESP state: ", BLUE, WHITE); PrintHex32(esp, BLUE, WHITE); PrintLn();
-		cpu := mainState;
 		LogCPU(cpu);
 		Halt()
 	ELSE
@@ -666,71 +637,127 @@ BEGIN
 		Devices.Write8(slaveCmd, 020H);
 	END;
 	
-	RETURN SYSTEM.ADR(cpu^)
+	RETURN esp
 	
 END kernelInterruptHandler;
 
 
 // ----------------------------- USERSPACE -------------------------------------
-PROCEDURE Process(steps: INTEGER);
-VAR
-	i, j: INTEGER;
-	msg: Message;
+
+PROCEDURE Subscribe(task: Task);
 BEGIN
-	FOR i := 0 to steps DO
-		NEW(msg);
-		msg.s := ".";
-		Print(msg.s, LGREEN, BLACK);
-		FOR j := 0 TO 999999 DO END;
-		DISPOSE(msg);
-		//ASSERT(i # 15);
-		//j := j DIV (ABS(i - 15));
+	kbdPressedQueue[kbdPressedQueueCount] := task;
+	INC(kbdPressedQueueCount);
+END Subscribe;
+
+
+PROCEDURE NewTask(handler: TaskHandler);
+VAR
+	task: Task;
+BEGIN
+	NEW(task);
+	task.handler := handler;
+	tasks[taskCount] := task;
+	INC(taskCount);
+END NewTask;
+
+
+PROCEDURE Process();
+VAR
+	i: INTEGER;
+	task: Task;
+BEGIN
+	FOR i := 0 TO taskCount - 1 DO
+		task := tasks[i];
+		Subscribe(task);
+		task.handler(task);
 	END;
 END Process;
 
 
-PROCEDURE NewTask(VAR task: Task; entryAddr: UINT32);
-VAR
-	stateAddr: UINT32;
+PROCEDURE Wait();
 BEGIN
-	stateAddr := SYSTEM.ADR(task.stack[0]) + STACK_SIZE - SYSTEM.SIZE(CPU);
-	task.state := SYSTEM.VAL(stateAddr, CPUState);
-	
-	task.state.eax := 0;
-	task.state.ebx := 0;
-	task.state.ecx := 0;
-	task.state.edx := 0;
-	task.state.esi := 0;
-	task.state.edi := 0;
-	task.state.ebp := 0;
-	// cpustate -> error = 0;    
-	// cpustate -> esp = ;
-	task.state.eip := entryAddr;
-	//task.state.cs := 010H;
-	task.state.cs := 283H;
-	task.state.ss := 01010101H;
-	//SYSTEM.PUT32(SYSTEM.ADR(task.state.cs), gdtCodeSeg);
-	// cpustate -> ss = ;
-	//task.state.eflags := 202H;
-
-END NewTask;
+	//SYSTEM.CODE(0F3H, 090H); // PAUSE
+	SYSTEM.CODE(0F4H); // HLT
+END Wait;
 
 
-PROCEDURE InitTasks();
+PROCEDURE NumberTaskHandler(task: Task);
+CONST
+	MAXINT = "2147483647";
+
 VAR
-	i: INTEGER;
+	msg: Message;
+	eom: BOOLEAN;
+	str: ARRAY 10 OF CHAR;
+	strCount: INTEGER;
+	ch: CHAR;
+
+PROCEDURE IsNumber(ch: CHAR): BOOLEAN;
+CONST
+	ZERO = ORD('0');
+	NINE = ORD('9');
 BEGIN
-	currentThread := 0;
-	taskCount := TASKS;
-	FOR i := 0 TO TASKS - 1 DO
-		NewTask(tasks[i], SYSTEM.ADR(Process));
+	RETURN (ORD(ch) >= ZERO) & (ORD(ch) <= NINE)
+END IsNumber;
+
+
+PROCEDURE GreaterThan(s1, s2: ARRAY OF CHAR): BOOLEAN;
+VAR
+	i, len: INTEGER;
+	ch: CHAR;
+	s1sum, s2sum: INTEGER;
+BEGIN
+	len := LENGTH(s1);
+	FOR i := len - 1 TO 0 BY -1 DO
+		ch := s1[i];
+		INC(s1sum, ORD(ch));
 	END;
-END InitTasks;
+	
+	len := LENGTH(s2);
+	FOR i := len - 1 TO 0 BY -1 DO
+		ch := s2[i];
+		INC(s2sum, ORD(ch));
+	END;
+	
+	RETURN s1sum > s2sum
+END GreaterThan;
+
+
+BEGIN
+	PrintLn();
+	Print("Enter a number: ", GREEN, BLACK);
+	WHILE ~ eom & (strCount < 10) DO
+		Wait();
+		IF task.msgCount > 0 THEN
+			msg := task.inbox[task.msgCount-1];
+			ch := msg.s[0];
+			eom := ch = EOL;
+			IF ~ eom & IsNumber(ch) THEN
+				Print(msg.s, GREEN, BLACK);
+				str[strCount] := msg.s[0];
+				INC(strCount);
+			END;
+			DISPOSE(msg);
+			DEC(task.msgCount);
+		END;
+	END;
+	
+	PrintLn();
+	IF GreaterThan(str, MAXINT) THEN
+		Print("Number exceeded max integer: ", GREEN, BLACK); Print(MAXINT, GREEN, BLACK);
+	ELSE
+		Print("The number is: ", GREEN, BLACK); Print(str, GREEN, BLACK);
+	END;
+	
+	PrintLn();
+END NumberTaskHandler;
 
 
 BEGIN
 	Print("Booting OS...", BLUE, BLACK);
-	InitTasks();
-	PrintHex8(22, YELLOW, BROWN); PrintLn();
-	WHILE TRUE DO END;
+	NewTask(NumberTaskHandler);
+	NewTask(NumberTaskHandler);
+	Process();
+	Halt()
 END Kernel.
