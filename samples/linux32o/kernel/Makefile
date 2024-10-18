@@ -9,17 +9,21 @@ ISODIR=isodir
 QEMU=qemu-system-i386
 QEMU_OPTS=-enable-kvm -vga cirrus -m 32M -no-reboot
 
+all: kernel run
 
-$(KERNEL_DIR)/loader.o:
+dirs:
+	@mkdir -p $(KERNEL_DIR)
+
+
+$(KERNEL_DIR)/loader.o: dirs
 	$(FASM) loader.asm $@
 
 
-$(KERNEL_DIR)/Kernel.xo:
+$(KERNEL_DIR)/Kernel.xo: dirs
 	$(OBC) Kernel.ob07 linux32o $(DEF) $(OPTS) -out $@
 
 
 kernel: $(KERNEL_DIR)/loader.o $(KERNEL_DIR)/Kernel.xo
-	@mkdir -p $(KERNEL_DIR)
 	$(LD) $(LDFLAGS) $^ -o $(KERNEL_DIR)/kernel
 
 
@@ -27,7 +31,7 @@ clean:
 	$(RM) $(KERNEL_DIR)/*
 
 
-run: kernel
+run:
 	 $(QEMU) $(QEMU_OPTS) -kernel $(KERNEL_DIR)/kernel
 
 
