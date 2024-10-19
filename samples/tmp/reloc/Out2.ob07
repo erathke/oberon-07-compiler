@@ -1,0 +1,88 @@
+(*
+    BSD 2-Clause License
+
+    Copyright (c) 2020-2022, Anton Krotov
+    All rights reserved.
+*)
+
+MODULE Out2;
+
+IMPORT SYSTEM, API;
+
+CONST
+
+    bit_depth = API.BIT_DEPTH;
+
+VAR
+
+    fmt: ARRAY 8 OF CHAR;
+
+
+PROCEDURE [extern, "printf"] printf1 (fmt: INTEGER; x: INTEGER); END printf1;
+PROCEDURE [extern, "printf"] printf2 (fmt: INTEGER; width, x: INTEGER); END printf2;
+PROCEDURE [extern, "printf"] printf3 (fmt: INTEGER; width, precision: INTEGER; x: REAL); END printf3;
+PROCEDURE [extern, "printf"] printf4 (fmt: INTEGER; width, precision: INTEGER; x: INTEGER);  END printf4;
+
+
+PROCEDURE String* (s: ARRAY OF CHAR);
+BEGIN
+	printf2(SYSTEM.SADR("%.*s"), LENGTH(s), SYSTEM.ADR(s[0]))
+END String;
+
+
+PROCEDURE Ln*;
+BEGIN
+    printf1(SYSTEM.SADR("%s"), SYSTEM.SADR(0AX))
+END Ln;
+
+
+PROCEDURE Char* (x: CHAR);
+BEGIN
+    printf1(SYSTEM.SADR("%c"), ORD(x))
+END Char;
+
+
+PROCEDURE Int* (x, width: INTEGER);
+BEGIN
+    printf2(SYSTEM.ADR(fmt[0]), width, x)
+END Int;
+
+
+PROCEDURE Real* (x: REAL; width: INTEGER);
+BEGIN
+    IF bit_depth = 32 THEN
+        printf3(SYSTEM.SADR("%*.*E"), width, MAX(MIN(width - 8, 15), 1), x)
+    ELSE
+        printf4(SYSTEM.SADR("%*.*E"), width, MAX(MIN(width - 8, 15), 1), SYSTEM.VAL(x, INTEGER))
+    END
+END Real;
+
+
+PROCEDURE FixReal* (x: REAL; width, precision: INTEGER);
+BEGIN
+    IF bit_depth = 32 THEN
+        printf3(SYSTEM.SADR("%*.*f"), width, precision, x)
+    ELSE
+        printf4(SYSTEM.SADR("%*.*f"), width, precision, SYSTEM.VAL(x, INTEGER))
+    END
+END FixReal;
+
+
+PROCEDURE Open*;
+END Open;
+
+
+PROCEDURE init;
+BEGIN
+    IF bit_depth = 32 THEN
+        fmt := "%*d"
+    ELSE
+        fmt := "%*lld"
+    END;
+    
+END init;
+
+
+BEGIN
+    init
+END Out2.

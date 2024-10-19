@@ -1,0 +1,34 @@
+﻿MODULE unix;    (* connect to unix host *)
+IMPORT SYSTEM;
+(* provide some Oberon friendly POSIX without need for SYSTEM *)
+
+CONST   
+	RTLD_LAZY* = 1;
+	O_RDONLY* = 0;
+	O_NEWFILE* = 0C2H;  (* O_RDWR | O_CREAT | O_EXCL *)
+	(* O_RDONLY=0, O_WRONLY=1, O_RDWR=2, O_CREAT=0x40, O_EXCL=0x80, O_TRUNC=0x200 *)
+	FD_SETSIZE* = 1024;   (* fd for select() must be smaller than FD_SETSIZE *)
+	BIT_DEPTH* = 32;
+
+TYPE
+	timespec* = RECORD
+		tv_sec*, tv_usec* :INTEGER
+	END;
+	fd_set* = POINTER TO RECORD   (* for select() *)
+		bits* :ARRAY 1024 OF SET   (* 1024 bits *)
+	END;
+
+
+PROCEDURE [extern, "close"] close*(n :INTEGER);
+PROCEDURE [extern, "exit"] exit*(fd :INTEGER);        
+PROCEDURE [extern, "malloc"] malloc*(sz :INTEGER) :INTEGER;
+
+
+PROCEDURE select* (cnt :INTEGER; readfds, writefds, exceptfds :fd_set; timeout :timespec) :INTEGER;
+BEGIN
+	RETURN 0
+END select;
+
+
+END unix.
+

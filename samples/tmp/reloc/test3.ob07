@@ -1,0 +1,28 @@
+MODULE test3;
+IMPORT SYSTEM, Out;
+
+PROCEDURE [extern, "printf"] Printf*(fmt, str: INTEGER); END Printf;
+
+PROCEDURE Echo*(fmt, str: ARRAY OF CHAR);
+BEGIN
+	Printf(SYSTEM.ADR(fmt[0]), SYSTEM.ADR(str[0]));
+END Echo;
+
+PROCEDURE EchoInt(fmt: ARRAY OF CHAR; value: INTEGER);
+BEGIN
+	Printf(SYSTEM.ADR(fmt[0]), value);
+END EchoInt;
+
+PROCEDURE [ccall] main*(): INTEGER;
+VAR
+	s: ARRAY 8 OF CHAR;
+	pf: PROCEDURE [extern] (fmt, str: INTEGER);
+BEGIN
+	s := "Evandro";
+	Echo("%s", s);
+	pf := Printf;
+	pf(SYSTEM.SADR("%s"), SYSTEM.SADR("João"));
+	RETURN 11
+END main;
+
+END test3.

@@ -1,0 +1,34 @@
+MODULE test1;
+IMPORT SYSTEM, Out, T3 IN "./test3.ob07";
+
+VAR
+	e: PROCEDURE(): INTEGER;
+
+PROCEDURE abc*(); END abc;
+
+PROCEDURE echo(): INTEGER;
+BEGIN
+	RETURN 22
+END echo;
+
+PROCEDURE xxx*(); END xxx;
+
+PROCEDURE [ccall] main*(): INTEGER;
+VAR
+	s: ARRAY 8 OF CHAR;
+	e2: PROCEDURE(): INTEGER;
+	
+BEGIN
+	//xxx();
+	
+	e := echo;
+	e2 := e;
+	s := "Evandro";
+	T3.Printf(SYSTEM.SADR("%s"), SYSTEM.ADR(s[0]));
+	//abc();
+	
+	Out.String(s); Out.Ln;
+	RETURN e() + e2()
+END main;
+
+END test1.

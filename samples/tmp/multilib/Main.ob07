@@ -1,0 +1,19 @@
+MODULE Main;
+IMPORT SYSTEM, Out IN "./Out2.ob07", Kernel, Screen;
+
+
+PROCEDURE [ccall] main*(): INTEGER;
+VAR 
+	acc: INTEGER;
+BEGIN
+	Out.Open();
+	acc := Kernel.Run();
+	Out.String("Result: "); Out.Int(acc, 3); Out.Ln;
+	Out.String("Bye!"); Out.Ln;
+	RETURN 0
+END main;
+
+BEGIN
+	Out.String("initialized"); Out.Ln;
+
+END Main.

@@ -1,0 +1,95 @@
+MODULE HelloGui;
+IMPORT SYSTEM, 
+	Out := Out_sys,
+	RL IN "./Raylib.ob07", 
+	RNK IN "./RaylibNK.ob07", 
+	NK IN "./Nuklear.ob07";
+
+CONST
+	WINDOW_FLAGS = NK.WINDOW_BORDER + NK.WINDOW_MOVABLE +
+		NK.WINDOW_SCALABLE + NK.WINDOW_MINIMIZABLE + NK.WINDOW_TITLE;
+	
+	EASY = 0;
+	HARD = 1;
+
+TYPE
+	Window = POINTER TO RECORD
+		title: ARRAY 32 OF CHAR;
+		rect: NK.Rect;
+		flags: SET
+	END;
+
+PROCEDURE NewWindow(title: ARRAY OF CHAR; x, y, w, h: INTEGER; flags: SET): Window;
+VAR
+	window: Window;
+BEGIN
+	NEW(window);
+	window.title := title;
+	window.rect.x := x; window.rect.y := y;
+	window.rect.w := w; window.rect.h := h;
+	window.flags := flags;
+	RETURN window
+END NewWindow;
+
+PROCEDURE DrawWindow(ctx: NK.Context; w: Window; VAR op: INTEGER);
+BEGIN
+	
+	IF NK.Begin(ctx, w.title, w.rect, w.flags) THEN
+		NK.LayoutRowStatic(ctx, 30.0, 80, 1);
+		
+		IF NK.ButtonLabel(ctx, "Button") THEN 
+			Out.String("button pressed"); Out.Ln;
+        END;
+        
+        NK.LayoutRowDynamic(ctx, 30.0, 2);
+        IF NK.OptionLabel(ctx, "easy", op = EASY) THEN
+			op := EASY;
+        END;
+        IF NK.OptionLabel(ctx, "hard", op = HARD) THEN
+			op := HARD;
+        END;
+    END;
+    NK.End(ctx);
+
+END DrawWindow;
+
+PROCEDURE main();
+VAR
+	bgColor: RL.Color;
+	ctx: NK.Context;
+	fontSize: INTEGER;
+	op: INTEGER;
+	w1, w2: Window;
+BEGIN
+
+	RL.IntToColor(RL.WHITE, bgColor);
+	fontSize := 16;
+	w1 := NewWindow("My window", 100, 100, 200, 200, WINDOW_FLAGS);
+	w2 := NewWindow("Another one", 400, 150, 300, 200, WINDOW_FLAGS);
+	
+	RL.SetTargetFPS(60);
+	RL.InitWindow(800, 600, "HelloGui");
+	
+	//ctx := RNK.InitNuklear(fontSize);
+	ctx := RNK.InitNuklearEx("./resources/anonymous_pro_bold.ttf", FLT(fontSize));
+	
+	WHILE ~ RL.WindowShouldClose() DO
+		
+		RNK.UpdateNuklear(ctx);
+		DrawWindow(ctx, w1, op);
+		DrawWindow(ctx, w2, op);
+		
+		RL.BeginDrawing();
+			RL.ClearBackground(bgColor);
+			RNK.DrawNuklear(ctx);
+		RL.EndDrawing();
+	END;
+	
+	RNK.UnloadNuklear(ctx);
+	RL.CloseWindow();
+	
+END main;
+
+BEGIN
+	main()
+END HelloGui.

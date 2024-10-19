@@ -1,0 +1,12 @@
+MODULE TestLib;
+IMPORT SYSTEM;
+
+PROCEDURE [extern, "printf"] printf(fmt, str: INTEGER); END printf;
+
+PROCEDURE [ccall] Print*(fmt, str: ARRAY OF CHAR);
+VAR
+BEGIN
+	printf(SYSTEM.ADR(fmt[0]), SYSTEM.ADR(str[0]));
+END Print;
+
+END TestLib.

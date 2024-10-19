@@ -1,0 +1,21 @@
+MODULE test2;
+IMPORT SYSTEM, Out;
+
+VAR
+	e: PROCEDURE(s: ARRAY OF CHAR);
+
+PROCEDURE [ccall] main*(): INTEGER;
+VAR
+	s: ARRAY 8 OF CHAR;
+	e2: PROCEDURE(s: ARRAY OF CHAR);
+BEGIN
+	s := "Evandro";
+	Out.String(s); Out.Ln;
+	e := Out.String;
+	e("Rathke"); Out.Ln;
+	e2 := e;
+	e2("Hello"); Out.Ln;
+	RETURN 11
+END main;
+
+END test2.

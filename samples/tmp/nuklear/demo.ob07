@@ -1,0 +1,41 @@
+MODULE demo;
+IMPORT SYSTEM, Out, NK IN "./Nuklear.ob07";
+
+CONST
+	EASY = 0;
+	HARD = 1;
+
+PROCEDURE [linux] oberon_gui*(ctx: NK.Context);
+VAR
+	r: NK.Rect;
+	flags: SET;
+	op: INTEGER;
+BEGIN
+	r.x := 50; r.y := 50; r.w := 230; r.h := 250;
+	flags := NK.WINDOW_BORDER + NK.WINDOW_MOVABLE +
+		NK.WINDOW_SCALABLE + NK.WINDOW_MINIMIZABLE + NK.WINDOW_TITLE;
+	
+	IF NK.Begin(ctx, "My window", r, flags) THEN
+		NK.LayoutRowStatic(ctx, 30, 80, 2);
+		
+		IF NK.ButtonLabel(ctx, "button") THEN 
+			Out.String("button pressed"); Out.Ln;
+        END;
+        
+        (*
+        NK.LayoutRowDynamic(ctx, 30, 2);
+        IF NK.OptionLabel(ctx, "easy", op = EASY) THEN
+			op := EASY;
+        END;
+        IF NK.OptionLabel(ctx, "hard", op = HARD) THEN
+			op := HARD;
+        END;
+        *)
+        
+	END;
+	
+	NK.End(ctx);
+
+END oberon_gui;
+
+END demo.
