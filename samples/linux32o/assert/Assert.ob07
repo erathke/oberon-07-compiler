@@ -2,23 +2,32 @@ MODULE Assert;
 IMPORT Args, Out := Out_sys;
 
 CONST
-	MEM_SIZE = 1 * 1024 * 1024;
+	MEM_SIZE = 1 * 1024;
 
 TYPE
 	Memory = POINTER TO RECORD
-		ram: ARRAY MEM_SIZE OF BYTE
+		ram: ARRAY MEM_SIZE OF CHAR
 	END;
 
 VAR
 	mem: Memory;
+	i: INTEGER;
 
 BEGIN
 	NEW(mem);
-	DISPOSE(mem);
 	
 	Out.String("Hello, world = ");
 	Out.Int(Args.argc, 0);
 	Out.Char('!'); Out.Ln;
 	
+	IF Args.argc > 1 THEN
+		FOR i := 1 TO Args.argc - 1 DO
+			Args.GetArg(i, mem.ram);
+			Out.String(mem.ram);
+			Out.Ln;
+		END
+	END;
+	
+	DISPOSE(mem);
 	ASSERT(FALSE)
 END Assert.
