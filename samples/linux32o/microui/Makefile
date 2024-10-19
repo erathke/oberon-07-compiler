@@ -1,7 +1,9 @@
 CC=cc
+AR=ar
 LIBS=./lib/libraylib-i686.a ./lib/libmurl.a
 INCLUDE=./include
 CFLAGS=-m32 -no-pie
+ARFLAGS=rc
 OBC=../../../compilerX
 DEF=-def API_sys
 OPTS=-entry _start -rtl RTL_sys
@@ -9,11 +11,15 @@ SRCC=lib/glue.c
 SRCO=HelloGui.ob07
 OBJC=lib/glue.o
 OBJO=lib/HelloGui.xo
-EXE=HelloGui
+BINDIR=bin
+EXE=$(BINDIR)/HelloGui
 MURL_DEP=./deps/microui-raylib
 MURL_SRC=$(MURL_DEP)/src/murl.c $(MURL_DEP)/vendor/microui.c
 
+all: deps exe
+
 exe: $(OBJC) $(OBJO)
+	@mkdir -p $(BINDIR)
 	$(CC) $(CFLAGS) -nostartfiles -o $(EXE) $^ $(LIBS) -lm
 
 lib/glue.o: $(SRCC)
@@ -28,4 +34,4 @@ clean:
 deps: $(MURL_SRC)
 	$(CC) $(CFLAGS) -c $(MURL_DEP)/src/murl.c -o lib/murl.o -I$(MURL_DEP)/vendor -I./include
 	$(CC) $(CFLAGS) -c $(MURL_DEP)/vendor/microui.c -o lib/microui.o
-	ar rc lib/libmurl.a lib/murl.o lib/microui.o
+	$(AR) $(ARFLAGS) lib/libmurl.a lib/murl.o lib/microui.o
