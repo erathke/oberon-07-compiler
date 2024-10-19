@@ -1,5 +1,5 @@
 LD=ld
-LDFLAGS=-melf_i386 -T linker.ld --build-id=none
+LDFLAGS=-T linker.ld --build-id=none
 OBC=../../../compilerX
 FASM=../../../fasm
 DEF=-def API_sys

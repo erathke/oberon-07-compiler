@@ -4,23 +4,16 @@ OUTPUT_ARCH(i386:i386)
 
 SECTIONS
 {
-  . = 0x0100000;
+	. = 0x0100000 + SIZEOF_HEADERS;
 
-  .text :
-  {
-    *(.multiboot)
-    *(.text*)
-  }
+	.text : { *(.multiboot) *(.text*) }
+	.data : { *(.data) }
+	.bss  : { *(.bss) } :bss
 
-  .data  :
-  {
-    *(.data)
-  }
+	/DISCARD/ : { *(.comment) }
+}
 
-  .bss  :
-  {
-    *(.bss)
-  }
-
-  /DISCARD/ : { *(.fini_array*) *(.comment) }
+PHDRS 
+{
+	bss PT_LOAD FLAGS(6);
 }
