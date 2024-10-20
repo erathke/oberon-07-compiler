@@ -2,7 +2,6 @@ LD=ld
 LDFLAGS=-T linker.ld --build-id=none
 OBC=../../../compilerX
 FASM=../../../fasm
-DEF=-def API_sys
 OPTS=-entry kernelMain -rtl RTL_metal
 KERNEL_DIR=bin
 ISODIR=isodir
@@ -20,7 +19,7 @@ $(KERNEL_DIR)/loader.o: dirs
 
 
 $(KERNEL_DIR)/Kernel.xo: dirs
-	$(OBC) Kernel.ob07 linux32o $(DEF) $(OPTS) -out $@
+	$(OBC) Kernel.ob07 linux32o $(OPTS) -out $@
 
 
 kernel: $(KERNEL_DIR)/loader.o $(KERNEL_DIR)/Kernel.xo
