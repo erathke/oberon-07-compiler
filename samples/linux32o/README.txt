@@ -16,8 +16,8 @@ This directory contains some examples:
 Known issues:
 - Extern procedures cannot be assigned or passed as parameters;
 - For the sake of simplicity, the "-rtl" option was created in the compiler.
-A better option can be search for module replacement in the application root folder.
-- When "-entry" option is defined, it also includes an implicit API._exit at the end of the entry.
-I'm not sure if it is the correct behaviour.
+A better option can be search for module replacement in the application root folder;
+- When "-entry" option is defined, it also includes an implicit API._exit call at the end of the entry.
+I'm not sure if it is the correct behaviour;
 - The implementation was quite conservative, avoiding to replace/change existent code.
 When possible, the code was duplicated with new functionality.
