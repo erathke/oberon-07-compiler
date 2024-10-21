@@ -1,7 +1,5 @@
 format ELF
 
-include 'ccall.inc'
-
 section '.text' executable
 
 public _start
@@ -25,6 +23,7 @@ _start:
 	call kernel_config
 	
 	; calling kernel_main()
+	;mov esp, kernel_stack
 	call kernel_main ; long jump
 	
 	ret ; should not be executed
@@ -48,6 +47,7 @@ stmsg_size = $ - stmsg
 
 section '.bss' writeable
 mem rb MEM_SIZE
-
+;rb 256
+;kernel_stack:
 
 section '.note.GNU-stack'
