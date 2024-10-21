@@ -1028,7 +1028,8 @@ VAR
             PROG.program.procs.last(PROG.PROC)._import := _import
         ELSIF call = PROG.extcall THEN
 			proc := IdentDef(parser, PROG.idEXTPROC, name);
-			proc.extern := TRUE
+			proc.extern := TRUE;
+			proc.proc.used := TRUE;
         ELSE
             proc := IdentDef(parser, PROG.idPROC, name)
         END;

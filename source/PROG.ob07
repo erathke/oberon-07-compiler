@@ -1202,9 +1202,7 @@ BEGIN
     WHILE proc # NIL DO
         IF ~proc.used THEN
             IF (proc._import = NIL) THEN
-                IF (proc.enter # NIL) & (proc.leave # NIL) THEN (* FIXME: enter and leave for extern? *)
-					IL.delete2(proc.enter, proc.leave)
-                END;
+                IL.delete2(proc.enter, proc.leave)
             ELSE
                 DelImport(proc._import)
             END

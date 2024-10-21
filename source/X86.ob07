@@ -2420,7 +2420,7 @@ BEGIN
 END prolog;
 
 
-PROCEDURE epilog (pic: BOOLEAN; modname: ARRAY OF CHAR; target, stack, ver, dllinit, dllret, sofinit: INTEGER);
+PROCEDURE epilog (pic: BOOLEAN; modname: ARRAY OF CHAR; target, stack, ver, dllinit, dllret, sofinit: INTEGER; entryname: ARRAY OF CHAR);
 VAR
     exp:  IL.EXPORT_PROC;
     path, name, ext: PATHS.PATH;
@@ -2428,6 +2428,7 @@ VAR
 
     dcount, i: INTEGER;
     expname: SCAN.IDSTR;
+    hasEntrySymbol: BOOLEAN;
 
 
     PROCEDURE _import (imp: LISTS.LIST);
@@ -2468,6 +2469,8 @@ VAR
 
 BEGIN
 
+	hasEntrySymbol := LENGTH(entryname) > 0;
+
     IF target IN {TARGETS.Win32C, TARGETS.Win32GUI, TARGETS.KolibriOS, TARGETS.Linux32} THEN
         pushc(0);
         CallRTL(pic, IL._exit);
@@ -2496,7 +2499,7 @@ BEGIN
         SetLabel(sofinit);
         CallRTL(pic, IL._sofinit);
         ret
-    ELSIF target = TARGETS.Linux32O THEN (* FIXME: create compiler option *)
+    ELSIF hasEntrySymbol & (target = TARGETS.Linux32O) THEN (* FIXME: create compiler option? *)
 		pushc(0);
         CallRTL(pic, IL._exit);
     END;
@@ -2594,7 +2597,7 @@ BEGIN
 
     dllinit := prolog(opt.pic, target, opt.stack, dllret, opt.entry);
     translate(opt.pic, tcount * 4, target);
-    epilog(opt.pic, outname, target, opt.stack, opt.version, dllinit, dllret, sofinit);
+    epilog(opt.pic, outname, target, opt.stack, opt.version, dllinit, dllret, sofinit, opt.entry);
 
     BIN.fixup(program);
     IF TARGETS.OS = TARGETS.osWIN32 THEN
