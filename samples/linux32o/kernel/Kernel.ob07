@@ -763,5 +763,5 @@ BEGIN
 	NewTask(NumberTaskHandler);
 	NewTask(NumberTaskHandler);
 	Process();
-	Halt()
+	// SYS_exit
 END Kernel.
