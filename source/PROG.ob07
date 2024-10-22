@@ -185,8 +185,7 @@ TYPE
         scopeLvl*:   INTEGER;
         offset*:     INTEGER;
         proc*:       PROC;
-        pos*:        SCAN.POSITION;
-        extern*:	 BOOLEAN
+        pos*:        SCAN.POSITION
 
     END;
 

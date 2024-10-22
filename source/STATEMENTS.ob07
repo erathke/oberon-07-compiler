@@ -1327,7 +1327,6 @@ BEGIN
     |PROG.idPROC, PROG.idEXTPROC:
         e.obj   := ePROC;
         e._type := ident._type;
-        e.ident.extern := ident.typ = PROG.idEXTPROC
     |PROG.idIMP:
         e.obj   := eIMP;
         e._type := ident._type
@@ -1678,7 +1677,7 @@ BEGIN
     IF e.obj = eIMP THEN
         IL.CallImp(e.ident._import, callconv, fparSize)
     ELSIF e.obj = ePROC THEN
-		IF e.ident.extern THEN
+		IF e.ident.typ = PROG.idEXTPROC THEN
 			IL.CallExt(e.ident.proc.label)
 		ELSE
 			IL.Call(e.ident.proc.label, callconv, fparSize)

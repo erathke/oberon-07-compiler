@@ -1005,6 +1005,7 @@ VAR
         handler:    BOOLEAN;
         line:       INTEGER;
 		extid: SCAN.IDSTR;
+		externProc: BOOLEAN;
 		
     BEGIN
         endmod := FALSE;
@@ -1013,6 +1014,7 @@ VAR
         unit := parser.unit;
 
         call := procflag(parser, _import, extid, TRUE);
+        externProc := call = PROG.extcall;
 
         getpos(parser, pos);
         pos1 := pos;
@@ -1026,10 +1028,8 @@ VAR
                 COPY(name.s, _import.name)
             END;
             PROG.program.procs.last(PROG.PROC)._import := _import
-        ELSIF call = PROG.extcall THEN
+        ELSIF externProc THEN
 			proc := IdentDef(parser, PROG.idEXTPROC, name);
-			proc.extern := TRUE;
-			proc.proc.used := TRUE;
         ELSE
             proc := IdentDef(parser, PROG.idPROC, name)
         END;
@@ -1111,29 +1111,27 @@ VAR
         Next(parser);
 
         IF _import = NIL THEN
-			
+        
             IF parser.main  THEN
-				IF proc.export & TARGETS.Dll & (~proc.extern) THEN
+				IF proc.export & TARGETS.Dll THEN
 					IF TARGETS.target = TARGETS.KolibriOSDLL THEN
 						check((proc.name.s # "lib_init") & (proc.name.s # "version"), pos, 114)
 					END;
-					
 					IL.AddExp(label, proc.name.s);
 					proc.proc.used := TRUE
-				
                 END;
-                IF proc.extern THEN
+                IF externProc THEN
 					IL.AddExt(label, extid);
 					proc.proc.used := TRUE
 				END;
             ELSE
-				IF proc.extern THEN
+				IF externProc THEN
 					IL.AddExt(label, extid);
 					proc.proc.used := TRUE
 				END;
             END;
 
-            IF ~codeProc & (call # PROG.extcall)THEN
+            IF ~codeProc & ~externProc THEN
                 b := DeclarationSequence(parser)
             END;
 
@@ -1158,7 +1156,7 @@ VAR
                 parser.StatSeq(parser)
             END;
 
-            IF ~codeProc & (t.base # NIL) & (call # PROG.extcall) THEN
+            IF ~codeProc & (t.base # NIL) & ~externProc THEN
 				checklex(parser, SCAN.lxRETURN);
 				NextPos(parser, pos);
 				parser.expression(parser, e);
@@ -1166,7 +1164,7 @@ VAR
             END;
 
             IF ~codeProc THEN
-				IF call # PROG.extcall THEN
+				IF ~externProc THEN
 					proc.proc.leave := IL.Leave(t.base # NIL, (t.base # NIL) & (t.base.typ = PROG.tREAL), PROG.program.locsize,
 						t.parSize * ORD((t.call IN PROG.callee_clean_up) OR (t.call IN {PROG.systemv, PROG._systemv})));
 					enter.param2 := PROG.program.locsize;
