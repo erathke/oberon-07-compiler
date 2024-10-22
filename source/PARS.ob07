@@ -1028,7 +1028,7 @@ VAR
             PROG.program.procs.last(PROG.PROC)._import := _import
         ELSIF call = PROG.extcall THEN
 			proc := IdentDef(parser, PROG.idEXTPROC, name);
-			proc.extern := TRUE;
+			//proc.extern := TRUE;
 			proc.proc.used := TRUE;
         ELSE
             proc := IdentDef(parser, PROG.idPROC, name)
@@ -1111,23 +1111,21 @@ VAR
         Next(parser);
 
         IF _import = NIL THEN
-			
+        
             IF parser.main  THEN
-				IF proc.export & TARGETS.Dll & (~proc.extern) THEN
+				IF proc.export & TARGETS.Dll THEN
 					IF TARGETS.target = TARGETS.KolibriOSDLL THEN
 						check((proc.name.s # "lib_init") & (proc.name.s # "version"), pos, 114)
 					END;
-					
 					IL.AddExp(label, proc.name.s);
 					proc.proc.used := TRUE
-				
                 END;
-                IF proc.extern THEN
+                IF call = PROG.extcall THEN
 					IL.AddExt(label, extid);
 					proc.proc.used := TRUE
 				END;
             ELSE
-				IF proc.extern THEN
+				IF call = PROG.extcall THEN
 					IL.AddExt(label, extid);
 					proc.proc.used := TRUE
 				END;
