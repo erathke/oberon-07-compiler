@@ -1,0 +1,127 @@
+MODULE Coroutines;
+IMPORT SYSTEM, Out := Out_sys;
+
+CONST 
+	IDLE* = 0;
+	RUNNING* = 1;
+	SUSPENDED* = 2;
+	DEAD* = 4;
+	
+	STACK_SIZE = 4096;
+
+TYPE
+	UINT32 = INTEGER;
+	PID* = INTEGER;
+	
+	Context = RECORD
+		//eip, esp, ebp, ebx, edi, esi: UINT32
+		//ecx, esp, ebp, ebx, esi, edi, eip: UINT32
+		ebx, esi, edi, ebp, ecx, esp, eip: UINT32
+	END;
+	
+	Thread* = POINTER TO RECORD
+		caller, callee: Context
+	END;
+	
+	Coroutine* = POINTER TO CoroutineDesc;
+	
+	Handler* = PROCEDURE(coro: Coroutine): INTEGER;
+	
+	CoroutineDesc = RECORD
+		state*: INTEGER;
+		value*: INTEGER;
+		handler: Handler;
+		thread: Thread;
+		context: Context;
+		stack: ARRAY STACK_SIZE OF BYTE
+	END;
+	
+
+PROCEDURE [extern, "getcontext"] getcontext(ctx1: UINT32);
+PROCEDURE [extern, "swapcontext"] swapcontext(ctx1, ctx2: UINT32);
+
+
+PROCEDURE LogContext(VAR ctx: Context);
+BEGIN
+	//ebx, esi, edi, ebp, ecx, esp, eip
+	Out.String("=================="); Out.Ln;
+	Out.String("ebx: "); Out.Int(ctx.ebx, 0); Out.Ln;
+	Out.String("esi: "); Out.Int(ctx.esi, 0); Out.Ln;
+	Out.String("edi: "); Out.Int(ctx.edi, 0); Out.Ln;
+	Out.String("ebp: "); Out.Int(ctx.ebp, 0); Out.Ln;
+	Out.String("ecx: "); Out.Int(ctx.ecx, 0); Out.Ln;
+	Out.String("esp: "); Out.Int(ctx.esp, 0); Out.Ln;
+	Out.String("eip: "); Out.Int(ctx.eip, 0); Out.Ln;
+	Out.String("=================="); Out.Ln;
+END LogContext;
+
+
+PROCEDURE Yield*(coro: Coroutine; value: INTEGER);
+VAR
+	ctx1, ctx2: UINT32;
+BEGIN
+	coro.value := value;
+	ctx1 := SYSTEM.ADR(coro.thread.callee);
+	ctx2 := SYSTEM.ADR(coro.thread.caller);
+	swapcontext(ctx1, ctx2);
+	
+END Yield;
+
+
+PROCEDURE EntryPoint(coro: Coroutine);
+VAR
+	value: INTEGER;
+BEGIN
+	value := coro.handler(coro);
+	coro.state := DEAD;
+	Yield(coro, value);
+END EntryPoint;
+
+
+PROCEDURE Create*(thread: Thread; handler: Handler): Coroutine;
+VAR
+	coro: Coroutine;
+	espidx: INTEGER;
+BEGIN
+	NEW(coro);
+	coro.handler := handler;
+	coro.state := IDLE;
+	coro.thread := thread;
+	
+	getcontext(SYSTEM.ADR(coro.context));
+	// makecontext?
+	coro.context.eip := SYSTEM.ADR(EntryPoint);
+	espidx := STACK_SIZE - SYSTEM.SIZE(Context) - 1;
+	coro.context.esp := SYSTEM.ADR(coro.stack[espidx]);
+	
+	LogContext(coro.context);
+	
+	RETURN coro
+END Create;
+
+
+PROCEDURE Resume*(coro: Coroutine; VAR value: INTEGER);
+VAR
+	oldContext: Context;
+	ctx1, ctx2: UINT32;
+BEGIN
+    IF coro.state = DEAD THEN
+		value := 0;
+		Out.String("cannot resume dead coroutine."); Out.Ln;
+	ELSE
+		IF coro.state = IDLE THEN
+			coro.state := RUNNING;
+		END;
+		oldContext := coro.thread.caller;
+		ctx1 := SYSTEM.ADR(coro.thread.caller);
+		ctx2 := SYSTEM.ADR(coro.context);
+		swapcontext(ctx1, ctx2);
+		coro.context := coro.thread.callee;
+		coro.thread.caller := oldContext;
+		value := coro.value;
+	END;
+    
+END Resume;
+
+	
+END Coroutines.
