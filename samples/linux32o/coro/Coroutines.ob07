@@ -14,9 +14,9 @@ TYPE
 	PID* = INTEGER;
 	
 	Context = RECORD
-		//eip, esp, ebp, ebx, edi, esi: UINT32
+		eip, esp, ebp, ebx, ecx, edi, esi: UINT32
 		//ecx, esp, ebp, ebx, esi, edi, eip: UINT32
-		ebx, esi, edi, ebp, ecx, esp, eip: UINT32
+		//ebx, esi, edi, ebp, ecx, esp, eip: UINT32
 	END;
 	
 	Thread* = POINTER TO RECORD
@@ -25,7 +25,7 @@ TYPE
 	
 	Coroutine* = POINTER TO CoroutineDesc;
 	
-	Handler* = PROCEDURE(coro: Coroutine): INTEGER;
+	Handler* = PROCEDURE (coro: Coroutine): INTEGER;
 	
 	CoroutineDesc = RECORD
 		state*: INTEGER;
@@ -71,7 +71,9 @@ END Yield;
 PROCEDURE EntryPoint(coro: Coroutine);
 VAR
 	value: INTEGER;
+	
 BEGIN
+	//Out.String("aqyu"); Out.Int(SYSTEM.ADR(coro.handler), 0); Out.Ln;
 	value := coro.handler(coro);
 	coro.state := DEAD;
 	Yield(coro, value);
@@ -81,7 +83,7 @@ END EntryPoint;
 PROCEDURE Create*(thread: Thread; handler: Handler): Coroutine;
 VAR
 	coro: Coroutine;
-	espidx: INTEGER;
+	stackHighAddr, coroAddr: UINT32;
 BEGIN
 	NEW(coro);
 	coro.handler := handler;
@@ -89,10 +91,16 @@ BEGIN
 	coro.thread := thread;
 	
 	getcontext(SYSTEM.ADR(coro.context));
-	// makecontext?
+	// makecontext
+	stackHighAddr := SYSTEM.ADR(coro.stack[0]) + STACK_SIZE - 16 - SYSTEM.SIZE(Context);
+	SYSTEM.PUT32(stackHighAddr, 0DEADDEADH);
+	coroAddr := SYSTEM.ADR(coro);
+	SYSTEM.GET32(coroAddr, coroAddr);
+	SYSTEM.PUT32(stackHighAddr + 4, coroAddr);
+	
+	//Out.String("coro: "); Out.Int(coroAddr, 0); Out.Ln;
 	coro.context.eip := SYSTEM.ADR(EntryPoint);
-	espidx := STACK_SIZE - SYSTEM.SIZE(Context) - 1;
-	coro.context.esp := SYSTEM.ADR(coro.stack[espidx]);
+	coro.context.esp := stackHighAddr;
 	
 	LogContext(coro.context);
 	
@@ -117,6 +125,7 @@ BEGIN
 		ctx2 := SYSTEM.ADR(coro.context);
 		swapcontext(ctx1, ctx2);
 		coro.context := coro.thread.callee;
+		//coro.thread.callee := coro.context;
 		coro.thread.caller := oldContext;
 		value := coro.value;
 	END;

@@ -11,9 +11,9 @@ VAR
 PROCEDURE Calc(coro: CR.Coroutine): INTEGER;
 BEGIN
 	Out.String("calculating... ");
-	CR.Yield(c1, 10);
+	CR.Yield(c1, 5);
 	Out.String("done."); Out.Ln;
-	RETURN 0
+	RETURN 10
 END Calc;
 
 
@@ -21,6 +21,6 @@ BEGIN
 	NEW(t1);
 	c1 := CR.Create(t1, Calc);
 	CR.Resume(c1, v1);
-	CR.Resume(c1, v1);
+	//CR.Resume(c1, v1);
 	
 END Test.
