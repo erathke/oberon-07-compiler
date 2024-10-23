@@ -13,124 +13,75 @@ TYPE
 	UINT32 = INTEGER;
 	PID* = INTEGER;
 	
-	Context = RECORD
-		eip, esp, ebp, ebx, ecx, edi, esi: UINT32
-		//ecx, esp, ebp, ebx, esi, edi, eip: UINT32
-		//ebx, esi, edi, ebp, ecx, esp, eip: UINT32
+	Userdata* = POINTER TO RECORD
 	END;
 	
-	Thread* = POINTER TO RECORD
-		caller, callee: Context
-	END;
+	Context = ARRAY 4 OF UINT32;
 	
 	Coroutine* = POINTER TO CoroutineDesc;
 	
-	Handler* = PROCEDURE (coro: Coroutine): INTEGER;
+	Handler* = PROCEDURE (coro: Coroutine; r: INTEGER): INTEGER;
 	
 	CoroutineDesc = RECORD
-		state*: INTEGER;
-		value*: INTEGER;
-		handler: Handler;
-		thread: Thread;
-		context: Context;
+		ctx: Context;
 		stack: ARRAY STACK_SIZE OF BYTE
 	END;
 	
 
-PROCEDURE [extern, "getcontext"] getcontext(ctx1: UINT32);
-PROCEDURE [extern, "swapcontext"] swapcontext(ctx1, ctx2: UINT32);
+PROCEDURE [extern, "coroutine_init32"] coro_init(ctx: UINT32; handlerAddr: UINT32; stackAddr: UINT32);
+PROCEDURE [extern, "coroutine_yield32"] coro_yield(ctx: UINT32; data: UINT32): INTEGER;
 
 
 PROCEDURE LogContext(VAR ctx: Context);
 BEGIN
-	//ebx, esi, edi, ebp, ecx, esp, eip
 	Out.String("=================="); Out.Ln;
-	Out.String("ebx: "); Out.Int(ctx.ebx, 0); Out.Ln;
-	Out.String("esi: "); Out.Int(ctx.esi, 0); Out.Ln;
-	Out.String("edi: "); Out.Int(ctx.edi, 0); Out.Ln;
-	Out.String("ebp: "); Out.Int(ctx.ebp, 0); Out.Ln;
-	Out.String("ecx: "); Out.Int(ctx.ecx, 0); Out.Ln;
-	Out.String("esp: "); Out.Int(ctx.esp, 0); Out.Ln;
-	Out.String("eip: "); Out.Int(ctx.eip, 0); Out.Ln;
+	Out.String("sp  : "); Out.Int(ctx[0], 0); Out.Ln;
+	Out.String("base: "); Out.Int(ctx[1], 0); Out.Ln;
+	Out.String("size: "); Out.Int(ctx[2], 0); Out.Ln;
+	Out.String("user: "); Out.Int(ctx[3], 0); Out.Ln;
 	Out.String("=================="); Out.Ln;
 END LogContext;
 
 
-PROCEDURE Yield*(coro: Coroutine; value: INTEGER);
-VAR
-	ctx1, ctx2: UINT32;
-BEGIN
-	coro.value := value;
-	ctx1 := SYSTEM.ADR(coro.thread.callee);
-	ctx2 := SYSTEM.ADR(coro.thread.caller);
-	swapcontext(ctx1, ctx2);
-	
-END Yield;
-
-
-PROCEDURE EntryPoint(coro: Coroutine);
-VAR
-	value: INTEGER;
-	
-BEGIN
-	//Out.String("aqyu"); Out.Int(SYSTEM.ADR(coro.handler), 0); Out.Ln;
-	value := coro.handler(coro);
-	coro.state := DEAD;
-	Yield(coro, value);
-END EntryPoint;
-
-
-PROCEDURE Create*(thread: Thread; handler: Handler): Coroutine;
+PROCEDURE Create*(handler: Handler; data: Userdata): Coroutine;
 VAR
 	coro: Coroutine;
-	stackHighAddr, coroAddr: UINT32;
+	baseAddr, spAddr : UINT32;
 BEGIN
 	NEW(coro);
-	coro.handler := handler;
-	coro.state := IDLE;
-	coro.thread := thread;
+	//coro.data := data;
+	//coro.state := IDLE;
 	
-	getcontext(SYSTEM.ADR(coro.context));
-	// makecontext
-	stackHighAddr := SYSTEM.ADR(coro.stack[0]) + STACK_SIZE - 16 - SYSTEM.SIZE(Context);
-	SYSTEM.PUT32(stackHighAddr, 0DEADDEADH);
-	coroAddr := SYSTEM.ADR(coro);
-	SYSTEM.GET32(coroAddr, coroAddr);
-	SYSTEM.PUT32(stackHighAddr + 4, coroAddr);
+	baseAddr := SYSTEM.ADR(coro.stack[0]);
+	spAddr := baseAddr + STACK_SIZE - SYSTEM.SIZE(Context);
+	coro.ctx := SYSTEM.VAL(spAddr, Context);
+	coro.ctx[0] := spAddr;
+	coro.ctx[1] := baseAddr;
+	coro.ctx[2] := STACK_SIZE; // TODO: user stack size?
+	coro.ctx[3] := SYSTEM.ADR(coro);
+	LogContext(coro.ctx);
+	coro_init(spAddr, SYSTEM.ADR(handler), baseAddr);
 	
-	//Out.String("coro: "); Out.Int(coroAddr, 0); Out.Ln;
-	coro.context.eip := SYSTEM.ADR(EntryPoint);
-	coro.context.esp := stackHighAddr;
-	
-	LogContext(coro.context);
-	
+	LogContext(coro.ctx);
 	RETURN coro
 END Create;
 
 
-PROCEDURE Resume*(coro: Coroutine; VAR value: INTEGER);
-VAR
-	oldContext: Context;
-	ctx1, ctx2: UINT32;
+PROCEDURE Yield*(coro: Coroutine; VAR r: INTEGER);
 BEGIN
+(*
     IF coro.state = DEAD THEN
-		value := 0;
 		Out.String("cannot resume dead coroutine."); Out.Ln;
 	ELSE
 		IF coro.state = IDLE THEN
 			coro.state := RUNNING;
 		END;
-		oldContext := coro.thread.caller;
-		ctx1 := SYSTEM.ADR(coro.thread.caller);
-		ctx2 := SYSTEM.ADR(coro.context);
-		swapcontext(ctx1, ctx2);
-		coro.context := coro.thread.callee;
-		//coro.thread.callee := coro.context;
-		coro.thread.caller := oldContext;
-		value := coro.value;
+		
 	END;
-    
-END Resume;
+*)
+	//coro_yield(SYSTEM.ADR(coro.ctx), 10);
+	r := coro_yield(SYSTEM.ADR(coro.ctx), r);
+END Yield;
 
 	
 END Coroutines.
