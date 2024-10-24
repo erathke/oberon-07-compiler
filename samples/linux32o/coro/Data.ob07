@@ -1,0 +1,80 @@
+MODULE Data;
+IMPORT SYSTEM, Out := Out_sys;
+
+CONST
+	STACK_SIZE = 8;
+
+TYPE
+
+	ADDRESS = INTEGER;
+	
+	PersonDesc = RECORD
+		age, m1, m2: INTEGER
+	END;
+	
+	PersonArr = ARRAY 4 OF INTEGER;
+	
+	Person = POINTER TO PersonDesc;
+	
+VAR
+	stack: ARRAY STACK_SIZE OF BYTE;
+	str: ARRAY 32 OF CHAR;
+
+
+PROCEDURE [extern, "update"] Update2(person: ADDRESS);
+
+
+PROCEDURE Run();
+VAR
+	p1: PersonDesc;
+	p2: Person;
+	p3, p4: PersonArr;
+	addr: INTEGER;
+BEGIN
+	p1.age := 40;
+	p1.m1 := 1000;
+	p1.m2 := 2222;	
+	NEW(p2);
+	p2^ := p1;
+	
+	Update2(SYSTEM.ADR(p1));
+	Out.String("p1: "); Out.Int(p1.age, 0);
+	Out.String(", "); Out.Int(p1.m1, 0);
+	Out.String(", "); Out.Int(p1.m2, 0);
+	Out.Ln; 
+	
+	Update2(SYSTEM.ADR(p2^));
+	Out.String("p2: "); Out.Int(p2.age, 0);
+	Out.String(", "); Out.Int(p2.m1, 0);
+	Out.String(", "); Out.Int(p2.m2, 0);
+	Out.Ln;
+	
+	p3[0] := 66;
+	p3[1] := 5000;
+	p3[2] := 10000;
+	Update2(SYSTEM.ADR(p3));
+	Out.String("p3: "); Out.Int(p3[0], 0);
+	Out.String(", "); Out.Int(p3[1], 0);
+	Out.String(", "); Out.Int(p3[2], 0);
+	Out.Ln;
+	
+	str := "Evandro";
+	Out.String(str); Out.Ln;
+	addr := SYSTEM.ADR(stack[0]);
+	p4 := SYSTEM.VAL(stack[0], PersonArr);
+	p4[0] := 66;
+	p4[1] := 5000;
+	p4[2] := 10000;
+	Update2(SYSTEM.ADR(p4));
+	Out.String("p4: "); Out.Int(p4[0], 0);
+	Out.String(", "); Out.Int(p4[1], 0);
+	Out.String(", "); Out.Int(p4[2], 0);
+	Out.Ln;
+	Out.String(str); Out.Ln;
+END Run;
+
+
+BEGIN
+	Out.Ln; Out.String("================================================"); Out.Ln;
+	Run()
+END Data.

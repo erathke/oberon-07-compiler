@@ -11,7 +11,7 @@ VAR
 PROCEDURE Calc(coro: CR.Coroutine; r: INTEGER): INTEGER;
 BEGIN
 	Out.String("calculating... ");
-	CR.Yield(c1, r);
+	CR.Yield(coro, r);
 	Out.String("done."); Out.Ln;
 	RETURN 10
 END Calc;

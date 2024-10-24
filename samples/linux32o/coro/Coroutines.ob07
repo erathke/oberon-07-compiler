@@ -7,7 +7,7 @@ CONST
 	SUSPENDED* = 2;
 	DEAD* = 4;
 	
-	STACK_SIZE = 4096;
+	STACK_SIZE = 2 * 1024;
 
 TYPE
 	UINT32 = INTEGER;
@@ -16,14 +16,15 @@ TYPE
 	Userdata* = POINTER TO RECORD
 	END;
 	
-	Context = ARRAY 4 OF UINT32;
+	Context* = ARRAY 4 OF UINT32;
 	
 	Coroutine* = POINTER TO CoroutineDesc;
 	
 	Handler* = PROCEDURE (coro: Coroutine; r: INTEGER): INTEGER;
 	
 	CoroutineDesc = RECORD
-		ctx: Context;
+		ctx*: Context;
+		handler: Handler;
 		stack: ARRAY STACK_SIZE OF BYTE
 	END;
 	
@@ -43,25 +44,42 @@ BEGIN
 END LogContext;
 
 
+PROCEDURE EntryPoint(ctxAddr: UINT32; r: INTEGER): INTEGER;
+VAR
+	ctx: Context;
+	coro: Coroutine;
+BEGIN
+(*
+	Out.String("aqui: ");  Out.Int(ctxAddr, 0); Out.Ln;
+	ctx := SYSTEM.VAL(ctxAddr, Context);
+	LogContext(ctx);
+	coro := SYSTEM.VAL(ctx[3], Coroutine);
+	RETURN coro.handler(coro, r)
+*)
+	RETURN r
+END;
+
 PROCEDURE Create*(handler: Handler; data: Userdata): Coroutine;
 VAR
 	coro: Coroutine;
-	baseAddr, spAddr : UINT32;
+	baseAddr, spAddr, spIdx : UINT32;
 BEGIN
 	NEW(coro);
 	//coro.data := data;
 	//coro.state := IDLE;
+	coro.handler := handler;
 	
 	baseAddr := SYSTEM.ADR(coro.stack[0]);
-	spAddr := baseAddr + STACK_SIZE - SYSTEM.SIZE(Context);
-	coro.ctx := SYSTEM.VAL(spAddr, Context);
+	spIdx := STACK_SIZE - SYSTEM.SIZE(Context);
+	spAddr := SYSTEM.ADR(coro.stack[spIdx]);
+	coro.ctx := SYSTEM.VAL(coro.stack[spIdx], Context);
 	coro.ctx[0] := spAddr;
 	coro.ctx[1] := baseAddr;
 	coro.ctx[2] := STACK_SIZE; // TODO: user stack size?
 	coro.ctx[3] := SYSTEM.ADR(coro);
 	LogContext(coro.ctx);
-	coro_init(spAddr, SYSTEM.ADR(handler), baseAddr);
 	
+	coro_init(spAddr, SYSTEM.ADR(EntryPoint), spAddr);
 	LogContext(coro.ctx);
 	RETURN coro
 END Create;
@@ -69,18 +87,7 @@ END Create;
 
 PROCEDURE Yield*(coro: Coroutine; VAR r: INTEGER);
 BEGIN
-(*
-    IF coro.state = DEAD THEN
-		Out.String("cannot resume dead coroutine."); Out.Ln;
-	ELSE
-		IF coro.state = IDLE THEN
-			coro.state := RUNNING;
-		END;
-		
-	END;
-*)
-	//coro_yield(SYSTEM.ADR(coro.ctx), 10);
-	r := coro_yield(SYSTEM.ADR(coro.ctx), r);
+	r := coro_yield(coro.ctx[0], r);
 END Yield;
 
 	
