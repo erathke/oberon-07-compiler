@@ -1,4 +1,4 @@
-MODULE Test;
+MODULE Test2;
 IMPORT CR := Coroutines, Out := Out_sys;
 
 VAR
@@ -45,4 +45,4 @@ BEGIN
 	r := CR.Resume(co1, r); Out.String("f yielded "); Out.Int(r, 0); Out.Ln;
 	r := CR.Resume(co1, r); Out.String("f yielded "); Out.Int(r, 0); Out.Ln;
 	Out.String("DONE"); Out.Ln;
-END Test.
+END Test2.

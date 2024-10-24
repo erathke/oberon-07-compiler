@@ -35,9 +35,8 @@ TYPE
 
 
 PROCEDURE [extern, "coroutine_init32"] coro_init(ctx: UINT32; handlerAddr: UINT32; stackAddr: UINT32);
-
 PROCEDURE [extern, "coroutine_yield32"] coro_yield(ctx: UINT32; data: UINT32): INTEGER;
-//PROCEDURE [extern, "coroutine_yield32"] coro_resume(ctx: UINT32; data: UINT32): INTEGER;
+PROCEDURE [extern, "coroutine_yield32"] coro_resume(ctx: UINT32; data: UINT32): INTEGER;
 
 
 PROCEDURE [ccall] EntryPoint(ctxAddr: UINT32; r: INTEGER): INTEGER;
@@ -104,15 +103,17 @@ VAR
 	value: INTEGER;
 	addr: UINT32;
 BEGIN
+	
 	IF (ctx.status = IDLE) OR (ctx.status = SUSPENDED) THEN
 		ctx.status := RUNNING;
 		addr := SYSTEM.VAL(ctx, UINT32);
-		value := coro_yield(addr, r);
+		value := coro_resume(addr, r);
 	ELSE
 		CASE ctx.status OF
 		| DEAD: Out.String("cannot resume dead coroutine"); Out.Ln;
 		END;
 	END;
+	
 	RETURN value
 END Resume;
 	
