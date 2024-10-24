@@ -1,20 +1,30 @@
 MODULE Test;
-IMPORT CR := Coroutines, Out := Out_sys;
+IMPORT SYSTEM, CR := Coroutines, Out := Out_sys;
 
 
 VAR
-	c1: CR.Context;
+	c1: INTEGER;
 	d1: CR.Userdata;
 	r: INTEGER;
 	stack: ARRAY 4096 OF BYTE;
 
 
-PROCEDURE Calc(ctx: CR.Context; r: INTEGER): INTEGER;
+PROCEDURE Log*(v: INTEGER);
 BEGIN
-	Out.String("calculating... "); Out.Int(r, 0); 
+	Out.String("[log: "); Out.Int(v, 0); Out.String("]");Out.Ln;
+END Log;
+
+
+PROCEDURE [ccall] Calc(ctx: INTEGER; r: INTEGER): INTEGER;
+BEGIN
+	Out.String("calculating... "); Out.Int(r, 0);
+	INC(r);
+	r := CR.Yield(ctx, r);
+	Out.String("calculating... "); Out.Int(r, 0);
+	INC(r);
 	r := CR.Yield(ctx, r);
 	Out.String(" done."); Out.Ln;
-	RETURN 10
+	RETURN r
 END Calc;
 
 
@@ -23,5 +33,7 @@ BEGIN
 	c1 := CR.Create(Calc, stack, d1);
 	r := CR.Yield(c1, r);
 	r := CR.Yield(c1, r);
-	Out.String("hello"); Out.Ln;
+	r := CR.Yield(c1, r);
+	r := CR.Yield(c1, r);
+	Out.String("hello: "); Out.Int(r, 0); Out.Ln;
 END Test.
