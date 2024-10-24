@@ -1,12 +1,10 @@
 MODULE Test;
 IMPORT CR := Coroutines, Out := Out_sys;
 
-
 VAR
 	c1: CR.Context;
 	d1: CR.Userdata;
 	r: INTEGER;
-	stack: ARRAY 256 OF BYTE;
 
 PROCEDURE Log*(v: INTEGER);
 BEGIN
@@ -16,24 +14,22 @@ END Log;
 
 PROCEDURE Calc(ctx: CR.Context; r: INTEGER): INTEGER;
 BEGIN
-	Out.String("calculating... "); Out.Int(r, 0);
+	Out.String("calculating... "); Out.Int(r, 0); Out.Ln;
 	INC(r);
 	r := CR.Yield(ctx, r);
-	Out.String("calculating... "); Out.Int(r, 0);
+	Out.String("still calculating... "); Out.Int(r, 0); Out.Ln;
 	INC(r);
 	r := CR.Yield(ctx, r);
-	Out.String(" done."); Out.Ln;
+	Out.String("done."); Out.Ln;
 	RETURN r
 END Calc;
 
 
 BEGIN
 	NEW(d1);
-	c1 := CR.Create(Calc, stack, d1);
+	c1 := CR.Create(Calc, d1);
 	r := CR.Resume(c1, r);
 	r := CR.Resume(c1, r);
-	//r := CR.Resume(c1, r);
-	//r := CR.Yield(c1, r);
-	//r := CR.Yield(c1, r);
-	Out.String("hello: "); Out.Int(r, 0); Out.Ln;
+	r := CR.Resume(c1, r);
+	Out.String("result: "); Out.Int(r, 0); Out.Ln;
 END Test.

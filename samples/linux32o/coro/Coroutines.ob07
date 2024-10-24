@@ -7,6 +7,8 @@ CONST
 	SUSPENDED* = 2;
 	DEAD* = 4;
 	
+	STACK_SIZE = 4096;
+	
 TYPE
 	UINT32 = INTEGER;
 	PID* = INTEGER;
@@ -18,37 +20,24 @@ TYPE
 	
 	Handler* = PROCEDURE (ctx: Context; r: INTEGER): INTEGER;
 	
+	Stack = POINTER TO RECORD
+		data: ARRAY STACK_SIZE OF BYTE;
+		size: INTEGER
+	END;
+	
 	ContextDesc = RECORD
-		csp, stkbase: UINT32;
-		stksize: INTEGER;
+		csp: UINT32;
+		stack: Stack;
 		handler: Handler;
 		user*: Userdata;
 		status: INTEGER
 	END;
-	
 
 
 PROCEDURE [extern, "coroutine_init32"] coro_init(ctx: UINT32; handlerAddr: UINT32; stackAddr: UINT32);
+
 PROCEDURE [extern, "coroutine_yield32"] coro_yield(ctx: UINT32; data: UINT32): INTEGER;
 //PROCEDURE [extern, "coroutine_yield32"] coro_resume(ctx: UINT32; data: UINT32): INTEGER;
-
-
-
-PROCEDURE LogContext(VAR ctx: Context);
-VAR
-	addr: UINT32;
-BEGIN
-	
-	Out.String("=================="); Out.Ln;
-	Out.String("sp  : "); Out.Int(ctx.csp, 0); Out.Ln;
-	Out.String("base: "); Out.Int(ctx.stkbase, 0); Out.Ln;
-	Out.String("size: "); Out.Int(ctx.stksize, 0); Out.Ln;
-	addr := SYSTEM.VAL(ctx.handler, UINT32);
-	Out.String("handler: "); Out.Int(addr, 0); Out.Ln;
-	addr := SYSTEM.VAL(ctx.user, UINT32);
-	Out.String("user: "); Out.Int(addr, 0); Out.Ln;
-	Out.String("=================="); Out.Ln;
-END LogContext;
 
 
 PROCEDURE [ccall] EntryPoint(ctxAddr: UINT32; r: INTEGER): INTEGER;
@@ -63,26 +52,26 @@ BEGIN
 END;
 
 
-PROCEDURE Create*(handler: Handler; VAR stack: ARRAY OF BYTE; data: Userdata): Context;
+PROCEDURE Create*(handler: Handler; data: Userdata): Context;
 VAR
 	ctx: Context;
+	stack: Stack; 
 	baseAddr, spAddr, spIdx : UINT32;
 	handlerAddr: UINT32;
-	stksize: INTEGER;
 BEGIN
-	stksize := LEN(stack);
-	baseAddr := SYSTEM.ADR(stack[0]);
-	spIdx := stksize - SYSTEM.SIZE(ContextDesc);
-	spAddr := SYSTEM.ADR(stack[spIdx]);
-	ctx := SYSTEM.VAL(spAddr, Context);
+	NEW(stack);
+	stack.size := STACK_SIZE;
+	baseAddr := SYSTEM.ADR(stack.data[0]);
+	spIdx := stack.size - SYSTEM.SIZE(ContextDesc);
+	spAddr := SYSTEM.ADR(stack.data[spIdx]);
+	handlerAddr := SYSTEM.ADR(EntryPoint);
 	
+	ctx := SYSTEM.VAL(spAddr, Context);
 	ctx.csp := spAddr;
-	ctx.stkbase := baseAddr;
-	ctx.stksize := stksize;
+	ctx.stack := stack;
 	ctx.handler := handler;
 	ctx.user := data;
 	
-	handlerAddr := SYSTEM.ADR(EntryPoint);
 	coro_init(spAddr, handlerAddr, spAddr);
 	
 	RETURN ctx
