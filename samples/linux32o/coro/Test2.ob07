@@ -1,0 +1,48 @@
+MODULE Test;
+IMPORT CR := Coroutines, Out := Out_sys;
+
+VAR
+	co1: CR.Context;
+	r: INTEGER;
+
+
+PROCEDURE G(coro: CR.Context; r: INTEGER): INTEGER;
+VAR
+	x: INTEGER;
+BEGIN
+    x := 0;
+    Out.String("G: BEFORE YIELD, X = 0"); Out.Ln;
+    x := 42;
+    Out.String("G: BEFORE YIELD, X = 42"); Out.Ln;
+    r := CR.Yield(coro, 0);
+    Out.String("G: AFTER YIELD, X = "); Out.Int(x, 0); Out.Ln;
+	RETURN -1337
+END G;
+
+
+PROCEDURE F(coro: CR.Context; r: INTEGER): INTEGER;
+VAR
+	co2: CR.Context;
+BEGIN
+	co2 := CR.Create(G, NIL);
+	r := CR.Resume(co2, 0);
+	
+	Out.String("F: BEFORE YIELD"); Out.Ln;
+	r := CR.Yield(coro, 42);
+	Out.String("F: AFTER FIRST YIELD"); Out.Ln;
+	r := CR.Yield(coro, 1337);
+	Out.String("F: AFTER SECOND YIELD"); Out.Ln;
+	r := CR.Resume(co2, r);
+	Out.String("F: g yielded "); Out.Int(r, 0); Out.Ln;
+	
+	RETURN 0
+END F;
+
+
+BEGIN
+	co1 := CR.Create(F, NIL);
+	r := CR.Resume(co1, r); Out.String("f yielded "); Out.Int(r, 0); Out.Ln;
+	r := CR.Resume(co1, r); Out.String("f yielded "); Out.Int(r, 0); Out.Ln;
+	r := CR.Resume(co1, r); Out.String("f yielded "); Out.Int(r, 0); Out.Ln;
+	Out.String("DONE"); Out.Ln;
+END Test.

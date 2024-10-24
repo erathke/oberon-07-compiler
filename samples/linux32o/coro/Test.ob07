@@ -3,13 +3,7 @@ IMPORT CR := Coroutines, Out := Out_sys;
 
 VAR
 	c1: CR.Context;
-	d1: CR.Userdata;
 	r: INTEGER;
-
-PROCEDURE Log*(v: INTEGER);
-BEGIN
-	Out.String("[log: "); Out.Int(v, 0); Out.String("]");Out.Ln;
-END Log;
 
 
 PROCEDURE Calc(ctx: CR.Context; r: INTEGER): INTEGER;
@@ -26,8 +20,7 @@ END Calc;
 
 
 BEGIN
-	NEW(d1);
-	c1 := CR.Create(Calc, d1);
+	c1 := CR.Create(Calc, NIL);
 	r := CR.Resume(c1, r);
 	r := CR.Resume(c1, r);
 	r := CR.Resume(c1, r);

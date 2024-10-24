@@ -109,16 +109,16 @@ g(coro_t *coro)
 int
 f(coro_t *coro)
 {
-    //coro_t *co2 = coro_new(coro->thread, g);
-    //coro_resume(co2);
+    coro_t *co2 = coro_new(coro->thread, g);
+    coro_resume(co2);
 
     puts("F: BEFORE YIELD");
     coro_yield(coro, 42);
     puts("F: AFTER FIRST YIELD");
     coro_yield(coro, 1337);
     puts("F: AFTER SECOND YIELD");
-    //printf("F: g yielded %d\n", coro_resume(co2));
-    //coro_free(co2);
+    printf("F: g yielded %d\n", coro_resume(co2));
+    coro_free(co2);
 
     return 0;
 }
