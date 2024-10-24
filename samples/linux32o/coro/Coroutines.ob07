@@ -16,16 +16,15 @@ TYPE
 	Userdata* = POINTER TO RECORD
 	END;
 	
-	Context* = ARRAY 4 OF UINT32;
+	Context* = POINTER TO ContextDesc;
 	
-	Coroutine* = POINTER TO CoroutineDesc;
+	Handler* = PROCEDURE (ctx: Context; r: INTEGER): INTEGER;
 	
-	Handler* = PROCEDURE (coro: Coroutine; r: INTEGER): INTEGER;
-	
-	CoroutineDesc = RECORD
-		ctx*: Context;
+	ContextDesc = RECORD
+		csp, stkbase: UINT32;
+		stksize: INTEGER;
 		handler: Handler;
-		stack: ARRAY STACK_SIZE OF BYTE
+		user*: Userdata
 	END;
 	
 
@@ -34,12 +33,18 @@ PROCEDURE [extern, "coroutine_yield32"] coro_yield(ctx: UINT32; data: UINT32): I
 
 
 PROCEDURE LogContext(VAR ctx: Context);
+VAR
+	addr: UINT32;
 BEGIN
+	
 	Out.String("=================="); Out.Ln;
-	Out.String("sp  : "); Out.Int(ctx[0], 0); Out.Ln;
-	Out.String("base: "); Out.Int(ctx[1], 0); Out.Ln;
-	Out.String("size: "); Out.Int(ctx[2], 0); Out.Ln;
-	Out.String("user: "); Out.Int(ctx[3], 0); Out.Ln;
+	Out.String("sp  : "); Out.Int(ctx.csp, 0); Out.Ln;
+	Out.String("base: "); Out.Int(ctx.stkbase, 0); Out.Ln;
+	Out.String("size: "); Out.Int(ctx.stksize, 0); Out.Ln;
+	addr := SYSTEM.VAL(ctx.handler, UINT32);
+	Out.String("handler: "); Out.Int(addr, 0); Out.Ln;
+	addr := SYSTEM.VAL(ctx.user, UINT32);
+	Out.String("user: "); Out.Int(addr, 0); Out.Ln;
 	Out.String("=================="); Out.Ln;
 END LogContext;
 
@@ -47,47 +52,52 @@ END LogContext;
 PROCEDURE EntryPoint(ctxAddr: UINT32; r: INTEGER): INTEGER;
 VAR
 	ctx: Context;
-	coro: Coroutine;
+	handler: Handler;
+	x: INTEGER;
 BEGIN
-(*
+
 	Out.String("aqui: ");  Out.Int(ctxAddr, 0); Out.Ln;
 	ctx := SYSTEM.VAL(ctxAddr, Context);
 	LogContext(ctx);
-	coro := SYSTEM.VAL(ctx[3], Coroutine);
-	RETURN coro.handler(coro, r)
-*)
-	RETURN r
+	handler := ctx.handler; //SYSTEM.VAL(ctx.handler, Handler);
+	x := handler(ctx, r);
+	Out.String("x: "); Out.Int(x, 0); Out.Ln;
+	//coro := SYSTEM.VAL(ctx[3], Coroutine);
+	RETURN x
+	//RETURN r
 END;
 
-PROCEDURE Create*(handler: Handler; data: Userdata): Coroutine;
+PROCEDURE Create*(handler: Handler; VAR stack: ARRAY OF BYTE; data: Userdata): Context;
 VAR
-	coro: Coroutine;
+	ctx: Context;
 	baseAddr, spAddr, spIdx : UINT32;
 BEGIN
-	NEW(coro);
-	//coro.data := data;
-	//coro.state := IDLE;
-	coro.handler := handler;
 	
-	baseAddr := SYSTEM.ADR(coro.stack[0]);
-	spIdx := STACK_SIZE - SYSTEM.SIZE(Context);
-	spAddr := SYSTEM.ADR(coro.stack[spIdx]);
-	coro.ctx := SYSTEM.VAL(coro.stack[spIdx], Context);
-	coro.ctx[0] := spAddr;
-	coro.ctx[1] := baseAddr;
-	coro.ctx[2] := STACK_SIZE; // TODO: user stack size?
-	coro.ctx[3] := SYSTEM.ADR(coro);
-	LogContext(coro.ctx);
+	baseAddr := SYSTEM.ADR(stack[0]);
+	spIdx := STACK_SIZE - SYSTEM.SIZE(ContextDesc);
+	spAddr := SYSTEM.ADR(stack[spIdx]);
+	ctx := SYSTEM.VAL(spAddr, Context);
+	
+	ctx.csp := spAddr;
+	ctx.stkbase := baseAddr;
+	ctx.stksize := LEN(stack);
+	ctx.handler := handler;
+	ctx.user := data;
+	
+	LogContext(ctx);
 	
 	coro_init(spAddr, SYSTEM.ADR(EntryPoint), spAddr);
-	LogContext(coro.ctx);
-	RETURN coro
+	LogContext(ctx);
+	RETURN ctx
 END Create;
 
 
-PROCEDURE Yield*(coro: Coroutine; VAR r: INTEGER);
+PROCEDURE Yield*(ctx: Context; VAR r: INTEGER): INTEGER;
+VAR
+	addr: UINT32;
 BEGIN
-	r := coro_yield(coro.ctx[0], r);
+	addr := SYSTEM.VAL(ctx, UINT32);
+	RETURN coro_yield(addr, r)
 END Yield;
 
 	

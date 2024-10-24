@@ -17,17 +17,18 @@ TYPE
 	Person = POINTER TO PersonDesc;
 	
 VAR
-	stack: ARRAY STACK_SIZE OF BYTE;
-	str: ARRAY 32 OF CHAR;
-
+	stack: ARRAY STACK_SIZE OF INTEGER;
+	
 
 PROCEDURE [extern, "update"] Update2(person: ADDRESS);
+
+PROCEDURE [extern, "update"] Update3(person: Person);
 
 
 PROCEDURE Run();
 VAR
 	p1: PersonDesc;
-	p2: Person;
+	p2, p5: Person;
 	p3, p4: PersonArr;
 	addr: INTEGER;
 BEGIN
@@ -58,10 +59,6 @@ BEGIN
 	Out.String(", "); Out.Int(p3[2], 0);
 	Out.Ln;
 	
-	str := "Evandro";
-	Out.String(str); Out.Ln;
-	addr := SYSTEM.ADR(stack[0]);
-	p4 := SYSTEM.VAL(stack[0], PersonArr);
 	p4[0] := 66;
 	p4[1] := 5000;
 	p4[2] := 10000;
@@ -70,7 +67,17 @@ BEGIN
 	Out.String(", "); Out.Int(p4[1], 0);
 	Out.String(", "); Out.Int(p4[2], 0);
 	Out.Ln;
-	Out.String(str); Out.Ln;
+	
+	addr := SYSTEM.ADR(stack[0]);
+	p5 := SYSTEM.VAL(addr, Person);
+	p5.age := 99;
+	addr := SYSTEM.VAL(p5, ADDRESS);
+	Update2(addr);
+	Out.String("p5: "); Out.Int(p5.age, 0);
+	Out.String(", "); Out.Int(stack[1], 0);
+	Out.String(", "); Out.Int(stack[2], 0);
+	Out.Ln;
+	
 END Run;
 
 
