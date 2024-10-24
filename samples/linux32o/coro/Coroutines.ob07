@@ -7,8 +7,6 @@ CONST
 	SUSPENDED* = 2;
 	DEAD* = 4;
 	
-	STACK_SIZE = 2 * 1024;
-
 TYPE
 	UINT32 = INTEGER;
 	PID* = INTEGER;
@@ -18,7 +16,7 @@ TYPE
 	
 	Context* = POINTER TO ContextDesc;
 	
-	Handler* = PROCEDURE [ccall] (ctx: UINT32; r: INTEGER): INTEGER;
+	Handler* = PROCEDURE (ctx: Context; r: INTEGER): INTEGER;
 	
 	ContextDesc = RECORD
 		csp, stkbase: UINT32;
@@ -30,7 +28,6 @@ TYPE
 
 PROCEDURE [extern, "coroutine_init32"] coro_init(ctx: UINT32; handlerAddr: UINT32; stackAddr: UINT32);
 PROCEDURE [extern, "coroutine_yield32"] coro_yield(ctx: UINT32; data: UINT32): INTEGER;
-PROCEDURE [extern, "coroutine_yield32"] Yield*(ctx: UINT32; data: UINT32): INTEGER;
 
 
 PROCEDURE LogContext(VAR ctx: Context);
@@ -50,61 +47,48 @@ BEGIN
 END LogContext;
 
 
-PROCEDURE EntryPoint(ctxAddr: UINT32; r: INTEGER): INTEGER;
+PROCEDURE [ccall] EntryPoint(ctxAddr: UINT32; r: INTEGER): INTEGER;
 VAR
 	ctx: Context;
-	handler: Handler;
-	x: INTEGER;
 BEGIN
-
-	Out.String("aqui: ");  Out.Int(ctxAddr, 0); Out.Ln;
 	ctx := SYSTEM.VAL(ctxAddr, Context);
-	LogContext(ctx);
-	handler := ctx.handler; //SYSTEM.VAL(ctx.handler, Handler);
-	//x := handler(ctx, r);
-	x := handler(ctxAddr, r);
-	Out.String("x: "); Out.Int(x, 0); Out.Ln;
-	RETURN x
+	RETURN ctx.handler(ctx, r)
 END;
 
-//PROCEDURE Create*(handler: Handler; VAR stack: ARRAY OF BYTE; data: Userdata): Context;
-PROCEDURE Create*(handler: Handler; VAR stack: ARRAY OF BYTE; data: Userdata): UINT32;
+
+PROCEDURE Create*(handler: Handler; VAR stack: ARRAY OF BYTE; data: Userdata): Context;
 VAR
 	ctx: Context;
 	baseAddr, spAddr, spIdx : UINT32;
 	handlerAddr: UINT32;
+	stksize: INTEGER;
 BEGIN
-	
+	stksize := LEN(stack);
 	baseAddr := SYSTEM.ADR(stack[0]);
-	spIdx := STACK_SIZE - SYSTEM.SIZE(ContextDesc);
+	spIdx := stksize - SYSTEM.SIZE(ContextDesc);
 	spAddr := SYSTEM.ADR(stack[spIdx]);
 	ctx := SYSTEM.VAL(spAddr, Context);
 	
 	ctx.csp := spAddr;
 	ctx.stkbase := baseAddr;
-	ctx.stksize := LEN(stack);
+	ctx.stksize := stksize;
 	ctx.handler := handler;
 	ctx.user := data;
 	
-	LogContext(ctx);
-	handlerAddr := SYSTEM.VAL(handler, UINT32);
+	handlerAddr := SYSTEM.ADR(EntryPoint);
 	coro_init(spAddr, handlerAddr, spAddr);
-	LogContext(ctx);
-	RETURN spAddr
+	
+	RETURN ctx
 END Create;
 
-(*
+
 PROCEDURE Yield*(ctx: Context; r: INTEGER): INTEGER;
 VAR
 	addr: UINT32;
-	x: INTEGER;
 BEGIN
 	addr := SYSTEM.VAL(ctx, UINT32);
-	Out.String("yielding... ");
-	x := coro_yield(addr, r);
-	Out.String("yielded."); Out.Ln;
-	RETURN x
+	RETURN coro_yield(addr, r)
 END Yield;
-*)
+
 	
 END Coroutines.

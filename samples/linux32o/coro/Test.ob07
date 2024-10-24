@@ -1,13 +1,12 @@
 MODULE Test;
-IMPORT SYSTEM, CR := Coroutines, Out := Out_sys;
+IMPORT CR := Coroutines, Out := Out_sys;
 
 
 VAR
-	c1: INTEGER;
+	c1: CR.Context;
 	d1: CR.Userdata;
 	r: INTEGER;
-	stack: ARRAY 4096 OF BYTE;
-
+	stack: ARRAY 256 OF BYTE;
 
 PROCEDURE Log*(v: INTEGER);
 BEGIN
@@ -15,7 +14,7 @@ BEGIN
 END Log;
 
 
-PROCEDURE [ccall] Calc(ctx: INTEGER; r: INTEGER): INTEGER;
+PROCEDURE Calc(ctx: CR.Context; r: INTEGER): INTEGER;
 BEGIN
 	Out.String("calculating... "); Out.Int(r, 0);
 	INC(r);
