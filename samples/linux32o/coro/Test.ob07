@@ -30,9 +30,10 @@ END Calc;
 BEGIN
 	NEW(d1);
 	c1 := CR.Create(Calc, stack, d1);
-	r := CR.Yield(c1, r);
-	r := CR.Yield(c1, r);
-	r := CR.Yield(c1, r);
-	r := CR.Yield(c1, r);
+	r := CR.Resume(c1, r);
+	r := CR.Resume(c1, r);
+	//r := CR.Resume(c1, r);
+	//r := CR.Yield(c1, r);
+	//r := CR.Yield(c1, r);
 	Out.String("hello: "); Out.Int(r, 0); Out.Ln;
 END Test.

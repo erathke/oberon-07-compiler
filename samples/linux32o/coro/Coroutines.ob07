@@ -22,12 +22,16 @@ TYPE
 		csp, stkbase: UINT32;
 		stksize: INTEGER;
 		handler: Handler;
-		user*: Userdata
+		user*: Userdata;
+		status: INTEGER
 	END;
 	
 
+
 PROCEDURE [extern, "coroutine_init32"] coro_init(ctx: UINT32; handlerAddr: UINT32; stackAddr: UINT32);
 PROCEDURE [extern, "coroutine_yield32"] coro_yield(ctx: UINT32; data: UINT32): INTEGER;
+//PROCEDURE [extern, "coroutine_yield32"] coro_resume(ctx: UINT32; data: UINT32): INTEGER;
+
 
 
 PROCEDURE LogContext(VAR ctx: Context);
@@ -50,9 +54,12 @@ END LogContext;
 PROCEDURE [ccall] EntryPoint(ctxAddr: UINT32; r: INTEGER): INTEGER;
 VAR
 	ctx: Context;
+	value: INTEGER;
 BEGIN
 	ctx := SYSTEM.VAL(ctxAddr, Context);
-	RETURN ctx.handler(ctx, r)
+	value := ctx.handler(ctx, r);
+	ctx.status := DEAD;
+	RETURN value
 END;
 
 
@@ -84,11 +91,40 @@ END Create;
 
 PROCEDURE Yield*(ctx: Context; r: INTEGER): INTEGER;
 VAR
+	value: INTEGER;
 	addr: UINT32;
 BEGIN
-	addr := SYSTEM.VAL(ctx, UINT32);
-	RETURN coro_yield(addr, r)
+	
+	IF ctx.status = RUNNING THEN
+		addr := SYSTEM.VAL(ctx, UINT32);
+		ctx.status := SUSPENDED;
+		value := coro_yield(addr, r);
+	ELSE
+		CASE ctx.status OF
+		| DEAD: Out.String("cannot yield dead coroutine"); Out.Ln;
+		| IDLE: Out.String("coroutine not running"); Out.Ln;
+		END;
+	END;
+	
+	RETURN value
 END Yield;
 
+
+PROCEDURE Resume*(ctx: Context; r: INTEGER): INTEGER;
+VAR
+	value: INTEGER;
+	addr: UINT32;
+BEGIN
+	IF (ctx.status = IDLE) OR (ctx.status = SUSPENDED) THEN
+		ctx.status := RUNNING;
+		addr := SYSTEM.VAL(ctx, UINT32);
+		value := coro_yield(addr, r);
+	ELSE
+		CASE ctx.status OF
+		| DEAD: Out.String("cannot resume dead coroutine"); Out.Ln;
+		END;
+	END;
+	RETURN value
+END Resume;
 	
 END Coroutines.
