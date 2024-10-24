@@ -7,7 +7,7 @@
 
 MODULE ELF;
 
-IMPORT BIN, WR := WRITER, CHL := CHUNKLISTS, LISTS, PE32, UTILS, STRINGS, SCAN;
+IMPORT BIN, WR := WRITER, CHL := CHUNKLISTS, LISTS, PE32, UTILS, STRINGS, SCAN, Out;
 
 
 CONST
@@ -688,7 +688,7 @@ VAR
     
     StrPos: RECORD text, reltext, data, symtab, strtab, bss, note_gnu: INTEGER END;
     
-    symidx, symlbl, relidx: INTEGER;
+    relidx: INTEGER;
     
     reloc: BIN.RELOC;
     
@@ -750,6 +750,7 @@ VAR
 		END;
 	END WriteEH;
 	
+	
 	PROCEDURE NewRel (reltab: LISTS.LIST; offset, info: INTEGER);
 	VAR
 		rel: Elf32_Rel;
@@ -759,27 +760,6 @@ VAR
 		rel.info := info;
 		LISTS.push(reltab, rel)
 	END NewRel;
-	
-	PROCEDURE FindSymbolIdx(sym: LISTS.LIST; name: SCAN.IDSTR; VAR idx, lbl: INTEGER): BOOLEAN;
-	VAR
-		item: LISTS.ITEM;
-		found: BOOLEAN;
-		symname: SCAN.IDSTR;
-		i: INTEGER;
-	BEGIN
-		item := sym.first;
-		WHILE (item # NIL) & (~ found) DO
-			ASSERT(CHL.GetStr(strtab, item(Elf32_Sym).name, symname));
-			IF symname = name THEN
-				found := TRUE;
-				idx := i;
-				lbl := item(Elf32_Sym).value;
-			END;
-			item := item.next;
-			INC(i);
-		END;
-		RETURN found
-	END;
 	
 	
 	PROCEDURE NewSymLabel (symlabel: LISTS.LIST; label, idx: INTEGER);
@@ -890,25 +870,17 @@ BEGIN
 	ASSERT(CHL.GetStr(program.data, program.modname, Name));
 	
 	(* External symbols *)
-	
 	item := program.ext_list.first;
-	symidx := 0;
-	WHILE item # NIL DO
-		IF FindSymbolIdx(symtab, item(BIN.EXPRT).name, symidx, symlbl) THEN
-			NewSymLabel(symlabels, symlbl, symidx);
-		ELSE
-			i := CHL.PushStr(strtab, item(BIN.EXPRT).name);
-			NewSym(i, 0, 0, CHR(LSL(STB_GLOBAL, 4) + STT_NOTYPE), 0X, WCHR(0));
-			NewSymLabel(symlabels, item(BIN.EXPRT).label, symtabCount);
-			INC(symtabCount);
-		END;
+	WHILE item # NIL DO		
+		i := CHL.PushStr(strtab, item(BIN.EXPRT).name);
+		NewSym(i, 0, 0, CHR(LSL(STB_GLOBAL, 4) + STT_NOTYPE), 0X, WCHR(0));
+		NewSymLabel(symlabels, item(BIN.EXPRT).label, symtabCount);
+		INC(symtabCount);
 		item := item.next;
 	END;
 	
 	(* Creating relocations *)
-	
 	reloc := program.rel_list.first(BIN.RELOC);
-	symidx := 0;
 	WHILE reloc # NIL DO
 
 		CASE reloc.opcode OF
