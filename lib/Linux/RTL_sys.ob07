@@ -456,7 +456,7 @@ BEGIN
 	API.DebugMsg(SYSTEM.ADR(temp[0]), LENGTH(temp));
 	API.DebugMsg(SYSTEM.ADR(s[0]), LENGTH(s));
 
-    API.exit_thread(0)
+    API.exit_thread(err)
 END _error;
 
 

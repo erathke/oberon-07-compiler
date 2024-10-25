@@ -1,0 +1,70 @@
+MODULE Test2;
+IMPORT SYSTEM, Out := Out_sys, API := API_sys;
+
+CONST
+	N_REGS = 6;
+	OK = 0;
+	RETRIES = 3;
+
+TYPE 
+	UINT32 = INTEGER;
+	CPU = ARRAY N_REGS OF UINT32;
+	Caller* = PROCEDURE (value: INTEGER);
+
+VAR
+	cpu: CPU;
+	errcode: INTEGER;
+
+
+PROCEDURE [extern, "setjmp"] setjmp(cpu: UINT32): INTEGER;
+PROCEDURE [extern, "longjmp"] longjmp(cpu: UINT32; status: INTEGER): INTEGER;
+
+
+PROCEDURE SetJmp(cpu: UINT32): INTEGER;
+VAR
+	addr: UINT32;
+BEGIN
+	addr := SYSTEM.ADR(cpu);
+	RETURN setjmp(cpu)
+END SetJmp;
+
+
+PROCEDURE [oberon-] LongJmp(cpu: CPU; status: INTEGER): INTEGER;
+VAR
+	addr: UINT32;
+BEGIN
+	addr := SYSTEM.ADR(cpu);
+	RETURN longjmp(addr, status)
+END LongJmp;
+
+
+PROCEDURE PCall*(caller: Caller; value: INTEGER);
+CONST
+	ERR_ASSERT = 1;
+VAR
+	addr: UINT32;
+BEGIN
+	addr := SYSTEM.ADR(cpu);
+	
+	CASE SetJmp(addr) OF
+	| OK: 
+		caller(value);
+		errcode := OK;
+	| ERR_ASSERT: 
+		Out.String("assert error!"); Out.Ln;
+	ELSE
+		Out.String("error code: "); Out.Int(errcode, 0); Out.Ln;
+		API.exit(errcode);
+	END;
+	
+END PCall;
+
+
+PROCEDURE [ccall] trap*(code: INTEGER);
+BEGIN
+	errcode := code;
+	LongJmp(cpu, code);
+END trap;
+
+
+END Test2.

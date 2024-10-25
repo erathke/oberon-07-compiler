@@ -1,0 +1,25 @@
+MODULE Test3;
+IMPORT SYSTEM, Test2;
+
+PROCEDURE [ccall] trap*(code: INTEGER);
+BEGIN
+	Test2.trap(code);
+END trap;
+
+
+PROCEDURE Error(x: INTEGER);
+BEGIN
+	ASSERT(x = 10);
+END Error;
+
+
+PROCEDURE Run();
+BEGIN
+	Test2.PCall(Error, 100);
+	//Test2.PCall(100);
+	//Test2.PCall(10);
+END Run;
+
+BEGIN
+	Run()
+END Test3.

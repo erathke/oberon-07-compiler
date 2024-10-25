@@ -129,10 +129,23 @@ $END
 END exit;
 
 
+$IF (API_TRAP)
+
+PROCEDURE [extern, "trap"] trap*(code: INTEGER);
+
 PROCEDURE exit_thread*(code: INTEGER); 
 BEGIN
-	exit(code)
+	trap(code);
 END exit_thread;
+
+$ELSE
+
+PROCEDURE exit_thread*(code: INTEGER); 
+BEGIN
+	exit(0)
+END exit_thread;
+
+$END
 
 
 PROCEDURE _NEW* (size: INTEGER): INTEGER;
