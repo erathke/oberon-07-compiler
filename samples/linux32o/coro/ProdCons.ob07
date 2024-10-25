@@ -1,0 +1,61 @@
+MODULE ProdCons;
+IMPORT CR := Coroutines, Out := Out_sys;
+
+VAR
+	prod: CR.Context;
+
+
+PROCEDURE Send(ctx: CR.Context; value: CHAR);
+BEGIN 
+	CR.Yield(ctx, ORD(value));
+END Send;
+
+
+PROCEDURE Receive(ctx: CR.Context): CHAR;
+VAR
+	r: INTEGER;
+BEGIN
+	r := CR.Resume(ctx, 0);
+	RETURN CHR(r)
+END Receive;
+
+
+PROCEDURE Producer(ctx: CR.Context; r: INTEGER): INTEGER;
+CONST 
+	DATA_SIZE = 26;
+VAR
+	data: ARRAY DATA_SIZE OF CHAR;
+	i: INTEGER;
+	ch: CHAR;
+BEGIN
+	data := "abcdefghijklmnopqrstuvxyz";
+	
+	WHILE TRUE DO
+		ch := data[i];
+		Send(ctx, ch);
+		INC(i);
+	END;
+
+	RETURN 0
+END Producer;
+
+
+PROCEDURE Consumer(prod: CR.Context);
+VAR
+	ch: CHAR;
+BEGIN
+	REPEAT
+		ch := Receive(prod);
+		Out.Char(ch);
+	UNTIL ch = 0X;
+	Out.Ln;
+
+END Consumer;
+
+
+BEGIN
+	prod := CR.Create(Producer, NIL);
+	Consumer(prod);
+	ASSERT(CR.Status(prod) = CR.SUSPENDED);
+	Out.String("Bye!"); Out.Ln;
+END ProdCons.

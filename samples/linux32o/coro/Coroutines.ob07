@@ -77,7 +77,7 @@ BEGIN
 END Create;
 
 
-PROCEDURE Yield*(ctx: Context; r: INTEGER): INTEGER;
+PROCEDURE [oberon-] Yield*(ctx: Context; r: INTEGER): INTEGER;
 VAR
 	value: INTEGER;
 	addr: UINT32;
@@ -98,7 +98,7 @@ BEGIN
 END Yield;
 
 
-PROCEDURE Resume*(ctx: Context; r: INTEGER): INTEGER;
+PROCEDURE [oberon-] Resume*(ctx: Context; r: INTEGER): INTEGER;
 VAR
 	value: INTEGER;
 	addr: UINT32;
@@ -116,5 +116,12 @@ BEGIN
 	
 	RETURN value
 END Resume;
+
+
+PROCEDURE Status*(ctx: Context): INTEGER;
+BEGIN
+	RETURN ctx.status
+END Status;
+
 	
 END Coroutines.

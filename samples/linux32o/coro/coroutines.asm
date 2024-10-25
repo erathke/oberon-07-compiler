@@ -1,49 +1,96 @@
+;***************************************************************************
+; Source: https://github.com/spc476/C-Coroutines
+
 format ELF
 
 section '.text' executable
 
-public getcontext
-getcontext: ; ctx1
-	; eip, esp, ebp, ebx, ecx, edi, esi
-	mov eax, [esp + 4]
-	mov [eax +  4], esp ; esp
-	mov [eax +  8], ebp ; ebp
-	mov [eax + 12], ebx ; ebx
-	mov [eax + 16], ecx	; ecx
-	mov [eax + 20], edi ; edi
-	mov [eax + 24], esi ; esi
-	
-	;mov eax, [esp + 4]
-	;mov ecx, [esp]
-	;mov [eax +  4], ecx ; esp
-	;mov [eax +  8], ebp ; ebp
-	;mov [eax + 12], ebx ; ebx
-	;lea ecx, [esp + 4]
-	;mov [eax + 16], ecx	; ecx
-	;mov [eax + 20], edi ; edi
-	;mov [eax + 24], esi ; esi
+public coroutine_init32
+public coroutine_yield32
+
+L_co = -4
+L_fun =	-8
+C_param	= -12
+
+start_it_up:
+	push eax
+	push dword [ebp + L_co]
+	call dword [ebp + L_fun]
+
+do_it_again:
+	mov	[ebp + C_param],eax
+	call coroutine_yield32
+	jmp	 do_it_again
+
+;===========================================================================
+
+P_stack = 12
+P_fun = 8
+P_co = 4
+
+coroutine_init32:
+	mov edx,[esp + P_co]
+	mov eax,[esp + P_stack]	; stack to switch to
+
+	;------------------------------------------------------------
+	; Create the stack for resuming to start_it_up().  The stack
+	; is set up as:
+	;
+	;       EAX ->
+	;		+--------------------------+
+	;		| L_co                     |
+	;		+--------------------------+
+	;		| L_fun                    |
+	;		+--------------------------+
+	;		| start_it_up              |
+	;		+--------------------------+
+	;     co EBP -> | EBP of start_it_up (EAX) |
+	;		+--------------------------+
+	;		| "saved" EBX (0)          |
+	;		+--------------------------+
+	;		| "saved" ESI (0)          |
+	;		+--------------------------+
+	;     co ESP -> | "saved" EDI (0)          |
+	;		+--------------------------+
+	;
+	; The code in coroutine.resume() will pop the three registers off
+	; the stack, then restore EBP/ESP and "return" to start_it_up.
+	;------------------------------------------------------------
+
+	lea	ecx,[eax - 28]
+	mov	[ecx + 12],eax		; EBP of coroutine
+	mov	[ecx + 24],edx		; L_co
+	mov	eax,[esp + P_fun]	; L_fun
+	mov	[ecx + 20],eax
+	mov	dword [ecx + 16],start_it_up
+	xor	eax,eax
+	mov	[ecx + 8],eax		; "saved" EBX
+	mov	[ecx + 4],eax		; "saved" ESI
+	mov	[ecx + 0],eax		; "saved" EDI
+	mov	[edx],ecx		
 	ret
 
+;===========================================================================
 
-public swapcontext
-swapcontext: ; ctx1, ctx2
-	; eip, esp, ebp, ebx, ecx, edi, esi
-	mov eax, [esp + 4]
-	mov edx, [esp + 8]
-	mov [eax +  4], esp
-	mov [eax +  8], ebp
-	mov [eax + 12], ebx
-	mov [eax + 16], ecx
-	mov [eax + 20], edi
-	mov [eax + 24], esi
-	mov esi, [edx + 24]
-	mov edi, [edx + 20]
-	mov ecx, [edx + 16]
-	mov ebx, [edx + 12]
-	mov ebp, [edx +  8]
-	mov esp, [edx +  4]
-	jmp dword [edx]
+P_param = 8 + 16
+P_co = 4 + 16
+
+coroutine_yield32:
+	push ebp			; save callee saved registers
+	push ebx
+	push esi
+	push edi
+
+	mov eax,[esp + P_param]	; return parameter
+	mov edx,[esp + P_co]	; get stack to yield to
+	xchg esp,[edx]		; YIELD!
+
+	pop	edi			; retore registers
+	pop	esi
+	pop	ebx
+	pop	ebp
 	ret
 
+;***************************************************************************
 
 section '.note.GNU-stack'

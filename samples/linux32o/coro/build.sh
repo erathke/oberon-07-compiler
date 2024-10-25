@@ -11,8 +11,7 @@ CORO_OBJ="coroutines.o"
 
 mkdir -p $BINDIR $LIBDIR;
 
-#$FASM coroutines.asm $LIBDIR/coroutines.o &&
-$FASM coro.asm $LIBDIR/coroutines.o &&
+$FASM coroutines.asm $LIBDIR/coroutines.o &&
 $OBC $1.ob07 linux32o -out $LIBDIR/$1.xo $DEF $OPTS &&
 	$LD -T./linker.ld $LIBDIR/$1.xo $LIBDIR/$CORO_OBJ -o bin/$1
 
