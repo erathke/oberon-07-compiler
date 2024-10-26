@@ -1,0 +1,77 @@
+MODULE PCall2;
+IMPORT SYSTEM, API := API_sys;
+
+CONST
+	N_REGS = 6;
+	CODE_OK = 0;
+	RETRIES = 3;
+
+TYPE 
+	UINT32 = INTEGER;
+	CPU = ARRAY N_REGS OF UINT32;
+	Callee* = PROCEDURE (value: INTEGER);
+
+VAR
+	cpus: ARRAY 10 OF CPU;
+	cpusCount: INTEGER;
+	errcode: INTEGER;
+
+
+PROCEDURE [extern, "setjmp"] setjmp(cpu: UINT32): INTEGER;
+PROCEDURE [extern, "longjmp"] longjmp(cpu: UINT32; code: INTEGER): INTEGER;
+
+
+PROCEDURE GetCurrentCPU(): UINT32;
+BEGIN
+	RETURN SYSTEM.ADR(cpus[cpusCount][0])
+END GetCurrentCPU;
+
+
+PROCEDURE PushCPU();
+BEGIN
+	INC(cpusCount);
+END PushCPU;
+
+
+PROCEDURE PopCPU();
+BEGIN
+	DEC(cpusCount);
+END PopCPU;
+
+
+PROCEDURE JmpTrap(code: INTEGER);
+VAR
+	addr: UINT32;
+BEGIN
+	errcode := code;
+	addr := GetCurrentCPU();
+	code := longjmp(addr, code);
+END JmpTrap;
+
+
+PROCEDURE [ccall] Call*(VAR err: INTEGER; caller: Callee; value: INTEGER);
+VAR
+	addr: UINT32;
+BEGIN
+	
+	API.SetTrap(JmpTrap);
+	PushCPU();
+	
+	addr := GetCurrentCPU();
+	
+	CASE setjmp(addr) OF
+	| CODE_OK: 
+		caller(value);
+		err := CODE_OK;
+	ELSE
+		err := errcode;
+	END;
+	
+	PopCPU();
+	API.SetTrap(NIL);
+END Call;
+
+
+BEGIN
+	cpusCount := -1;
+END PCall2.

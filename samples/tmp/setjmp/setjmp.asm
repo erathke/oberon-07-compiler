@@ -5,7 +5,6 @@ section '.text' executable
 public setjmp
 public longjmp
 
-
 setjmp:
 	mov eax, [esp + 4]
 	mov [eax +  0], ebx
@@ -13,13 +12,11 @@ setjmp:
 	mov [eax +  8], edi
 	mov [eax + 12], ebp
 	lea ecx, [esp + 4]
-	add ecx, 4 ; is something related to calling convention, I think...
 	mov [eax + 16], ecx
 	mov ecx, [esp]
 	mov [eax + 20], ecx
 	xor eax, eax
 	ret
-
 
 longjmp:
 	mov edx, [esp + 4]
@@ -31,6 +28,9 @@ longjmp:
 	mov edi, [edx +  8]
 	mov ebp, [edx + 12]
 	mov esp, [edx + 16]
+	;is something related to calling convention or local variables, I don't understand yet...
+	add esp, 4 ; ccall
+	;add esp, 20 ; oberon
 	jmp dword [edx + 20]
 
 section '.note.GNU-stack'

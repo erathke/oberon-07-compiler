@@ -1,4 +1,4 @@
-MODULE Test3;
+MODULE UnitTest;
 IMPORT Out := Out_sys, P IN "./PCall.ob07";
 
 PROCEDURE ShowException(ex: INTEGER);
@@ -50,7 +50,7 @@ END RunTests;
 
 
 BEGIN
-	Out.Ln; Out.String("======== pcall tests ========"); Out.Ln;
+	Out.Ln; Out.String("======== unit tests ========"); Out.Ln;
 	RunTests();
 	Out.Ln;
-END Test3.
+END UnitTest.

@@ -1,0 +1,65 @@
+MODULE UnitTest2;
+IMPORT Out := Out_sys, P IN "./PCall2.ob07";
+
+PROCEDURE ShowException(ex: INTEGER);
+BEGIN
+	IF ex # 0 THEN
+		Out.String("error code: "); Out.Int(ex, 0); Out.Ln;
+	END;
+END ShowException;
+
+
+PROCEDURE DivError(x: INTEGER);
+BEGIN
+	x := x DIV (x - 10); 
+	Out.String("div passed!"); Out.Ln;
+END DivError;
+
+
+PROCEDURE AssertError(x: INTEGER);
+VAR
+	ex2: INTEGER;
+BEGIN
+	ASSERT(x = 10);
+	Out.String("assert passed!"); Out.Ln;
+	
+	Out.Ln; Out.String("division test..."); Out.Ln;
+	P.Call(ex2, DivError, 10);
+	ShowException(ex2);
+END AssertError;
+
+
+PROCEDURE IndexError(x: INTEGER);
+VAR
+	data: ARRAY 10 OF CHAR;
+	ch : CHAR;
+BEGIN
+	ch := data[x];
+	Out.String("index passed!"); Out.Ln;
+END IndexError;
+
+
+PROCEDURE RunTests();
+VAR
+	ex1, ex2, ex3: INTEGER;
+BEGIN
+	Out.String("assert test..."); Out.Ln;
+	P.Call(ex1, AssertError, 10);
+	ShowException(ex1);
+	Out.Ln; Out.String("division test..."); Out.Ln;
+	P.Call(ex2, DivError, 10);
+	ShowException(ex2);
+	Out.Ln; Out.String("index1 test..."); Out.Ln;
+	P.Call(ex3, IndexError, 15);
+	ShowException(ex3);
+	Out.Ln; Out.String("index2 test..."); Out.Ln;
+	P.Call(ex3, IndexError, 5);
+	ShowException(ex3);
+END RunTests;
+
+
+BEGIN
+	Out.Ln; Out.String("======== unit tests ========"); Out.Ln;
+	RunTests();
+	Out.Ln;
+END UnitTest2.
