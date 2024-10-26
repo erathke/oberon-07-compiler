@@ -3,7 +3,7 @@
 OBC="../../../compilerX"
 FASM="../../../fasm"
 LD="ld"
-DEF="-def API_sys -def API_TRAP"
+DEF="-def API_sys"
 OPTS="-entry _start -rtl RTL_sys"
 BINDIR="bin"
 LIBDIR="lib"

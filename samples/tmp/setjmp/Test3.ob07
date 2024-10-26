@@ -1,11 +1,12 @@
 MODULE Test3;
-IMPORT SYSTEM, Test2, Out := Out_sys;
+IMPORT Out := Out_sys, P IN "./PCall.ob07";
 
-
-PROCEDURE [ccall] trap*(code: INTEGER);
+PROCEDURE ShowException(ex: INTEGER);
 BEGIN
-	Test2.trap(code);
-END trap;
+	IF ex # 0 THEN
+		Out.String("error code: "); Out.Int(ex, 0); Out.Ln;
+	END;
+END ShowException;
 
 
 PROCEDURE DivError(x: INTEGER);
@@ -32,26 +33,18 @@ BEGIN
 END IndexError;
 
 
-PROCEDURE ShowException(ex: INTEGER);
-BEGIN
-	IF ex # 0 THEN
-		Out.String("error code: "); Out.Int(ex, 0); Out.Ln;
-	END;
-END ShowException;
-
-
 PROCEDURE RunTests();
 VAR
 	ex1, ex2, ex3: INTEGER;
 BEGIN
 	Out.String("assert test..."); Out.Ln;
-	Test2.PCall(ex1, AssertError, 100);
+	P.Call(ex1, AssertError, 100);
 	ShowException(ex1);
 	Out.Ln; Out.String("division test..."); Out.Ln;
-	Test2.PCall(ex2, DivError, 10);
+	P.Call(ex2, DivError, 10);
 	ShowException(ex2);
 	Out.Ln; Out.String("index test..."); Out.Ln;
-	Test2.PCall(ex3, IndexError, 5);
+	P.Call(ex3, IndexError, 5);
 	ShowException(ex3);
 END RunTests;
 

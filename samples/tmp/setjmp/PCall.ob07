@@ -1,5 +1,5 @@
-MODULE Test2;
-IMPORT SYSTEM, Out := Out_sys;
+MODULE PCall;
+IMPORT SYSTEM, API := API_sys, Out := Out_sys;
 
 CONST
 	N_REGS = 6;
@@ -9,7 +9,7 @@ CONST
 TYPE 
 	UINT32 = INTEGER;
 	CPU = ARRAY N_REGS OF UINT32;
-	Caller* = PROCEDURE (value: INTEGER);
+	Callee* = PROCEDURE (value: INTEGER);
 
 VAR
 	cpu: CPU;
@@ -21,30 +21,27 @@ PROCEDURE [extern, "setjmp"] setjmp(cpu: UINT32): INTEGER;
 PROCEDURE [extern, "longjmp"] longjmp(cpu: UINT32; code: INTEGER): INTEGER;
 
 
-PROCEDURE PCall*(VAR err: INTEGER; caller: Caller; value: INTEGER);
-VAR
-	addr: UINT32;
+PROCEDURE JmpTrap(code: INTEGER);
 BEGIN
-	addr := SYSTEM.ADR(cpu);
-	
-	CASE setjmp(addr) OF
+	errcode := code;
+	code := longjmp(cpuAddr, code);
+END JmpTrap;
+
+
+PROCEDURE Call*(VAR err: INTEGER; caller: Callee; value: INTEGER);
+BEGIN
+	API.SetTrap(JmpTrap);
+	CASE setjmp(cpuAddr) OF
 	| CODE_OK: 
 		caller(value);
 		err := CODE_OK;
 	ELSE
 		err := errcode;
 	END;
-	
-END PCall;
-
-
-PROCEDURE [ccall] trap*(code: INTEGER); // TODO: remove ccall?
-BEGIN
-	errcode := code;
-	code := longjmp(cpuAddr, code);
-END trap;
+	API.SetTrap(NIL);
+END Call;
 
 
 BEGIN
 	cpuAddr := SYSTEM.ADR(cpu);
-END Test2.
+END PCall.

@@ -13,6 +13,7 @@ setjmp:
 	mov [eax +  8], edi
 	mov [eax + 12], ebp
 	lea ecx, [esp + 4]
+	add ecx, 4 ; is something related to calling convention, I think...
 	mov [eax + 16], ecx
 	mov ecx, [esp]
 	mov [eax + 20], ecx
@@ -31,6 +32,5 @@ longjmp:
 	mov ebp, [edx + 12]
 	mov esp, [edx + 16]
 	jmp dword [edx + 20]
-
 
 section '.note.GNU-stack'

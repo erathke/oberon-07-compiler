@@ -27,12 +27,15 @@ TYPE
 		data: ARRAY MEM_SIZE OF BYTE;
 		offset: INTEGER
 	END;
+	
+	Trap* = PROCEDURE (code: INTEGER);
 
 VAR	
 
 	MainParam*: INTEGER;
     fini: SOFINI;
     ram: Memory;
+    trap: Trap;
 
 PROCEDURE [oberon-] syscall(eax, ebx, ecx, edx, esi, edi: INTEGER): INTEGER;
 BEGIN
@@ -129,23 +132,16 @@ $END
 END exit;
 
 
-$IF (API_TRAP)
-
-PROCEDURE [extern, "trap"] trap*(code: INTEGER);
-
 PROCEDURE exit_thread*(code: INTEGER); 
 BEGIN
 	trap(code);
 END exit_thread;
 
-$ELSE
 
-PROCEDURE exit_thread*(code: INTEGER); 
+PROCEDURE DefaultTrap(code: INTEGER);
 BEGIN
-	exit(0)
-END exit_thread;
-
-$END
+	exit(code);
+END DefaultTrap;
 
 
 PROCEDURE _NEW* (size: INTEGER): INTEGER;
@@ -207,7 +203,6 @@ $END
 END _DISPOSE;
 
 
-
 PROCEDURE init* (sp, code: INTEGER);
 BEGIN
     fini := NIL;
@@ -234,4 +229,16 @@ BEGIN
 END SetFini;
 
 
+PROCEDURE SetTrap*(userTrap: Trap);
+BEGIN
+	IF userTrap = NIL THEN
+		trap := DefaultTrap;
+	ELSE
+		trap := userTrap;
+	END;
+END SetTrap;
+
+
+BEGIN
+	SetTrap(NIL); // default trap
 END API_sys.
