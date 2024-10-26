@@ -3,7 +3,7 @@ IMPORT SYSTEM, Out := Out_sys;
 
 CONST
 	N_REGS = 6;
-	OK = 0;
+	CODE_OK = 0;
 	RETRIES = 3;
 
 TYPE 
@@ -13,20 +13,12 @@ TYPE
 
 VAR
 	cpu: CPU;
+	cpuAddr: UINT32;
 	errcode: INTEGER;
 
 
 PROCEDURE [extern, "setjmp"] setjmp(cpu: UINT32): INTEGER;
-PROCEDURE [extern, "longjmp"] longjmp(cpu: UINT32; status: INTEGER): INTEGER;
-
-
-PROCEDURE [oberon-] LongJmp(cpu: CPU; status: INTEGER): INTEGER;
-VAR
-	addr: UINT32;
-BEGIN
-	addr := SYSTEM.ADR(cpu);
-	RETURN longjmp(addr, status)
-END LongJmp;
+PROCEDURE [extern, "longjmp"] longjmp(cpu: UINT32; code: INTEGER): INTEGER;
 
 
 PROCEDURE PCall*(VAR err: INTEGER; caller: Caller; value: INTEGER);
@@ -36,10 +28,9 @@ BEGIN
 	addr := SYSTEM.ADR(cpu);
 	
 	CASE setjmp(addr) OF
-	| OK: 
+	| CODE_OK: 
 		caller(value);
-		errcode := OK;
-		err := errcode;
+		err := CODE_OK;
 	ELSE
 		err := errcode;
 	END;
@@ -50,8 +41,10 @@ END PCall;
 PROCEDURE [ccall] trap*(code: INTEGER); // TODO: remove ccall?
 BEGIN
 	errcode := code;
-	LongJmp(cpu, code);
+	code := longjmp(cpuAddr, code);
 END trap;
 
 
+BEGIN
+	cpuAddr := SYSTEM.ADR(cpu);
 END Test2.

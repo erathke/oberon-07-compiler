@@ -31,6 +31,6 @@ longjmp:
 	mov ebp, [edx + 12]
 	mov esp, [edx + 16]
 	jmp dword [edx + 20]
-;	ret
+
 
 section '.note.GNU-stack'

@@ -15,13 +15,6 @@ BEGIN
 END DivError;
 
 
-PROCEDURE DivError2(VAR ex: INTEGER; x: INTEGER);
-BEGIN
-	x := x DIV (x - 10); 
-	Out.String("div passed!"); Out.Ln;
-END DivError2;
-
-
 PROCEDURE AssertError(x: INTEGER);
 BEGIN
 	ASSERT(x = 10);
@@ -61,6 +54,7 @@ BEGIN
 	Test2.PCall(ex3, IndexError, 5);
 	ShowException(ex3);
 END RunTests;
+
 
 BEGIN
 	Out.Ln; Out.String("======== pcall tests ========"); Out.Ln;
