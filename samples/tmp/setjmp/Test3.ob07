@@ -1,5 +1,6 @@
 MODULE Test3;
-IMPORT SYSTEM, Test2;
+IMPORT SYSTEM, Test2, Out := Out_sys;
+
 
 PROCEDURE [ccall] trap*(code: INTEGER);
 BEGIN
@@ -7,19 +8,62 @@ BEGIN
 END trap;
 
 
-PROCEDURE Error(x: INTEGER);
+PROCEDURE DivError(x: INTEGER);
+BEGIN
+	x := x DIV (x - 10); 
+	Out.String("div passed!"); Out.Ln;
+END DivError;
+
+
+PROCEDURE DivError2(VAR ex: INTEGER; x: INTEGER);
+BEGIN
+	x := x DIV (x - 10); 
+	Out.String("div passed!"); Out.Ln;
+END DivError2;
+
+
+PROCEDURE AssertError(x: INTEGER);
 BEGIN
 	ASSERT(x = 10);
-END Error;
+	Out.String("assert passed!"); Out.Ln;
+END AssertError;
 
 
-PROCEDURE Run();
+PROCEDURE IndexError(x: INTEGER);
+VAR
+	data: ARRAY 10 OF CHAR;
+	ch : CHAR;
 BEGIN
-	Test2.PCall(Error, 100);
-	//Test2.PCall(100);
-	//Test2.PCall(10);
-END Run;
+	ch := data[x];
+	Out.String("index passed!"); Out.Ln;
+END IndexError;
+
+
+PROCEDURE ShowException(ex: INTEGER);
+BEGIN
+	IF ex # 0 THEN
+		Out.String("error code: "); Out.Int(ex, 0); Out.Ln;
+	END;
+END ShowException;
+
+
+PROCEDURE RunTests();
+VAR
+	ex1, ex2, ex3: INTEGER;
+BEGIN
+	Out.String("assert test..."); Out.Ln;
+	Test2.PCall(ex1, AssertError, 100);
+	ShowException(ex1);
+	Out.Ln; Out.String("division test..."); Out.Ln;
+	Test2.PCall(ex2, DivError, 10);
+	ShowException(ex2);
+	Out.Ln; Out.String("index test..."); Out.Ln;
+	Test2.PCall(ex3, IndexError, 5);
+	ShowException(ex3);
+END RunTests;
 
 BEGIN
-	Run()
+	Out.Ln; Out.String("======== pcall tests ========"); Out.Ln;
+	RunTests();
+	Out.Ln;
 END Test3.
