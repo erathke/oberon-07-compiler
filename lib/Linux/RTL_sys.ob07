@@ -453,7 +453,7 @@ BEGIN
     append(s, API.eol + "line: ");   IntToStr(line, temp);     append(s, temp);
 
 	PCharToStr(name, temp);
-	API.DebugMsg(SYSTEM.ADR(temp[0]), LENGTH(temp));
+	API.DebugMsg(SYSTEM.ADR(temp[0]), LENGTH(temp) - 4); // TODO: module name extra characters
 	API.DebugMsg(SYSTEM.ADR(s[0]), LENGTH(s));
 
     API.exit_thread(err)
