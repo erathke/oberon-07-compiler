@@ -1,5 +1,5 @@
 MODULE Coroutines;
-IMPORT SYSTEM, Out := Out_sys;
+IMPORT SYSTEM, Out := Out_sys, API := API_sys;
 
 CONST 
 	IDLE* = 0;
@@ -8,6 +8,7 @@ CONST
 	DEAD* = 4;
 	
 	STACK_SIZE = 4096;
+	N_REGS = 6;
 	
 TYPE
 	UINT32 = INTEGER;
@@ -25,18 +26,27 @@ TYPE
 		size: INTEGER
 	END;
 	
+	JmpBuf = ARRAY N_REGS OF UINT32;
+	
 	ContextDesc = RECORD
 		csp: UINT32;
 		stack: Stack;
+		buf: JmpBuf;
 		handler: Handler;
 		user*: Userdata;
 		status: INTEGER
 	END;
 
+VAR
+	currentCtx: Context;
+	errorCode: INTEGER;
+
 
 PROCEDURE [extern, "coroutine_init32"] coro_init(ctx: UINT32; handlerAddr: UINT32; stackAddr: UINT32);
 PROCEDURE [extern, "coroutine_yield32"] coro_yield(ctx: UINT32; data: UINT32): INTEGER;
 PROCEDURE [extern, "coroutine_yield32"] coro_resume(ctx: UINT32; data: UINT32): INTEGER;
+PROCEDURE [extern, "setjmp"] setjmp(cpu: UINT32): INTEGER;
+PROCEDURE [extern, "longjmp"] longjmp(cpu: UINT32; code: INTEGER): INTEGER;
 
 
 PROCEDURE [ccall] EntryPoint(ctxAddr: UINT32; r: INTEGER): INTEGER;
@@ -98,16 +108,46 @@ BEGIN
 END Yield;
 
 
+PROCEDURE JmpTrap(code: INTEGER);
+VAR
+	addr: UINT32;
+BEGIN
+	errorCode := code;
+	addr := SYSTEM.ADR(currentCtx.buf);
+	code := longjmp(addr, code);
+END JmpTrap;
+
+
+PROCEDURE [ccall] PResume(ctx: Context; r: INTEGER): INTEGER;
+VAR
+	value: INTEGER;
+	bufAddr, ctxAddr: UINT32;
+BEGIN
+	API.SetTrap(JmpTrap);
+	
+	bufAddr := SYSTEM.ADR(ctx.buf);
+	IF setjmp(bufAddr) = 0 THEN
+		ctxAddr := SYSTEM.VAL(ctx, UINT32);
+		value := coro_resume(ctxAddr, r);
+	ELSE
+		Out.String("error!"); Out.Ln;
+		ctx.status := DEAD;
+	END;
+	
+	API.SetTrap(NIL);
+	RETURN value
+	
+END PResume;
+
+
 PROCEDURE [oberon-] Resume*(ctx: Context; r: INTEGER): INTEGER;
 VAR
 	value: INTEGER;
-	addr: UINT32;
 BEGIN
-	
 	IF (ctx.status = IDLE) OR (ctx.status = SUSPENDED) THEN
 		ctx.status := RUNNING;
-		addr := SYSTEM.VAL(ctx, UINT32);
-		value := coro_resume(addr, r);
+		currentCtx := ctx;
+		value := PResume(ctx, r);
 	ELSE
 		CASE ctx.status OF
 		| DEAD: Out.String("cannot resume dead coroutine"); Out.Ln;

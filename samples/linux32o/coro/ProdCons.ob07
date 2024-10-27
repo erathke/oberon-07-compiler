@@ -34,6 +34,7 @@ BEGIN
 		ch := data[i];
 		Send(ctx, ch);
 		INC(i);
+		ASSERT(i # 12);
 	END;
 
 	RETURN 0
@@ -54,8 +55,9 @@ END Consumer;
 
 
 BEGIN
+	ASSERT(FALSE);
 	prod := CR.Create(Producer, NIL);
 	Consumer(prod);
-	ASSERT(CR.Status(prod) = CR.SUSPENDED);
+	ASSERT(CR.Status(prod) = CR.DEAD);
 	Out.String("Bye!"); Out.Ln;
 END ProdCons.

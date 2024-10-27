@@ -20,6 +20,7 @@ END Calc;
 
 
 BEGIN
+	ASSERT(FALSE);
 	c1 := CR.Create(Calc, NIL);
 	r := CR.Resume(c1, r);
 	r := CR.Resume(c1, r);
