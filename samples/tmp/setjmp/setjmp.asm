@@ -5,6 +5,12 @@ section '.text' executable
 public setjmp
 public longjmp
 
+; is something related to local variables, I don't understand yet...
+; the setjmp's param count is related too
+; and the calling convention...
+;SETJMP_OFFS = 4
+SETJMP_OFFS = 24
+
 setjmp:
 	mov eax, [esp + 4]
 	mov [eax +  0], ebx
@@ -12,10 +18,7 @@ setjmp:
 	mov [eax +  8], edi
 	mov [eax + 12], ebp
 	lea ecx, [esp + 4]
-	;is something related to calling convention or local variables, I don't understand yet...
-	;add esp, 4 ; ccall
-	;add esp, 20 ; oberon
-	add ecx, 4
+	add ecx, SETJMP_OFFS ; adjust offset
 	mov [eax + 16], ecx
 	mov ecx, [esp]
 	mov [eax + 20], ecx

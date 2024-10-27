@@ -2,7 +2,7 @@ MODULE PCall2;
 IMPORT SYSTEM, API := API_sys, Out:= Out_sys;
 
 CONST
-	N_REGS = 5;
+	N_REGS = 6;
 	CODE_OK = 0;
 	RETRIES = 3;
 
@@ -15,6 +15,7 @@ VAR
 	cpus: ARRAY 10 OF CPU;
 	cpusCount: INTEGER;
 	errcode: INTEGER;
+
 
 
 PROCEDURE [extern, "setjmp"] setjmp(cpu: UINT32): INTEGER;
@@ -44,6 +45,7 @@ VAR
 	cpu : CPU;
 	i : INTEGER;
 BEGIN
+	Out.String("CPU: "); Out.Int(GetCurrentCPU(), 0); Out.Ln;
 	cpu := cpus[cpusCount];
 	FOR i := N_REGS - 1 TO 0 BY -1  DO
 		Out.String("["); Out.Int(cpu[i], 0);
@@ -51,6 +53,7 @@ BEGIN
 		Out.Ln;
 	END;
 END;
+
 
 PROCEDURE JmpTrap(code: INTEGER);
 VAR
@@ -62,7 +65,7 @@ BEGIN
 END JmpTrap;
 
 
-PROCEDURE [ccall] Call*(VAR err: INTEGER; caller: Callee; value: INTEGER);
+PROCEDURE Call*(VAR err: INTEGER; caller: Callee; value: INTEGER);
 VAR
 	addr: UINT32;
 BEGIN
@@ -71,6 +74,7 @@ BEGIN
 	PushCPU();
 	
 	addr := GetCurrentCPU();
+	
 	CASE setjmp(addr) OF
 	| CODE_OK: 
 		caller(value);
@@ -81,6 +85,7 @@ BEGIN
 	
 	PopCPU();
 	API.SetTrap(NIL);
+
 END Call;
 
 

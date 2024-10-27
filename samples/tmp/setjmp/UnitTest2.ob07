@@ -8,11 +8,26 @@ BEGIN
 	END;
 END ShowException;
 
+PROCEDURE IndexError(x: INTEGER);
+VAR
+	data: ARRAY 10 OF CHAR;
+	ch : CHAR;
+BEGIN
+	Out.Ln; Out.String("index test: "); Out.Int(x, 0); Out.Ln;
+	ch := data[x];
+	Out.String("index passed!"); Out.Ln;
+	
+END IndexError;
+
 
 PROCEDURE DivError(x: INTEGER);
+VAR
+	ex2: INTEGER;
 BEGIN
+	Out.Ln; Out.String("div test: "); Out.Int(x, 0); Out.Ln;
 	x := x DIV (x - 10); 
 	Out.String("div passed!"); Out.Ln;
+	
 END DivError;
 
 
@@ -20,43 +35,27 @@ PROCEDURE AssertError(x: INTEGER);
 VAR
 	ex2: INTEGER;
 BEGIN
+	Out.Ln; Out.String("assert test: "); Out.Int(x, 0); Out.Ln;
 	ASSERT(x = 10);
 	Out.String("assert passed!"); Out.Ln;
-	
-	Out.Ln; Out.String("division test..."); Out.Ln;
-	P.Call(ex2, DivError, 10);
-	ShowException(ex2);
 END AssertError;
-
-
-PROCEDURE IndexError(x: INTEGER);
-VAR
-	data: ARRAY 10 OF CHAR;
-	ch : CHAR;
-BEGIN
-	ch := data[x];
-	Out.String("index passed!"); Out.Ln;
-END IndexError;
 
 
 PROCEDURE RunTests(n: INTEGER);
 VAR
-	ex1, ex2, ex3: INTEGER;
+	ex: INTEGER;
 BEGIN
 	IF n # 0 THEN
-		Out.String("assert test..."); Out.Ln;
-		P.Call(ex1, AssertError, 10);
-		ShowException(ex1);
-		Out.Ln; Out.String("division test..."); Out.Ln;
-		P.Call(ex2, DivError, 9 + n);
-		ShowException(ex2);
-		Out.Ln; Out.String("index1 test..."); Out.Ln;
-		P.Call(ex3, IndexError, 15);
-		ShowException(ex3);
-		Out.Ln; Out.String("index2 test..."); Out.Ln;
-		P.Call(ex3, IndexError, 6 + n);
-		ShowException(ex3);
-		//RunTests(n - 1);
+		
+		P.Call(ex, AssertError, 10);
+		
+		ShowException(ex);
+		
+		P.Call(ex, AssertError, 20);
+		ShowException(ex);
+		
+		P.Call(ex, AssertError, 30);
+		ShowException(ex);
 	END;
 	
 END RunTests;
@@ -64,6 +63,6 @@ END RunTests;
 
 BEGIN
 	Out.Ln; Out.String("======== unit tests ========"); Out.Ln;
-	RunTests(3);
+	RunTests(20);
 	Out.Ln;
 END UnitTest2.
