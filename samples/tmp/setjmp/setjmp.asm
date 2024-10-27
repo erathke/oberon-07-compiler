@@ -8,8 +8,8 @@ public longjmp
 ; is something related to local variables, I don't understand yet...
 ; the setjmp's param count is related too
 ; and the calling convention...
-;SETJMP_OFFS = 4
-SETJMP_OFFS = 24
+SETJMP_OFFS = 4
+;SETJMP_OFFS = 24
 
 setjmp:
 	mov eax, [esp + 4]

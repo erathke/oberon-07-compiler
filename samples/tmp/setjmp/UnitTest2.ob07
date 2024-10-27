@@ -21,8 +21,6 @@ END IndexError;
 
 
 PROCEDURE DivError(x: INTEGER);
-VAR
-	ex2: INTEGER;
 BEGIN
 	Out.Ln; Out.String("div test: "); Out.Int(x, 0); Out.Ln;
 	x := x DIV (x - 10); 
@@ -32,8 +30,6 @@ END DivError;
 
 
 PROCEDURE AssertError(x: INTEGER);
-VAR
-	ex2: INTEGER;
 BEGIN
 	Out.Ln; Out.String("assert test: "); Out.Int(x, 0); Out.Ln;
 	ASSERT(x = 10);
@@ -47,15 +43,16 @@ VAR
 BEGIN
 	IF n # 0 THEN
 		
-		P.Call(ex, AssertError, 10);
+		P.Call(ex, AssertError, n);
 		
 		ShowException(ex);
 		
-		P.Call(ex, AssertError, 20);
+		P.Call(ex, DivError, n);
 		ShowException(ex);
 		
-		P.Call(ex, AssertError, 30);
+		P.Call(ex, IndexError, n);
 		ShowException(ex);
+		RunTests(n - 1);
 	END;
 	
 END RunTests;

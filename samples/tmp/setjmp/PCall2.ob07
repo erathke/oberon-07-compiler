@@ -4,7 +4,7 @@ IMPORT SYSTEM, API := API_sys, Out:= Out_sys;
 CONST
 	N_REGS = 6;
 	CODE_OK = 0;
-	RETRIES = 3;
+	STACK_DEPTH = 10;
 
 TYPE 
 	UINT32 = INTEGER;
@@ -12,10 +12,9 @@ TYPE
 	Callee* = PROCEDURE (value: INTEGER);
 
 VAR
-	cpus: ARRAY 10 OF CPU;
-	cpusCount: INTEGER;
+	cpus: ARRAY STACK_DEPTH OF CPU;
+	currentCPUIdx: INTEGER;
 	errcode: INTEGER;
-
 
 
 PROCEDURE [extern, "setjmp"] setjmp(cpu: UINT32): INTEGER;
@@ -24,19 +23,19 @@ PROCEDURE [extern, "longjmp"] longjmp(cpu: UINT32; code: INTEGER): INTEGER;
 
 PROCEDURE GetCurrentCPU(): UINT32;
 BEGIN
-	RETURN SYSTEM.ADR(cpus[cpusCount][0])
+	RETURN SYSTEM.ADR(cpus[currentCPUIdx][0])
 END GetCurrentCPU;
 
 
 PROCEDURE PushCPU();
 BEGIN
-	INC(cpusCount);
+	INC(currentCPUIdx);
 END PushCPU;
 
 
 PROCEDURE PopCPU();
 BEGIN
-	DEC(cpusCount);
+	DEC(currentCPUIdx);
 END PopCPU;
 
 
@@ -46,7 +45,7 @@ VAR
 	i : INTEGER;
 BEGIN
 	Out.String("CPU: "); Out.Int(GetCurrentCPU(), 0); Out.Ln;
-	cpu := cpus[cpusCount];
+	cpu := cpus[currentCPUIdx];
 	FOR i := N_REGS - 1 TO 0 BY -1  DO
 		Out.String("["); Out.Int(cpu[i], 0);
 		Out.String("] = "); Out.Int(i, 0);
@@ -65,7 +64,7 @@ BEGIN
 END JmpTrap;
 
 
-PROCEDURE Call*(VAR err: INTEGER; caller: Callee; value: INTEGER);
+PROCEDURE [ccall] Call*(VAR err: INTEGER; caller: Callee; value: INTEGER);
 VAR
 	addr: UINT32;
 BEGIN
@@ -90,5 +89,5 @@ END Call;
 
 
 BEGIN
-	cpusCount := -1;
+	currentCPUIdx := -1;
 END PCall2.
