@@ -19,7 +19,7 @@ TYPE
 	
 	Context* = POINTER TO ContextDesc;
 	
-	Handler* = PROCEDURE (ctx: Context; r: INTEGER): INTEGER;
+	Handler* = PROCEDURE (ctx: Context);
 	
 	Stack = POINTER TO RECORD
 		data: ARRAY STACK_SIZE OF BYTE;
@@ -47,11 +47,18 @@ VAR
 	thread: Thread; // TODO: user thread
 
 
+PROCEDURE [extern, "coroutine_setup"] coro_setup(deadStatus: INTEGER);
+
 PROCEDURE [extern, "coroutine_init32"] coro_init(ctx: UINT32; handlerAddr: UINT32; stackAddr: UINT32);
+
 PROCEDURE [extern, "coroutine_yield32"] coro_yield(ctx: UINT32; data: UINT32): INTEGER;
+
 PROCEDURE [extern, "coroutine_yield32"] coro_resume(ctx: UINT32; data: UINT32): INTEGER;
+
 PROCEDURE [extern, "setjmp"] setjmp(cpu: UINT32): INTEGER;
+
 PROCEDURE [extern, "longjmp"] longjmp(cpu: UINT32; code: INTEGER): INTEGER;
+
 
 
 PROCEDURE PushCtx(ctx: Context);
@@ -78,15 +85,12 @@ BEGIN
 END CurrentCtx;
 
 
-PROCEDURE [ccall] EntryPoint(ctxAddr: UINT32; r: INTEGER): INTEGER;
+PROCEDURE [ccall] EntryPoint(ctxAddr: UINT32);
 VAR
 	ctx: Context;
-	value: INTEGER;
 BEGIN
 	ctx := SYSTEM.VAL(ctxAddr, Context);
-	value := ctx.handler(ctx, r);
-	ctx.status := DEAD;
-	RETURN value
+	ctx.handler(ctx);
 END;
 
 
@@ -95,14 +99,14 @@ VAR
 	ctx: Context;
 	stack: Stack;
 	baseAddr, spAddr, spIdx : UINT32;
-	handlerAddr: UINT32;
+	entryAddr: UINT32;
 BEGIN
 	NEW(stack);
 	stack.size := STACK_SIZE;
 	baseAddr := SYSTEM.ADR(stack.data[0]);
 	spIdx := stack.size - SYSTEM.SIZE(ContextDesc);
 	spAddr := SYSTEM.ADR(stack.data[spIdx]);
-	handlerAddr := SYSTEM.ADR(EntryPoint);
+	entryAddr := SYSTEM.ADR(EntryPoint);
 	
 	ctx := SYSTEM.VAL(spAddr, Context);
 	ctx.csp := spAddr;
@@ -110,22 +114,19 @@ BEGIN
 	ctx.handler := handler;
 	ctx.user := data;
 	
-	coro_init(spAddr, handlerAddr, spAddr);
+	coro_init(spAddr, entryAddr, spAddr);
 	
 	RETURN ctx
 END Create;
 
 
-PROCEDURE [oberon-] Yield*(ctx: Context; r: INTEGER): INTEGER;
+PROCEDURE [oberon-] Yield*(ctx: Context): INTEGER;
 VAR
-	value: INTEGER;
 	addr: UINT32;
 BEGIN
-	
 	IF ctx.status = RUNNING THEN
 		addr := SYSTEM.VAL(ctx, UINT32);
-		ctx.status := SUSPENDED;
-		value := coro_yield(addr, r);
+		ctx.status := coro_yield(addr, SUSPENDED);
 	ELSE
 		CASE ctx.status OF
 		| DEAD: Out.String("cannot yield dead coroutine"); Out.Ln;
@@ -133,7 +134,7 @@ BEGIN
 		END;
 	END;
 	
-	RETURN value
+	RETURN ctx.status
 END Yield;
 
 
@@ -149,9 +150,8 @@ BEGIN
 END JmpTrap;
 
 
-PROCEDURE [ccall] PResume(ctx: Context; r: INTEGER): INTEGER;
+PROCEDURE [ccall] PResume(ctx: Context);
 VAR
-	value: INTEGER;
 	bufAddr, ctxAddr: UINT32;
 BEGIN
 	API.SetTrap(JmpTrap);
@@ -160,32 +160,29 @@ BEGIN
 	bufAddr := SYSTEM.ADR(ctx.buf);
 	IF setjmp(bufAddr) = 0 THEN
 		ctxAddr := SYSTEM.VAL(ctx, UINT32);
-		value := coro_resume(ctxAddr, r);
+		ctx.status := coro_resume(ctxAddr, ctx.status);
 	ELSE
 		ctx.status := DEAD;
 	END;
 	
 	PopCtx();
 	API.SetTrap(NIL);
-	RETURN value
 	
 END PResume;
 
 
-PROCEDURE [oberon-] Resume*(ctx: Context; r: INTEGER): INTEGER;
-VAR
-	value: INTEGER;
+PROCEDURE [oberon-] Resume*(ctx: Context): INTEGER;
 BEGIN
 	IF (ctx.status = IDLE) OR (ctx.status = SUSPENDED) THEN
 		ctx.status := RUNNING;
-		value := PResume(ctx, r);
+		PResume(ctx);
 	ELSE
 		CASE ctx.status OF
 		| DEAD: Out.String("cannot resume dead coroutine"); Out.Ln;
 		END;
 	END;
 	
-	RETURN value
+	RETURN ctx.status
 END Resume;
 
 
@@ -195,4 +192,6 @@ BEGIN
 END Status;
 
 
+BEGIN
+	coro_setup(DEAD);
 END Coroutines.

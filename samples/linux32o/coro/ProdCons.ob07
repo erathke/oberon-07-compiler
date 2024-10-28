@@ -3,7 +3,8 @@ IMPORT CR := Coroutines, Out := Out_sys;
 
 TYPE 
 	Data = POINTER TO RECORD (CR.Userdata)
-		buffer: ARRAY 32 OF CHAR
+		buffer: ARRAY 32 OF CHAR;
+		ch: CHAR
 	END;
 
 VAR
@@ -13,20 +14,27 @@ VAR
 
 PROCEDURE Send(ctx: CR.Context; value: CHAR);
 BEGIN 
-	CR.Yield(ctx, ORD(value));
+	ctx.user(Data).ch := value;
+	CR.Yield(ctx);
 END Send;
 
 
 PROCEDURE Receive(ctx: CR.Context): CHAR;
 VAR
-	r: INTEGER;
+	ch: CHAR;
+	status: INTEGER;
 BEGIN
-	r := CR.Resume(ctx, 22);
-	RETURN CHR(r)
+	status := CR.Resume(ctx);
+	IF status # CR.DEAD THEN
+		ch := ctx.user(Data).ch;
+	ELSE
+		ch := 0X;
+	END;
+	RETURN ch
 END Receive;
 
 
-PROCEDURE Producer(ctx: CR.Context; r: INTEGER): INTEGER;
+PROCEDURE Producer(ctx: CR.Context);
 CONST 
 	DATA_SIZE = 26;
 VAR
@@ -35,15 +43,12 @@ VAR
 	ch: CHAR;
 BEGIN
 	data := "abcdefghijklmnopqrstuvxyz";
-
 	WHILE TRUE DO
 		ch := data[i];
-		//ASSERT(ch # 'k');
+		ASSERT(ch # 'k');
 		Send(ctx, ch);
 		INC(i);
 	END;
-
-	RETURN 0
 END Producer;
 
 

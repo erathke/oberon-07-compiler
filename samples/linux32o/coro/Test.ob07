@@ -1,30 +1,43 @@
 MODULE Test;
 IMPORT CR := Coroutines, Out := Out_sys;
 
+TYPE
+	Data = POINTER TO RECORD(CR.Userdata) r: INTEGER END; 
+
 VAR
 	c1: CR.Context;
-	r: INTEGER;
+	data: Data;
+	status : INTEGER;
 
 
-PROCEDURE Calc(ctx: CR.Context; r: INTEGER): INTEGER;
+PROCEDURE Calc(ctx: CR.Context);
+VAR
+	ud: Data;
 BEGIN
-	Out.String("calculating... "); Out.Int(r, 0); Out.Ln;
-	INC(r);
-	r := CR.Yield(ctx, r);
-	Out.String("still calculating... "); Out.Int(r, 0); Out.Ln;
-	INC(r);
-	ASSERT(r = 3);
-	r := CR.Yield(ctx, r);
+	ud := ctx.user(Data);
+	INC(ud.r);
+	Out.String("calculating... "); Out.Int(ud.r, 0); Out.Ln;
+	CR.Yield(ctx);
+	//ASSERT(FALSE);
+	
+	INC(ud.r);
+	Out.String("still calculating... "); Out.Int(ud.r, 0); Out.Ln;
+	CR.Yield(ctx);
+	
+	INC(ud.r);
 	Out.String("done."); Out.Ln;
-	RETURN r
 END Calc;
 
 
 BEGIN
 	//ASSERT(FALSE);
-	c1 := CR.Create(Calc, NIL);
-	r := CR.Resume(c1, r);
-	r := CR.Resume(c1, r);
-	r := CR.Resume(c1, r);
-	Out.String("result: "); Out.Int(r, 0); Out.Ln;
+	NEW(data);
+	data.r := 0;
+	c1 := CR.Create(Calc, data);	ASSERT(status = CR.IDLE);
+	status := CR.Resume(c1);		ASSERT(status = CR.SUSPENDED);
+	status := CR.Resume(c1);		ASSERT(status = CR.SUSPENDED);
+	status := CR.Resume(c1);		ASSERT(status = CR.DEAD);
+	
+	ASSERT(data.r = 3);
+	Out.String("result: "); Out.Int(data.r, 0); Out.Ln;
 END Test.

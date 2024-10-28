@@ -1,28 +1,46 @@
 ;***************************************************************************
-; Source: https://github.com/spc476/C-Coroutines
+; Original source: https://github.com/spc476/C-Coroutines
 
 format ELF
 
+section '.bss' writeable
+
+CORO_DEAD: rw 1
+
+;***************************************************************************
+
 section '.text' executable
 
+public coroutine_setup
 public coroutine_init32
 public coroutine_yield32
+
+;===========================================================================
+
+P_dead = 4
+
+coroutine_setup:
+	mov eax, [esp + P_dead]
+	mov [CORO_DEAD], eax
+	ret
+
+;===========================================================================
 
 L_co = -4
 L_fun =	-8
 C_param	= -12
 
-start_it_up:
+start_coro:
 	push eax
 	push dword [ebp + L_co]
 	call dword [ebp + L_fun]
 
-do_it_again:
-	mov	[ebp + C_param],eax
+finish_coro:
+	mov eax, [CORO_DEAD]
+	mov	[ebp + C_param], eax
 	call coroutine_yield32
-	jmp	 do_it_again
+	jmp	 finish_coro
 
-;===========================================================================
 
 P_stack = 12
 P_fun = 8
@@ -62,7 +80,7 @@ coroutine_init32:
 	mov	[ecx + 24],edx		; L_co
 	mov	eax,[esp + P_fun]	; L_fun
 	mov	[ecx + 20],eax
-	mov	dword [ecx + 16],start_it_up
+	mov	dword [ecx + 16],start_coro
 	xor	eax,eax
 	mov	[ecx + 8],eax		; "saved" EBX
 	mov	[ecx + 4],eax		; "saved" ESI
@@ -72,7 +90,7 @@ coroutine_init32:
 
 ;===========================================================================
 
-P_param = 8 + 16
+P_status = 8 + 16
 P_co = 4 + 16
 
 coroutine_yield32:
@@ -81,9 +99,9 @@ coroutine_yield32:
 	push esi
 	push edi
 
-	mov eax,[esp + P_param]	; return parameter
-	mov edx,[esp + P_co]	; get stack to yield to
-	xchg esp,[edx]		; YIELD!
+	mov eax,[esp + P_status]	; return parameter
+	mov edx,[esp + P_co]		; get stack to yield to
+	xchg esp,[edx]				; YIELD!
 
 	pop	edi			; retore registers
 	pop	esi
