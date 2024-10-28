@@ -1,8 +1,14 @@
 MODULE ProdCons;
 IMPORT CR := Coroutines, Out := Out_sys;
 
+TYPE 
+	Data = POINTER TO RECORD (CR.Userdata)
+		buffer: ARRAY 32 OF CHAR
+	END;
+
 VAR
 	prod: CR.Context;
+	data: Data;
 
 
 PROCEDURE Send(ctx: CR.Context; value: CHAR);
@@ -15,7 +21,7 @@ PROCEDURE Receive(ctx: CR.Context): CHAR;
 VAR
 	r: INTEGER;
 BEGIN
-	r := CR.Resume(ctx, 0);
+	r := CR.Resume(ctx, 22);
 	RETURN CHR(r)
 END Receive;
 
@@ -29,12 +35,12 @@ VAR
 	ch: CHAR;
 BEGIN
 	data := "abcdefghijklmnopqrstuvxyz";
-	
+
 	WHILE TRUE DO
 		ch := data[i];
+		//ASSERT(ch # 'k');
 		Send(ctx, ch);
 		INC(i);
-		ASSERT(i # 12);
 	END;
 
 	RETURN 0
@@ -44,20 +50,30 @@ END Producer;
 PROCEDURE Consumer(prod: CR.Context);
 VAR
 	ch: CHAR;
+	data: Data;
+	i: INTEGER;
 BEGIN
+	ch := 1X;
+	data := prod.user(Data);
 	REPEAT
 		ch := Receive(prod);
-		Out.Char(ch);
+		data.buffer[i] := ch;
+		INC(i);
 	UNTIL ch = 0X;
-	Out.Ln;
-
 END Consumer;
 
 
 BEGIN
-	ASSERT(FALSE);
-	prod := CR.Create(Producer, NIL);
+	NEW(data);
+	prod := CR.Create(Producer, data);
 	Consumer(prod);
-	ASSERT(CR.Status(prod) = CR.DEAD);
-	Out.String("Bye!"); Out.Ln;
+	
+	Out.Ln;
+	IF prod.errorCode = 0 THEN
+		ASSERT(CR.Status(prod) = CR.SUSPENDED);
+		Out.String("success: "); Out.String(data.buffer); Out.Ln;
+	ELSE
+		ASSERT(CR.Status(prod) = CR.DEAD);
+		Out.String("error: "); Out.String(data.buffer); Out.Ln;
+	END;
 END ProdCons.

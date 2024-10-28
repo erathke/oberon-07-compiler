@@ -13,6 +13,7 @@ BEGIN
 	r := CR.Yield(ctx, r);
 	Out.String("still calculating... "); Out.Int(r, 0); Out.Ln;
 	INC(r);
+	ASSERT(r = 3);
 	r := CR.Yield(ctx, r);
 	Out.String("done."); Out.Ln;
 	RETURN r
@@ -20,7 +21,7 @@ END Calc;
 
 
 BEGIN
-	ASSERT(FALSE);
+	//ASSERT(FALSE);
 	c1 := CR.Create(Calc, NIL);
 	r := CR.Resume(c1, r);
 	r := CR.Resume(c1, r);

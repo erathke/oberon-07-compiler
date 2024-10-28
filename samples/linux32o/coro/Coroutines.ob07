@@ -9,10 +9,10 @@ CONST
 	
 	STACK_SIZE = 4096;
 	N_REGS = 6;
+	THREAD_DEPTH = 10;
 	
 TYPE
 	UINT32 = INTEGER;
-	PID* = INTEGER;
 	
 	Userdata* = POINTER TO RECORD
 	END;
@@ -34,12 +34,17 @@ TYPE
 		buf: JmpBuf;
 		handler: Handler;
 		user*: Userdata;
-		status: INTEGER
+		status: INTEGER;
+		errorCode*: INTEGER
+	END;
+	
+	Thread = RECORD
+		ctxs: ARRAY THREAD_DEPTH OF Context;
+		size: INTEGER
 	END;
 
 VAR
-	currentCtx: Context;
-	errorCode: INTEGER;
+	thread: Thread; // TODO: user thread
 
 
 PROCEDURE [extern, "coroutine_init32"] coro_init(ctx: UINT32; handlerAddr: UINT32; stackAddr: UINT32);
@@ -47,6 +52,30 @@ PROCEDURE [extern, "coroutine_yield32"] coro_yield(ctx: UINT32; data: UINT32): I
 PROCEDURE [extern, "coroutine_yield32"] coro_resume(ctx: UINT32; data: UINT32): INTEGER;
 PROCEDURE [extern, "setjmp"] setjmp(cpu: UINT32): INTEGER;
 PROCEDURE [extern, "longjmp"] longjmp(cpu: UINT32; code: INTEGER): INTEGER;
+
+
+PROCEDURE PushCtx(ctx: Context);
+BEGIN
+	// TODO: check depth
+	thread.ctxs[thread.size] := ctx;
+	INC(thread.size);
+END PushCtx;
+
+
+PROCEDURE [oberon-] PopCtx(): Context;
+VAR
+	ctx: Context;
+BEGIN
+	ctx := thread.ctxs[thread.size];
+	DEC(thread.size);
+	RETURN ctx
+END PopCtx;
+
+
+PROCEDURE CurrentCtx(): Context;
+BEGIN
+	RETURN thread.ctxs[thread.size - 1]
+END CurrentCtx;
 
 
 PROCEDURE [ccall] EntryPoint(ctxAddr: UINT32; r: INTEGER): INTEGER;
@@ -64,7 +93,7 @@ END;
 PROCEDURE Create*(handler: Handler; data: Userdata): Context;
 VAR
 	ctx: Context;
-	stack: Stack; 
+	stack: Stack;
 	baseAddr, spAddr, spIdx : UINT32;
 	handlerAddr: UINT32;
 BEGIN
@@ -111,8 +140,10 @@ END Yield;
 PROCEDURE JmpTrap(code: INTEGER);
 VAR
 	addr: UINT32;
+	currentCtx: Context;
 BEGIN
-	errorCode := code;
+	currentCtx := CurrentCtx();
+	currentCtx.errorCode := code;
 	addr := SYSTEM.ADR(currentCtx.buf);
 	code := longjmp(addr, code);
 END JmpTrap;
@@ -124,16 +155,17 @@ VAR
 	bufAddr, ctxAddr: UINT32;
 BEGIN
 	API.SetTrap(JmpTrap);
+	PushCtx(ctx);
 	
 	bufAddr := SYSTEM.ADR(ctx.buf);
 	IF setjmp(bufAddr) = 0 THEN
 		ctxAddr := SYSTEM.VAL(ctx, UINT32);
 		value := coro_resume(ctxAddr, r);
 	ELSE
-		Out.String("error!"); Out.Ln;
 		ctx.status := DEAD;
 	END;
 	
+	PopCtx();
 	API.SetTrap(NIL);
 	RETURN value
 	
@@ -146,7 +178,6 @@ VAR
 BEGIN
 	IF (ctx.status = IDLE) OR (ctx.status = SUSPENDED) THEN
 		ctx.status := RUNNING;
-		currentCtx := ctx;
 		value := PResume(ctx, r);
 	ELSE
 		CASE ctx.status OF
@@ -163,5 +194,5 @@ BEGIN
 	RETURN ctx.status
 END Status;
 
-	
+
 END Coroutines.
