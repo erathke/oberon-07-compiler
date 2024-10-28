@@ -390,7 +390,8 @@ BEGIN
         s[i] := c;
         INC(pchar);
         INC(i)
-    UNTIL c = 0X
+    UNTIL c = 0X;
+    
 END PCharToStr;
 
 
@@ -434,26 +435,28 @@ END append;
 PROCEDURE [stdcall] _error* (modnum, _module, err, line: INTEGER);
 VAR
     s, temp: ARRAY 1024 OF CHAR;
+    errmsg: ARRAY 64 OF CHAR;
 BEGIN
     CASE err OF
-    | 1: s := "assertion failure"
-    | 2: s := "NIL dereference"
-    | 3: s := "bad divisor"
-    | 4: s := "NIL procedure call"
-    | 5: s := "type guard error"
-    | 6: s := "index out of range"
-    | 7: s := "invalid CASE"
-    | 8: s := "array assignment error"
-    | 9: s := "CHR out of range"
-    |10: s := "WCHR out of range"
-    |11: s := "BYTE out of range"
+    | 1: errmsg := "assertion failure"
+    | 2: errmsg := "NIL dereference"
+    | 3: errmsg := "bad divisor"
+    | 4: errmsg := "NIL procedure call"
+    | 5: errmsg := "type guard error"
+    | 6: errmsg := "index out of range"
+    | 7: errmsg := "invalid CASE"
+    | 8: errmsg := "array assignment error"
+    | 9: errmsg := "CHR out of range"
+    |10: errmsg := "WCHR out of range"
+    |11: errmsg := "BYTE out of range"
     END;
 	
-	append(s, API.eol + "module: "); PCharToStr(_module, temp); append(s, temp);
-    append(s, API.eol + "line: ");   IntToStr(line, temp);     append(s, temp);
+	append(s, "[[ERROR: "); append(s, errmsg);
+	append(s, " ("); IntToStr(err, temp); append(s, temp);
+	append(s, ") => module: "); PCharToStr(_module, temp); append(s, temp);
+    append(s, ", line: "); IntToStr(line, temp); append(s, temp);
+    append(s, "]]");
 
-	PCharToStr(name, temp);
-	API.DebugMsg(SYSTEM.ADR(temp[0]), LENGTH(temp) - 4); // TODO: module name extra characters
 	API.DebugMsg(SYSTEM.ADR(s[0]), LENGTH(s));
 
     API.exit_thread(err)
