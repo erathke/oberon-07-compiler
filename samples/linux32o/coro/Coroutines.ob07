@@ -9,7 +9,11 @@ CONST
 	
 	STACK_SIZE = 4096;
 	N_REGS = 6;
-	THREAD_DEPTH = 10;
+	THREAD_DEPTH = 11;
+	
+	THREAD_ERR = 10;
+	DEPTH_ERR = 20;
+	HANDLER_ERR = 30;
 	
 TYPE
 	UINT32 = INTEGER;
@@ -46,7 +50,6 @@ TYPE
 		errorCode*: INTEGER
 	END;
 	
-	
 
 PROCEDURE [extern, "coroutine_setup"] coro_setup(deadStatus: INTEGER);
 
@@ -61,12 +64,28 @@ PROCEDURE [extern, "setjmp"] setjmp(cpu: UINT32): INTEGER;
 PROCEDURE [extern, "longjmp"] longjmp(cpu: UINT32; code: INTEGER): INTEGER;
 
 
+PROCEDURE Error(err: INTEGER);
+BEGIN
+	CASE err OF
+	| THREAD_ERR: 
+		Out.String("Invalid thread: NIL"); Out.Ln; 
+		API.exit_thread(THREAD_ERR);
+	| DEPTH_ERR: Out.String("Max thread depth reached: "); 
+		Out.Int(THREAD_DEPTH, 10); Out.Ln;
+		API.exit_thread(DEPTH_ERR);
+	| HANDLER_ERR: 
+		Out.String("Invalid handler: NIL"); Out.Ln;
+		API.exit_thread(HANDLER_ERR);
+	END;
+END Error;
+
 
 PROCEDURE PushCtx(ctx: Context);
 VAR
 	thread: Thread;
 BEGIN
 	thread := ctx.thread;
+	IF thread.size = THREAD_DEPTH - 1 THEN  Error(DEPTH_ERR) END;
 	thread.ctxs[thread.size] := ctx;
 	INC(thread.size);
 END PushCtx;
@@ -97,8 +116,8 @@ VAR
 	baseAddr, spAddr, spIdx : UINT32;
 	entryAddr: UINT32;
 BEGIN
-	ASSERT(thread # NIL);
-	ASSERT(handler # NIL);
+	IF thread = NIL THEN Error(THREAD_ERR) END;
+	IF handler = NIL THEN Error(HANDLER_ERR) END;
 	
 	NEW(stack);
 	stack.size := STACK_SIZE;
@@ -155,8 +174,8 @@ VAR
 	bufAddr, ctxAddr: UINT32;
 BEGIN
 	ctxAddr := SYSTEM.VAL(ctx, UINT32);
-	API.SetTrap(JmpTrap, ctxAddr);
 	PushCtx(ctx);
+	API.SetTrap(JmpTrap, ctxAddr);
 	
 	bufAddr := SYSTEM.ADR(ctx.buf);
 	IF setjmp(bufAddr) = 0 THEN
@@ -166,9 +185,8 @@ BEGIN
 		ctx.status := DEAD;
 	END;
 	
-	PopCtx(ctx);
 	API.SetTrap(NIL, 0);
-	
+	PopCtx(ctx);
 END PResume;
 
 

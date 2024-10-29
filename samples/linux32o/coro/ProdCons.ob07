@@ -46,7 +46,7 @@ BEGIN
 	data := "abcdefghijklmnopqrstuvxyz";
 	WHILE TRUE DO
 		ch := data[i];
-		ASSERT(ch # 'k');
+		//ASSERT(ch # 'k');
 		Send(ctx, ch);
 		INC(i);
 	END;

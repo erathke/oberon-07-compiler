@@ -57,6 +57,5 @@ BEGIN
 	Out.String("DONE"); Out.Ln;
 	
 	DISPOSE(xdata);
-	DISPOSE(co1);
 	
 END Example.
