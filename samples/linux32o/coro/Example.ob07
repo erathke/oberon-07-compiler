@@ -1,0 +1,60 @@
+MODULE Example;
+IMPORT CR := Coroutines, Out := Out_sys;
+
+TYPE
+	XData = POINTER TO RECORD(CR.Userdata) x: INTEGER END;
+
+VAR
+	co1: CR.Context;
+	xdata: XData;
+
+
+PROCEDURE G(coro: CR.Context);
+VAR
+	udata: XData;
+	x: INTEGER;
+BEGIN
+	udata := coro.udata(XData);
+	x := 0;
+	Out.String("G: BEFORE YIELD, X = 0"); Out.Ln;
+	x := 42;
+	Out.String("G: BEFORE YIELD, X = 42 "); Out.Ln;
+	udata.x := 0; CR.Yield(coro);
+	Out.String("G: AFTER YIELD, X = "); Out.Int(x, 0); Out.Ln;
+	
+	udata.x := -1337;
+END G;
+
+PROCEDURE F(coro: CR.Context);
+VAR
+	co2: CR.Context;
+	udata: XData;
+BEGIN
+	udata := coro.udata(XData);
+	co2 := CR.Create(G, udata);
+	CR.Resume(co2);
+	
+	Out.String("F: BEFORE YIELD "); Out.Ln;
+	udata.x := 42; CR.Yield(coro);
+	Out.String("F: AFTER FIRST YIELD "); Out.Ln;
+	udata.x := 1337; CR.Yield(coro);
+	Out.String("F: AFTER SECOND YIELD "); Out.Ln;
+	CR.Resume(co2); Out.String("F: g yielded "); Out.Int(xdata.x, 0); Out.Ln;
+	
+	udata.x := 0;
+	
+	DISPOSE(co2);
+END F;
+
+BEGIN
+	NEW(xdata);
+	co1 := CR.Create(F, xdata);
+	CR.Resume(co1); Out.String("f yielded "); Out.Int(xdata.x, 0); Out.Ln;
+	CR.Resume(co1); Out.String("f yielded "); Out.Int(xdata.x, 0); Out.Ln;
+	CR.Resume(co1); Out.String("f yielded "); Out.Int(xdata.x, 0); Out.Ln;
+	Out.String("DONE"); Out.Ln;
+	
+	DISPOSE(xdata);
+	DISPOSE(co1);
+	
+END Example.

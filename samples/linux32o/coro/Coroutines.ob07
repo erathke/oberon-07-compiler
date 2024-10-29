@@ -33,7 +33,7 @@ TYPE
 		stack: Stack;
 		buf: JmpBuf;
 		handler: Handler;
-		user*: Userdata;
+		udata*: Userdata;
 		status: INTEGER;
 		errorCode*: INTEGER
 	END;
@@ -112,7 +112,7 @@ BEGIN
 	ctx.csp := spAddr;
 	ctx.stack := stack;
 	ctx.handler := handler;
-	ctx.user := data;
+	ctx.udata := data;
 	
 	coro_init(spAddr, entryAddr, spAddr);
 	

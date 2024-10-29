@@ -1,3 +1,4 @@
+// Original source: https://gist.github.com/lpereira/2154951
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
