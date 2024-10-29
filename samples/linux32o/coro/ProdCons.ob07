@@ -8,6 +8,7 @@ TYPE
 	END;
 
 VAR
+	main: CR.Thread;
 	prod: CR.Context;
 	data: Data;
 
@@ -69,8 +70,10 @@ END Consumer;
 
 
 BEGIN
+	NEW(main);
 	NEW(data);
-	prod := CR.Create(Producer, data);
+	
+	prod := CR.Create(main, Producer, data);
 	Consumer(prod);
 	
 	Out.Ln;

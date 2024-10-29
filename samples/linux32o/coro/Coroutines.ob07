@@ -28,24 +28,25 @@ TYPE
 	
 	JmpBuf = ARRAY N_REGS OF UINT32;
 	
+	ThreadDesc = RECORD
+		ctxs: ARRAY THREAD_DEPTH OF Context;
+		size: INTEGER
+	END;
+	
+	Thread* = POINTER TO ThreadDesc;
+	
 	ContextDesc = RECORD
 		csp: UINT32;
 		stack: Stack;
 		buf: JmpBuf;
 		handler: Handler;
-		udata*: Userdata;
+		thread: Thread;
 		status: INTEGER;
+		udata*: Userdata;
 		errorCode*: INTEGER
 	END;
 	
-	Thread = RECORD
-		ctxs: ARRAY THREAD_DEPTH OF Context;
-		size: INTEGER
-	END;
-
-VAR
-	thread: Thread; // TODO: user thread
-
+	
 
 PROCEDURE [extern, "coroutine_setup"] coro_setup(deadStatus: INTEGER);
 
@@ -62,27 +63,22 @@ PROCEDURE [extern, "longjmp"] longjmp(cpu: UINT32; code: INTEGER): INTEGER;
 
 
 PROCEDURE PushCtx(ctx: Context);
+VAR
+	thread: Thread;
 BEGIN
-	// TODO: check depth
+	thread := ctx.thread;
 	thread.ctxs[thread.size] := ctx;
 	INC(thread.size);
 END PushCtx;
 
 
-PROCEDURE [oberon-] PopCtx(): Context;
+PROCEDURE [oberon-] PopCtx(ctx: Context);
 VAR
-	ctx: Context;
+	thread: Thread;
 BEGIN
-	ctx := thread.ctxs[thread.size];
+	thread := ctx.thread;
 	DEC(thread.size);
-	RETURN ctx
 END PopCtx;
-
-
-PROCEDURE CurrentCtx(): Context;
-BEGIN
-	RETURN thread.ctxs[thread.size - 1]
-END CurrentCtx;
 
 
 PROCEDURE [ccall] EntryPoint(ctxAddr: UINT32);
@@ -94,13 +90,16 @@ BEGIN
 END;
 
 
-PROCEDURE Create*(handler: Handler; data: Userdata): Context;
+PROCEDURE Create*(thread: Thread; handler: Handler; data: Userdata): Context;
 VAR
 	ctx: Context;
 	stack: Stack;
 	baseAddr, spAddr, spIdx : UINT32;
 	entryAddr: UINT32;
 BEGIN
+	ASSERT(thread # NIL);
+	ASSERT(handler # NIL);
+	
 	NEW(stack);
 	stack.size := STACK_SIZE;
 	baseAddr := SYSTEM.ADR(stack.data[0]);
@@ -113,6 +112,7 @@ BEGIN
 	ctx.stack := stack;
 	ctx.handler := handler;
 	ctx.udata := data;
+	ctx.thread := thread;
 	
 	coro_init(spAddr, entryAddr, spAddr);
 	
@@ -166,7 +166,7 @@ BEGIN
 		ctx.status := DEAD;
 	END;
 	
-	PopCtx();
+	PopCtx(ctx);
 	API.SetTrap(NIL, 0);
 	
 END PResume;

@@ -5,6 +5,7 @@ TYPE
 	Data = POINTER TO RECORD(CR.Userdata) r: INTEGER END; 
 
 VAR
+	t1: CR.Thread;
 	c1: CR.Context;
 	data: Data;
 	status : INTEGER;
@@ -31,13 +32,18 @@ END Calc;
 
 BEGIN
 	//ASSERT(FALSE);
+	NEW(t1);
 	NEW(data);
 	data.r := 0;
-	c1 := CR.Create(Calc, data);	ASSERT(status = CR.IDLE);
+	c1 := CR.Create(t1, Calc, data);	ASSERT(status = CR.IDLE);
 	status := CR.Resume(c1);		ASSERT(status = CR.SUSPENDED);
 	status := CR.Resume(c1);		ASSERT(status = CR.SUSPENDED);
 	status := CR.Resume(c1);		ASSERT(status = CR.DEAD);
 	
 	ASSERT(data.r = 3);
 	Out.String("result: "); Out.Int(data.r, 0); Out.Ln;
+	
+	DISPOSE(data);
+	DISPOSE(c1);
+	DISPOSE(t1);
 END Test.
