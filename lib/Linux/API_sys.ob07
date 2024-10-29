@@ -6,9 +6,7 @@
 *)
 
 MODULE API_sys;
-
 IMPORT SYSTEM;
-
 
 CONST
 
@@ -28,14 +26,21 @@ TYPE
 		offset: INTEGER
 	END;
 	
-	Trap* = PROCEDURE (code: INTEGER);
+	Context = INTEGER;
+	
+	TrapHandler* = PROCEDURE (code, context: Context);
+	
+	Trap = RECORD
+		handler: TrapHandler;
+		context: INTEGER
+	END;
 
 VAR	
-
 	MainParam*: INTEGER;
     fini: SOFINI;
     ram: Memory;
     trap: Trap;
+
 
 PROCEDURE [oberon-] syscall(eax, ebx, ecx, edx, esi, edi: INTEGER): INTEGER;
 BEGIN
@@ -134,11 +139,11 @@ END exit;
 
 PROCEDURE exit_thread*(code: INTEGER); 
 BEGIN
-	trap(code);
+	trap.handler(code, trap.context);
 END exit_thread;
 
 
-PROCEDURE DefaultTrap(code: INTEGER);
+PROCEDURE DefaultTrap(code, context: Context);
 BEGIN
 	exit(code);
 END DefaultTrap;
@@ -181,7 +186,6 @@ $END
             DEC(words)
         END
     END
-	
 	
     RETURN res
 END _NEW;
@@ -229,16 +233,17 @@ BEGIN
 END SetFini;
 
 
-PROCEDURE SetTrap*(userTrap: Trap);
+PROCEDURE SetTrap*(handler: TrapHandler; context: Context);
 BEGIN
-	IF userTrap = NIL THEN
-		trap := DefaultTrap;
+	IF handler = NIL THEN
+		trap.handler := DefaultTrap;
 	ELSE
-		trap := userTrap;
+		trap.handler := handler;
 	END;
+	trap.context := context;
 END SetTrap;
 
 
 BEGIN
-	SetTrap(NIL); // default trap
+	SetTrap(NIL, 0); // default trap
 END API_sys.

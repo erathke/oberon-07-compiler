@@ -14,7 +14,7 @@ PROCEDURE Calc(ctx: CR.Context);
 VAR
 	ud: Data;
 BEGIN
-	ud := ctx.user(Data);
+	ud := ctx.udata(Data);
 	INC(ud.r);
 	Out.String("calculating... "); Out.Int(ud.r, 0); Out.Ln;
 	CR.Yield(ctx);

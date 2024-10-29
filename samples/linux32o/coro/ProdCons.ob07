@@ -14,7 +14,7 @@ VAR
 
 PROCEDURE Send(ctx: CR.Context; value: CHAR);
 BEGIN 
-	ctx.user(Data).ch := value;
+	ctx.udata(Data).ch := value;
 	CR.Yield(ctx);
 END Send;
 
@@ -26,7 +26,7 @@ VAR
 BEGIN
 	status := CR.Resume(ctx);
 	IF status # CR.DEAD THEN
-		ch := ctx.user(Data).ch;
+		ch := ctx.udata(Data).ch;
 	ELSE
 		ch := 0X;
 	END;
@@ -59,7 +59,7 @@ VAR
 	i: INTEGER;
 BEGIN
 	ch := 1X;
-	data := prod.user(Data);
+	data := prod.udata(Data);
 	REPEAT
 		ch := Receive(prod);
 		data.buffer[i] := ch;

@@ -138,15 +138,15 @@ BEGIN
 END Yield;
 
 
-PROCEDURE JmpTrap(code: INTEGER);
+PROCEDURE JmpTrap(code, ctxAddr: INTEGER);
 VAR
-	addr: UINT32;
-	currentCtx: Context;
+	bufAddr: UINT32;
+	ctx: Context;
 BEGIN
-	currentCtx := CurrentCtx();
-	currentCtx.errorCode := code;
-	addr := SYSTEM.ADR(currentCtx.buf);
-	code := longjmp(addr, code);
+	ctx := SYSTEM.VAL(ctxAddr, Context);
+	ctx.errorCode := code;
+	bufAddr := SYSTEM.ADR(ctx.buf);
+	code := longjmp(bufAddr, 1);
 END JmpTrap;
 
 
@@ -154,19 +154,20 @@ PROCEDURE [ccall] PResume(ctx: Context);
 VAR
 	bufAddr, ctxAddr: UINT32;
 BEGIN
-	API.SetTrap(JmpTrap);
+	ctxAddr := SYSTEM.VAL(ctx, UINT32);
+	API.SetTrap(JmpTrap, ctxAddr);
 	PushCtx(ctx);
 	
 	bufAddr := SYSTEM.ADR(ctx.buf);
 	IF setjmp(bufAddr) = 0 THEN
-		ctxAddr := SYSTEM.VAL(ctx, UINT32);
+		
 		ctx.status := coro_resume(ctxAddr, ctx.status);
 	ELSE
 		ctx.status := DEAD;
 	END;
 	
 	PopCtx();
-	API.SetTrap(NIL);
+	API.SetTrap(NIL, 0);
 	
 END PResume;
 
