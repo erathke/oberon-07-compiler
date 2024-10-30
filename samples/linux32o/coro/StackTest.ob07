@@ -30,6 +30,7 @@ BEGIN
 	Run(ctx, data.n, acc);
 END Task;
 
+
 PROCEDURE Init();
 VAR
 	c1: CR.Context;
@@ -45,6 +46,6 @@ END Init;
 
 
 BEGIN
+
 	Init()
-	
 END StackTest.
