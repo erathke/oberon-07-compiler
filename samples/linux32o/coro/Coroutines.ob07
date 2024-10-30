@@ -30,11 +30,12 @@ TYPE
 	
 	JmpBuf = ARRAY N_REGS OF UINT32;
 	
-	ContextDesc = RECORD
+	ContextDesc = RECORD (API.Context)
 		csp: UINT32;
 		stack: Stack;
 		buf: JmpBuf;
 		handler: Handler;
+		trap: API.Trap;
 		status: INTEGER;
 		udata*: Userdata;
 		errorCode*: INTEGER
@@ -54,22 +55,6 @@ PROCEDURE [extern, "setjmp"] setjmp(cpu: UINT32): INTEGER;
 PROCEDURE [extern, "longjmp"] longjmp(cpu: UINT32; code: INTEGER): INTEGER;
 
 
-PROCEDURE CheckStack*(ctx: Context): INTEGER;
-VAR
-	i, max: INTEGER;
-	b: BYTE;
-	stack: Stack;
-BEGIN
-	stack := ctx.stack;
-	max := stack.size - 1;
-	WHILE (b = 0) & (i < max) DO
-		b := stack.data[i];
-		INC(i);
-	END;
-	RETURN i
-END CheckStack;
-
-
 PROCEDURE Error(err: INTEGER);
 BEGIN
 	CASE err OF
@@ -78,6 +63,18 @@ BEGIN
 		API.exit_thread(HANDLER_ERR);
 	END;
 END Error;
+
+
+PROCEDURE JmpTrap(code: INTEGER; context: API.Context);
+VAR
+	bufAddr: UINT32;
+	ctx: Context;
+BEGIN
+	ctx := SYSTEM.VAL(context, Context);
+	ctx.errorCode := code;
+	bufAddr := SYSTEM.ADR(ctx.buf);
+	code := longjmp(bufAddr, 1);
+END JmpTrap;
 
 
 PROCEDURE [ccall] EntryPoint(ctxAddr: UINT32);
@@ -110,7 +107,8 @@ BEGIN
 	ctx.stack := stack;
 	ctx.handler := handler;
 	ctx.udata := data;
-
+	ctx.trap := API.NewTrap(ctx, JmpTrap);
+	
 	coro_init(spAddr, entryAddr, spAddr);
 	
 	RETURN ctx
@@ -135,24 +133,12 @@ BEGIN
 END Yield;
 
 
-PROCEDURE JmpTrap(code, ctxAddr: INTEGER);
-VAR
-	bufAddr: UINT32;
-	ctx: Context;
-BEGIN
-	ctx := SYSTEM.VAL(ctxAddr, Context);
-	ctx.errorCode := code;
-	bufAddr := SYSTEM.ADR(ctx.buf);
-	code := longjmp(bufAddr, 1);
-END JmpTrap;
-
-
 PROCEDURE [ccall] PResume(ctx: Context);
 VAR
 	bufAddr, ctxAddr: UINT32;
 BEGIN
 	ctxAddr := SYSTEM.VAL(ctx, UINT32);
-	API.SetTrap(JmpTrap, ctxAddr);
+	API.SetTrap(ctx.trap);
 	
 	bufAddr := SYSTEM.ADR(ctx.buf);
 	IF setjmp(bufAddr) = 0 THEN
@@ -161,7 +147,7 @@ BEGIN
 		ctx.status := DEAD;
 	END;
 	
-	API.SetTrap(NIL, 0);
+	API.SetTrap(NIL);
 END PResume;
 
 

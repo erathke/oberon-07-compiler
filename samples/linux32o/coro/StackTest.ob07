@@ -6,22 +6,16 @@ TYPE
 
 
 PROCEDURE Run(ctx: CR.Context; t: INTEGER; VAR acc: INTEGER);
-VAR
-	stackOffs: INTEGER;
 BEGIN
 	IF t # 0 THEN
 		INC(acc);		
 		IF acc = 100 THEN
 			Out.String("Stopped at: "); Out.Int(acc, 0); Out.Ln;
-			stackOffs := CR.CheckStack(ctx);
-			Out.String("Stack offset: "); Out.Int(stackOffs, 0); Out.Ln;
 			CR.Yield(ctx) 
 		END;
 		Run(ctx, t - 1, acc);
 	ELSE
 		Out.String("Total run: "); Out.Int(acc, 0); Out.Ln;
-		stackOffs := CR.CheckStack(ctx);
-		Out.String("Stack offset: "); Out.Int(stackOffs, 0); Out.Ln;
 	END;
 	
 END Run;
@@ -42,7 +36,7 @@ VAR
 	data: Data;
 BEGIN
 	NEW(data);
-	data.n := 165;
+	data.n := 168;
 	c1 := CR.Create(Task, data);
 	IF CR.Resume(c1) = CR.SUSPENDED THEN
 		CR.Resume(c1);

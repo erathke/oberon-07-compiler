@@ -26,20 +26,20 @@ TYPE
 		offset: INTEGER
 	END;
 	
-	Context = INTEGER;
+	Context* = POINTER TO RECORD END;
 	
-	TrapHandler* = PROCEDURE (code, context: Context);
+	TrapHandler* = PROCEDURE (code: INTEGER; context: Context);
 	
-	Trap = RECORD
+	Trap* = POINTER TO RECORD
 		handler: TrapHandler;
-		context: INTEGER
+		ctx: Context
 	END;
 
 VAR	
 	MainParam*: INTEGER;
     fini: SOFINI;
     ram: Memory;
-    trap: Trap;
+    mainTrap, currentTrap: Trap;
 
 
 PROCEDURE [oberon-] syscall(eax, ebx, ecx, edx, esi, edi: INTEGER): INTEGER;
@@ -139,11 +139,11 @@ END exit;
 
 PROCEDURE exit_thread*(code: INTEGER); 
 BEGIN
-	trap.handler(code, trap.context);
+	currentTrap.handler(code, currentTrap.ctx);
 END exit_thread;
 
 
-PROCEDURE DefaultTrap(code, context: Context);
+PROCEDURE DefaultTrap(code: INTEGER; ctx: Context);
 BEGIN
 	exit(code);
 END DefaultTrap;
@@ -233,17 +233,28 @@ BEGIN
 END SetFini;
 
 
-PROCEDURE SetTrap*(handler: TrapHandler; context: Context);
+PROCEDURE NewTrap*(ctx: Context; trapHandler: TrapHandler): Trap;
+VAR
+	trap: Trap;
 BEGIN
-	IF handler = NIL THEN
-		trap.handler := DefaultTrap;
+	NEW(trap);
+	trap.handler := trapHandler;
+	trap.ctx := ctx;
+	RETURN trap
+END NewTrap;
+
+
+PROCEDURE SetTrap*(trap: Trap);
+BEGIN
+	IF trap = NIL THEN
+		currentTrap := mainTrap;
 	ELSE
-		trap.handler := handler;
+		currentTrap := trap;
 	END;
-	trap.context := context;
 END SetTrap;
 
 
 BEGIN
-	SetTrap(NIL, 0); // default trap
+	mainTrap := NewTrap(NIL, DefaultTrap);
+	SetTrap(NIL); // set default trap
 END API_sys.
