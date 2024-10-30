@@ -11,8 +11,6 @@ CONST
 	N_REGS = 6;
 	THREAD_DEPTH = 11;
 	
-	THREAD_ERR = 10;
-	DEPTH_ERR = 20;
 	HANDLER_ERR = 30;
 	
 TYPE
@@ -32,19 +30,11 @@ TYPE
 	
 	JmpBuf = ARRAY N_REGS OF UINT32;
 	
-	ThreadDesc = RECORD
-		ctxs: ARRAY THREAD_DEPTH OF Context;
-		size: INTEGER
-	END;
-	
-	Thread* = POINTER TO ThreadDesc;
-	
 	ContextDesc = RECORD
 		csp: UINT32;
 		stack: Stack;
 		buf: JmpBuf;
 		handler: Handler;
-		thread: Thread;
 		status: INTEGER;
 		udata*: Userdata;
 		errorCode*: INTEGER
@@ -83,37 +73,11 @@ END CheckStack;
 PROCEDURE Error(err: INTEGER);
 BEGIN
 	CASE err OF
-	| THREAD_ERR: 
-		Out.String("Invalid thread: NIL"); Out.Ln; 
-		API.exit_thread(THREAD_ERR);
-	| DEPTH_ERR: Out.String("Max thread depth reached: "); 
-		Out.Int(THREAD_DEPTH, 10); Out.Ln;
-		API.exit_thread(DEPTH_ERR);
 	| HANDLER_ERR: 
 		Out.String("Invalid handler: NIL"); Out.Ln;
 		API.exit_thread(HANDLER_ERR);
 	END;
 END Error;
-
-
-PROCEDURE PushCtx(ctx: Context);
-VAR
-	thread: Thread;
-BEGIN
-	thread := ctx.thread;
-	IF thread.size = THREAD_DEPTH - 1 THEN  Error(DEPTH_ERR) END;
-	thread.ctxs[thread.size] := ctx;
-	INC(thread.size);
-END PushCtx;
-
-
-PROCEDURE [oberon-] PopCtx(ctx: Context);
-VAR
-	thread: Thread;
-BEGIN
-	thread := ctx.thread;
-	DEC(thread.size);
-END PopCtx;
 
 
 PROCEDURE [ccall] EntryPoint(ctxAddr: UINT32);
@@ -125,14 +89,13 @@ BEGIN
 END;
 
 
-PROCEDURE Create*(thread: Thread; handler: Handler; data: Userdata): Context;
+PROCEDURE Create*(handler: Handler; data: Userdata): Context;
 VAR
 	ctx: Context;
 	stack: Stack;
 	baseAddr, spAddr, spIdx : UINT32;
 	entryAddr: UINT32;
 BEGIN
-	IF thread = NIL THEN Error(THREAD_ERR) END;
 	IF handler = NIL THEN Error(HANDLER_ERR) END;
 	
 	NEW(stack);
@@ -147,8 +110,7 @@ BEGIN
 	ctx.stack := stack;
 	ctx.handler := handler;
 	ctx.udata := data;
-	ctx.thread := thread;
-	
+
 	coro_init(spAddr, entryAddr, spAddr);
 	
 	RETURN ctx
@@ -190,19 +152,16 @@ VAR
 	bufAddr, ctxAddr: UINT32;
 BEGIN
 	ctxAddr := SYSTEM.VAL(ctx, UINT32);
-	PushCtx(ctx);
 	API.SetTrap(JmpTrap, ctxAddr);
 	
 	bufAddr := SYSTEM.ADR(ctx.buf);
 	IF setjmp(bufAddr) = 0 THEN
-		
 		ctx.status := coro_resume(ctxAddr, ctx.status);
 	ELSE
 		ctx.status := DEAD;
 	END;
 	
 	API.SetTrap(NIL, 0);
-	PopCtx(ctx);
 END PResume;
 
 

@@ -8,7 +8,6 @@ TYPE
 	END;
 
 VAR
-	main: CR.Thread;
 	prod: CR.Context;
 	data: Data;
 
@@ -46,7 +45,7 @@ BEGIN
 	data := "abcdefghijklmnopqrstuvxyz";
 	WHILE TRUE DO
 		ch := data[i];
-		//ASSERT(ch # 'k');
+		ASSERT(ch # 'k');
 		Send(ctx, ch);
 		INC(i);
 	END;
@@ -70,10 +69,8 @@ END Consumer;
 
 
 BEGIN
-	NEW(main);
-	NEW(data);
-	
-	prod := CR.Create(main, Producer, data);
+	NEW(data);	
+	prod := CR.Create(Producer, data);
 	Consumer(prod);
 	
 	Out.Ln;

@@ -5,7 +5,6 @@ TYPE
 	XData = POINTER TO RECORD(CR.Userdata) x: INTEGER END;
 
 VAR
-	main: CR.Thread;
 	co1: CR.Context;
 	xdata: XData;
 
@@ -32,7 +31,7 @@ VAR
 	udata: XData;
 BEGIN
 	udata := coro.udata(XData);
-	co2 := CR.Create(main, G, udata);
+	co2 := CR.Create(G, udata);
 	CR.Resume(co2);
 	
 	Out.String("F: BEFORE YIELD "); Out.Ln;
@@ -48,9 +47,8 @@ BEGIN
 END F;
 
 BEGIN
-	NEW(main);
 	NEW(xdata);
-	co1 := CR.Create(main, F, xdata);
+	co1 := CR.Create(F, xdata);
 	CR.Resume(co1); Out.String("f yielded "); Out.Int(xdata.x, 0); Out.Ln;
 	CR.Resume(co1); Out.String("f yielded "); Out.Int(xdata.x, 0); Out.Ln;
 	CR.Resume(co1); Out.String("f yielded "); Out.Int(xdata.x, 0); Out.Ln;

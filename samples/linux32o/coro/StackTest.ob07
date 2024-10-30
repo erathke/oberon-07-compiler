@@ -38,14 +38,12 @@ END Task;
 
 PROCEDURE Init();
 VAR
-	main: CR.Thread;
 	c1: CR.Context;
 	data: Data;
 BEGIN
-	NEW(main);
 	NEW(data);
 	data.n := 165;
-	c1 := CR.Create(main, Task, data);
+	c1 := CR.Create(Task, data);
 	IF CR.Resume(c1) = CR.SUSPENDED THEN
 		CR.Resume(c1);
 	END;
