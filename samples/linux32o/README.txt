@@ -5,12 +5,14 @@ The motivations/usage are:
 - Create static Oberon applications;
 - Testing Oberon as a replacement for C/C++.
 
+
 This directory contains some examples:
 - assert: Example of a static application using Linux Syscalls instead of libc calls;
 - dockapp: An application for testing X11 development;
 - kernel: Simple multiboot compliant kernel mixing Assembly and Oberon;
 - lua: Embeding an scripting language in Oberon;
-- microui: UI example.
+- microui: UI example;
+- coro: Coroutine implementation mixing Assembly and Oberon.
 
 
 Known issues:
