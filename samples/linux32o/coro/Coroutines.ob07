@@ -64,6 +64,22 @@ PROCEDURE [extern, "setjmp"] setjmp(cpu: UINT32): INTEGER;
 PROCEDURE [extern, "longjmp"] longjmp(cpu: UINT32; code: INTEGER): INTEGER;
 
 
+PROCEDURE CheckStack*(ctx: Context): INTEGER;
+VAR
+	i, max: INTEGER;
+	b: BYTE;
+	stack: Stack;
+BEGIN
+	stack := ctx.stack;
+	max := stack.size - 1;
+	WHILE (b = 0) & (i < max) DO
+		b := stack.data[i];
+		INC(i);
+	END;
+	RETURN i
+END CheckStack;
+
+
 PROCEDURE Error(err: INTEGER);
 BEGIN
 	CASE err OF

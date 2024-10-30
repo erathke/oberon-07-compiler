@@ -1,0 +1,58 @@
+MODULE StackTest;
+IMPORT CR := Coroutines, Out := Out_sys;
+
+TYPE
+	Data = POINTER TO RECORD(CR.Userdata) n: INTEGER END;
+
+
+PROCEDURE Run(ctx: CR.Context; t: INTEGER; VAR acc: INTEGER);
+VAR
+	stackOffs: INTEGER;
+BEGIN
+	IF t # 0 THEN
+		INC(acc);		
+		IF acc = 100 THEN
+			Out.String("Stopped at: "); Out.Int(acc, 0); Out.Ln;
+			stackOffs := CR.CheckStack(ctx);
+			Out.String("Stack offset: "); Out.Int(stackOffs, 0); Out.Ln;
+			CR.Yield(ctx) 
+		END;
+		Run(ctx, t - 1, acc);
+	ELSE
+		Out.String("Total run: "); Out.Int(acc, 0); Out.Ln;
+		stackOffs := CR.CheckStack(ctx);
+		Out.String("Stack offset: "); Out.Int(stackOffs, 0); Out.Ln;
+	END;
+	
+END Run;
+
+
+PROCEDURE Task(ctx: CR.Context);
+VAR
+	data: Data;
+	acc: INTEGER;
+BEGIN
+	data := ctx.udata(Data);
+	Run(ctx, data.n, acc);
+END Task;
+
+PROCEDURE Init();
+VAR
+	main: CR.Thread;
+	c1: CR.Context;
+	data: Data;
+BEGIN
+	NEW(main);
+	NEW(data);
+	data.n := 165;
+	c1 := CR.Create(main, Task, data);
+	IF CR.Resume(c1) = CR.SUSPENDED THEN
+		CR.Resume(c1);
+	END;
+END Init;
+
+
+BEGIN
+	Init()
+	
+END StackTest.

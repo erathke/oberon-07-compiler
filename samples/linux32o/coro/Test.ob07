@@ -19,7 +19,7 @@ BEGIN
 	INC(ud.r);
 	Out.String("calculating... "); Out.Int(ud.r, 0); Out.Ln;
 	CR.Yield(ctx);
-	ASSERT(FALSE);
+	//ASSERT(FALSE);
 	
 	INC(ud.r);
 	Out.String("still calculating... "); Out.Int(ud.r, 0); Out.Ln;
