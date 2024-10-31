@@ -1,0 +1,31 @@
+MODULE Pointer;
+IMPORT CR := Coroutines, Out := Out_sys;
+
+TYPE
+	MyData = POINTER TO RECORD (CR.Userdata) x: INTEGER END;
+
+PROCEDURE Process(d: MyData);
+BEGIN
+	//d.x := d.x * 2;
+	d := NIL;
+END Process;
+
+PROCEDURE Run();
+VAR
+	d1, d2: MyData;
+BEGIN 
+	NEW(d1);
+	d1.x := 100;
+	d2 := d1;
+	Out.String("d1: "); Out.Int(d1.x, 0); Out.Ln;
+	Out.String("d2: "); Out.Int(d2.x, 0); Out.Ln;
+	Process(d2);
+	Out.String("d1: "); Out.Int(d1.x, 0); Out.Ln;
+	Out.String("d2: "); Out.Int(d2.x, 0); Out.Ln;
+	//d2 := NIL;
+	//Out.String("d1: "); Out.Int(d1.x, 0); Out.Ln;
+END Run;
+
+BEGIN
+	Run()
+END Pointer.
