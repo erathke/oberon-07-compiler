@@ -158,7 +158,12 @@ BEGIN
         ELSIF param = "-rtl" THEN
             INC(i);
             UTILS.GetArg(i, param);
-            UTILS.SetRTL(param);
+            options.nortl := "none" = param;
+            IF options.nortl THEN
+				UTILS.SetRTL("RTL_none");
+            ELSE
+				UTILS.SetRTL(param);
+			END;
         
         ELSIF param = "" THEN
             _end := TRUE

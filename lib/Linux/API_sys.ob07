@@ -207,10 +207,33 @@ $END
 END _DISPOSE;
 
 
+PROCEDURE NewTrap*(ctx: Context; trapHandler: TrapHandler): Trap;
+VAR
+	trap: Trap;
+BEGIN
+	NEW(trap);
+	trap.handler := trapHandler;
+	trap.ctx := ctx;
+	RETURN trap
+END NewTrap;
+
+
+PROCEDURE SetTrap*(trap: Trap);
+BEGIN
+	IF trap = NIL THEN
+		currentTrap := mainTrap;
+	ELSE
+		currentTrap := trap;
+	END;
+END SetTrap;
+
+
 PROCEDURE init* (sp, code: INTEGER);
 BEGIN
-    fini := NIL;
+	fini := NIL;
     MainParam := sp;
+    mainTrap := NewTrap(NIL, DefaultTrap);
+	SetTrap(NIL); // set default trap
 END init;
 
 
@@ -233,28 +256,4 @@ BEGIN
 END SetFini;
 
 
-PROCEDURE NewTrap*(ctx: Context; trapHandler: TrapHandler): Trap;
-VAR
-	trap: Trap;
-BEGIN
-	NEW(trap);
-	trap.handler := trapHandler;
-	trap.ctx := ctx;
-	RETURN trap
-END NewTrap;
-
-
-PROCEDURE SetTrap*(trap: Trap);
-BEGIN
-	IF trap = NIL THEN
-		currentTrap := mainTrap;
-	ELSE
-		currentTrap := trap;
-	END;
-END SetTrap;
-
-
-BEGIN
-	mainTrap := NewTrap(NIL, DefaultTrap);
-	SetTrap(NIL); // set default trap
 END API_sys.

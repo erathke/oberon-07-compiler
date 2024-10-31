@@ -77,7 +77,8 @@ TYPE
         version*, stack*, ram*, rom*, tab*, PE32FileAlignment*: INTEGER;
         pic*, lower*, uses*: BOOLEAN;
         checking*: SET;
-        entry*: ARRAY 32 OF CHAR
+        entry*: ARRAY 32 OF CHAR;
+        nortl*: BOOLEAN
 
     END;
 

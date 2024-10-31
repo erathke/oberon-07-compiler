@@ -665,8 +665,8 @@ BEGIN
 				IF parser.sym = SCAN.lxCOLON THEN
 					Next(parser);
 					callaux := sysflag(parser, TRUE);
-					// allowed callaux: oberon, linux
-					check1(callaux IN {PROG.ccall, PROG.default32}, parser, 123); (* FIXME: better error *)
+					// allowed callaux: oberon, linux, stdcall (RTL)
+					check1(callaux IN {PROG.ccall, PROG.default32, PROG.stdcall}, parser, 123); (* FIXME: better error *)
 					Next(parser);
 				END; 
 				checklex(parser, SCAN.lxCOMMA);

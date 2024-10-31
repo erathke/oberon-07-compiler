@@ -1,0 +1,39 @@
+﻿(*
+    BSD 2-Clause License
+
+    Copyright (c) 2018-2021, 2023, Anton Krotov
+    All rights reserved.
+*)
+
+(*---------------------x86------------------------*)
+
+MODULE RTL_none;
+IMPORT SYSTEM;
+
+PROCEDURE [extern:stdcall, "_move"] _move* (bytes, dest, source: INTEGER);
+PROCEDURE [extern:stdcall, "_arrcpy"] _arrcpy* (base_size, len_dst, dst, len_src, src: INTEGER): BOOLEAN;
+PROCEDURE [extern:stdcall, "_strcpy"] _strcpy* (chr_size, len_src, src, len_dst, dst: INTEGER);
+PROCEDURE [extern:stdcall, "_rot"] _rot* (Len, Ptr: INTEGER);
+PROCEDURE [extern:stdcall, "_set"] _set* (b, a: INTEGER); (* {a..b} -> eax *)
+PROCEDURE [extern:stdcall, "_set1"] _set1* (a: INTEGER); (* {a} -> eax *)
+PROCEDURE [extern:stdcall, "_divmod"] _divmod* (y, x: INTEGER); (* (x div y) -> eax; (x mod y) -> edx *)
+PROCEDURE [extern:stdcall, "_new"] _new* (t, size: INTEGER; VAR ptr: INTEGER);
+PROCEDURE [extern:stdcall, "_dispose"] _dispose* (VAR ptr: INTEGER);
+PROCEDURE [extern:stdcall, "_length"] _length* (len, str: INTEGER);
+PROCEDURE [extern:stdcall, "_lengthw"] _lengthw* (len, str: INTEGER);
+PROCEDURE [extern:stdcall, "_strcmp"] _strcmp* (op, len2, str2, len1, str1: INTEGER): BOOLEAN;
+PROCEDURE [extern:stdcall, "_strcmpw"] _strcmpw* (op, len2, str2, len1, str1: INTEGER): BOOLEAN;
+PROCEDURE [extern:stdcall, "_error"] _error* (modnum, _module, err, line: INTEGER);
+PROCEDURE [extern:stdcall, "_isrec"] _isrec* (t0, t1, r: INTEGER): INTEGER;
+PROCEDURE [extern:stdcall, "_is"] _is* (t0, p: INTEGER): INTEGER;
+PROCEDURE [extern:stdcall, "_guardrec"] _guardrec* (t0, t1: INTEGER): INTEGER;
+PROCEDURE [extern:stdcall, "_guard"] _guard* (t0, p: INTEGER): INTEGER;
+PROCEDURE [extern:stdcall, "_dllenrty"] _dllentry* (hinstDLL, fdwReason, lpvReserved: INTEGER): INTEGER;
+PROCEDURE [extern:stdcall, "_sofinit"] _sofinit*;
+PROCEDURE [extern:stdcall, "_exit"] _exit* (code: INTEGER);
+PROCEDURE [extern:stdcall, "_init"] _init* (modname: INTEGER; tcount, _types: INTEGER; code, param: INTEGER);
+
+(* FIXME: necessary for avoiding parsing error *)
+PROCEDURE dummy(); END dummy;
+
+END RTL_none.
