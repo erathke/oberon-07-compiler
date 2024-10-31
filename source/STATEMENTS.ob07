@@ -1633,9 +1633,25 @@ VAR
     fparSize,
     int, flt,
     stk_par:  INTEGER;
+    
+    PROCEDURE getCallConv(procType: PROG._TYPE): INTEGER;
+    VAR
+		cconv: INTEGER;
+    BEGIN
+		IF procType.call = PROG.extcall THEN
+			IF procType.callaux # 0 THEN
+				cconv := procType.callaux;
+			ELSE
+				cconv := PROG.ccall;
+			END;
+		ELSE
+			cconv := procType.call;
+		END;
+		RETURN cconv
+    END getCallConv;
 
 BEGIN
-    cconv := procType.call;
+    cconv := getCallConv(procType);
     parSize := procType.parSize;
 
     IF cconv IN {PROG._win64, PROG.win64} THEN
@@ -1661,17 +1677,14 @@ BEGIN
     IL.setlast(begcall);
     IL.AddCmd(IL.opPRECALL, ORD(isfloat));
 
-    IF cconv IN {PROG._ccall, PROG.ccall, PROG.extcall} THEN
+    IF cconv IN {PROG._ccall, PROG.ccall} THEN
         IL.AddCmd(IL.opALIGN16, parSize)
     ELSIF cconv IN {PROG._win64, PROG.win64} THEN
         IL.AddCmd(IL.opWIN64ALIGN16, parSize)
     ELSIF cconv IN {PROG._systemv, PROG.systemv} THEN
         IL.AddCmd(IL.opSYSVALIGN16, parSize + stk_par)
-    (*
-    ELSIF cconv = PROG.extcall THEN
-		IL.AddCmd0(IL.opALIGNEXT)
-	*)
     END;
+    
     IL.setlast(endcall.prev(IL.COMMAND));
 
     IF e.obj = eIMP THEN

@@ -148,6 +148,7 @@ TYPE
         closed*:     BOOLEAN;
         num*:        INTEGER;
         call*:       INTEGER;
+        callaux*:    INTEGER;
         _import*:    BOOLEAN;
         noalign*:    BOOLEAN
 

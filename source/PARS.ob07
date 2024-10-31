@@ -621,7 +621,7 @@ BEGIN
 END sysflag;
 
 
-PROCEDURE procflag (parser: PARSER; VAR _import: IL.IMPORT_PROC; VAR extid: SCAN.IDSTR; isProc: BOOLEAN): INTEGER;
+PROCEDURE procflag (parser: PARSER; VAR _import: IL.IMPORT_PROC; VAR extid: SCAN.IDSTR; VAR callaux: INTEGER; isProc: BOOLEAN): INTEGER;
 VAR
     call: INTEGER;
     dll, proc: SCAN.TEXTSTR;
@@ -662,6 +662,13 @@ BEGIN
         IF isProc THEN
 			
 			IF call = PROG.extcall THEN
+				IF parser.sym = SCAN.lxCOLON THEN
+					Next(parser);
+					callaux := sysflag(parser, TRUE);
+					// allowed callaux: oberon, linux
+					check1(callaux IN {PROG.ccall, PROG.default32}, parser, 123); (* FIXME: better error *)
+					Next(parser);
+				END; 
 				checklex(parser, SCAN.lxCOMMA);
 				Next(parser);
 				getStr(parser, proc);
@@ -723,6 +730,7 @@ VAR
     RecFlag:    INTEGER;
     _import:     IL.IMPORT_PROC;
     extid: SCAN.IDSTR;
+    callaux: INTEGER;
 
 BEGIN
     unit := parser.unit;
@@ -876,7 +884,8 @@ BEGIN
         NextPos(parser, pos);
         t := PROG.enterType(PROG.tPROCEDURE, TARGETS.AdrSize, 0, unit);
         t.align := TARGETS.AdrSize;
-        t.call := procflag(parser, _import, extid, FALSE);
+        t.call := procflag(parser, _import, extid, callaux, FALSE);
+        t.callaux := callaux;
         FormalParameters(parser, t)
     ELSE
         check1(FALSE, parser, 49)
@@ -994,6 +1003,7 @@ VAR
         label:      INTEGER;
         enter:      IL.COMMAND;
         call:       INTEGER;
+        callaux:    INTEGER;
         t:          PROG._TYPE;
         _import:    IL.IMPORT_PROC;
         endmod, b:  BOOLEAN;
@@ -1013,7 +1023,7 @@ VAR
 
         unit := parser.unit;
 
-        call := procflag(parser, _import, extid, TRUE);
+        call := procflag(parser, _import, extid, callaux, TRUE);
         externProc := call = PROG.extcall;
 
         getpos(parser, pos);
@@ -1040,6 +1050,7 @@ VAR
         t := proc._type;
         t.align := TARGETS.AdrSize;
         t.call  := call;
+        t.callaux := callaux;
 
         FormalParameters(parser, t);
 
