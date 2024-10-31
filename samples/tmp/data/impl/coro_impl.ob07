@@ -1,0 +1,168 @@
+MODULE coro_impl;
+IMPORT CR IN "../Coroutines.ob07", SYSTEM, Out := Out_sys, API := API_sys;
+
+CONST 
+	
+	STACK_SIZE = 4096;
+	N_REGS = 6;
+	THREAD_DEPTH = 11;
+	
+	HANDLER_ERR = 30;
+	
+TYPE
+	UINT32 = INTEGER;
+	
+	Handler* = PROCEDURE (ctx: CR.Context);
+	
+	Stack = POINTER TO RECORD
+		data: ARRAY STACK_SIZE OF BYTE;
+		size: INTEGER
+	END;
+	
+	JmpBuf = ARRAY N_REGS OF UINT32;
+	
+	Context* = POINTER TO ContextDesc;
+	
+	ContextDesc = RECORD (CR.ContextDesc)
+		csp: UINT32;
+		stack: Stack;
+		buf: JmpBuf;
+		handler: Handler;
+		trap: API.Trap;
+		status: INTEGER
+	END;
+	
+
+PROCEDURE [extern, "coroutine_setup"] coro_setup(deadStatus: INTEGER);
+
+PROCEDURE [extern, "coroutine_init32"] coro_init(ctx: UINT32; handlerAddr: UINT32; stackAddr: UINT32);
+
+PROCEDURE [extern, "coroutine_yield32"] coro_yield(ctx: UINT32; data: UINT32): INTEGER;
+
+PROCEDURE [extern, "coroutine_yield32"] coro_resume(ctx: UINT32; data: UINT32): INTEGER;
+
+PROCEDURE [extern, "setjmp"] setjmp(cpu: UINT32): INTEGER;
+
+PROCEDURE [extern, "longjmp"] longjmp(cpu: UINT32; code: INTEGER): INTEGER;
+
+
+PROCEDURE Error(err: INTEGER);
+BEGIN
+	CASE err OF
+	| HANDLER_ERR: 
+		Out.String("Invalid handler: NIL"); Out.Ln;
+		API.exit_thread(HANDLER_ERR);
+	END;
+END Error;
+
+
+PROCEDURE JmpTrap(code: INTEGER; context: API.Context);
+VAR
+	bufAddr: UINT32;
+	ctx: Context;
+BEGIN
+	ctx := SYSTEM.VAL(context, Context);
+	ctx.errorCode := code;
+	bufAddr := SYSTEM.ADR(ctx.buf);
+	code := longjmp(bufAddr, 1);
+END JmpTrap;
+
+
+PROCEDURE [ccall] EntryPoint(ctxAddr: UINT32);
+VAR
+	ctx: Context;
+BEGIN
+	ctx := SYSTEM.VAL(ctxAddr, Context);
+	ctx.handler(ctx);
+END;
+
+
+PROCEDURE Create*(handler: Handler; data: Userdata): Context;
+VAR
+	ctx: Context;
+	stack: Stack;
+	baseAddr, spAddr, spIdx : UINT32;
+	entryAddr: UINT32;
+BEGIN
+	IF handler = NIL THEN Error(HANDLER_ERR) END;
+	
+	NEW(stack);
+	stack.size := STACK_SIZE;
+	baseAddr := SYSTEM.ADR(stack.data[0]);
+	spIdx := stack.size - SYSTEM.SIZE(ContextDesc);
+	spAddr := SYSTEM.ADR(stack.data[spIdx]);
+	entryAddr := SYSTEM.ADR(EntryPoint);
+	
+	ctx := SYSTEM.VAL(spAddr, Context);
+	ctx.csp := spAddr;
+	ctx.stack := stack;
+	ctx.handler := handler;
+	ctx.udata := data;
+	ctx.trap := API.NewTrap(spAddr, JmpTrap);
+	
+	coro_init(spAddr, entryAddr, spAddr);
+	
+	RETURN ctx
+END Create;
+
+
+PROCEDURE [oberon] Yield*(ctx: Context): INTEGER;
+VAR
+	addr: UINT32;
+BEGIN
+	IF ctx.status = CR.RUNNING THEN
+		addr := SYSTEM.VAL(ctx, UINT32);
+		ctx.status := coro_yield(addr, CR.SUSPENDED);
+	ELSE
+		CASE ctx.status OF
+		| CR.DEAD: Out.String("cannot yield dead coroutine"); Out.Ln;
+		| CR.IDLE: Out.String("coroutine not running"); Out.Ln;
+		END;
+	END;
+	
+	RETURN ctx.status
+END Yield;
+
+
+PROCEDURE [ccall] PResume(ctx: Context);
+VAR
+	bufAddr, ctxAddr: UINT32;
+BEGIN
+	ctxAddr := SYSTEM.VAL(ctx, UINT32);
+	API.SetTrap(ctx.trap);
+	
+	bufAddr := SYSTEM.ADR(ctx.buf);
+	IF setjmp(bufAddr) = 0 THEN
+		ctx.status := coro_resume(ctxAddr, ctx.status);
+	ELSE
+		ctx.status := CR.DEAD;
+	END;
+	
+	API.SetTrap(NIL);
+END PResume;
+
+
+PROCEDURE [oberon] Resume*(ctx: Context): INTEGER;
+BEGIN
+	IF (ctx.status = CR.IDLE) OR (ctx.status = CR.SUSPENDED) THEN
+		ctx.status := CR.RUNNING;
+		PResume(ctx);
+	ELSE
+		CASE ctx.status OF
+		| CR.DEAD: Out.String("cannot resume dead coroutine"); Out.Ln;
+		END;
+	END;
+	
+	RETURN ctx.status
+END Resume;
+
+
+PROCEDURE Status*(ctx: Context): INTEGER;
+BEGIN
+	RETURN ctx.status
+END Status;
+
+
+BEGIN
+	coro_setup(CR.DEAD);
+END coro_impl.
