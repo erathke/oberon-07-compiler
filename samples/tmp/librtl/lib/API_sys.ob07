@@ -6,9 +6,7 @@
 *)
 
 MODULE API_sys;
-
 IMPORT SYSTEM;
-
 
 CONST
 
@@ -28,14 +26,21 @@ TYPE
 		offset: INTEGER
 	END;
 	
-	Trap* = PROCEDURE (code: INTEGER);
+	Context* = POINTER TO RECORD END;
+	
+	TrapHandler* = PROCEDURE (code: INTEGER; context: Context);
+	
+	Trap* = POINTER TO RECORD
+		handler: TrapHandler;
+		ctx: Context
+	END;
 
 VAR	
-
 	MainParam*: INTEGER;
     fini: SOFINI;
     ram: Memory;
-    trap: Trap;
+    mainTrap, currentTrap: Trap;
+
 
 PROCEDURE [oberon-] syscall(eax, ebx, ecx, edx, esi, edi: INTEGER): INTEGER;
 BEGIN
@@ -134,11 +139,12 @@ END exit;
 
 PROCEDURE exit_thread*(code: INTEGER); 
 BEGIN
-	trap(code);
+	currentTrap.handler(code, currentTrap.ctx);
+	//exit(0);
 END exit_thread;
 
 
-PROCEDURE DefaultTrap(code: INTEGER);
+PROCEDURE DefaultTrap(code: INTEGER; ctx: Context);
 BEGIN
 	exit(code);
 END DefaultTrap;
@@ -182,7 +188,6 @@ $END
         END
     END
 	
-	
     RETURN res
 END _NEW;
 
@@ -203,10 +208,33 @@ $END
 END _DISPOSE;
 
 
+PROCEDURE NewTrap*(ctx: Context; trapHandler: TrapHandler): Trap;
+VAR
+	trap: Trap;
+BEGIN
+	NEW(trap);
+	trap.handler := trapHandler;
+	trap.ctx := ctx;
+	RETURN trap
+END NewTrap;
+
+
+PROCEDURE SetTrap*(trap: Trap);
+BEGIN
+	IF trap = NIL THEN
+		currentTrap := mainTrap;
+	ELSE
+		currentTrap := trap;
+	END;
+END SetTrap;
+
+
 PROCEDURE init* (sp, code: INTEGER);
 BEGIN
-    fini := NIL;
+	fini := NIL;
     MainParam := sp;
+    mainTrap := NewTrap(NIL, DefaultTrap);
+	SetTrap(NIL); // set default trap
 END init;
 
 
@@ -229,16 +257,4 @@ BEGIN
 END SetFini;
 
 
-PROCEDURE SetTrap*(userTrap: Trap);
-BEGIN
-	IF userTrap = NIL THEN
-		trap := DefaultTrap;
-	ELSE
-		trap := userTrap;
-	END;
-END SetTrap;
-
-
-BEGIN
-	SetTrap(NIL); // default trap
 END API_sys.
