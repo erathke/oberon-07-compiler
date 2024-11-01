@@ -1197,7 +1197,7 @@ VAR
             IF parser.sym = SCAN.lxIDENT THEN
                 getpos(parser, pos);
                 endname := parser.lex.ident;
-                IF ~codeProc & (_import = NIL) THEN
+                IF ~codeProc & ~externProc & (_import = NIL) THEN
                     check(PROG.IdEq(endname, name), pos, 60);
                     ExpectSym(parser, SCAN.lxSEMI);
                     Next(parser)

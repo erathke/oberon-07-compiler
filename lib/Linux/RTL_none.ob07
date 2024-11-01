@@ -34,7 +34,4 @@ PROCEDURE [extern:stdcall, "_exit"] _exit* (code: INTEGER);
 PROCEDURE [extern:stdcall, "_exit_thread"] _exit_thread* (code: INTEGER);
 PROCEDURE [extern:stdcall, "_init"] _init* (modname: INTEGER; tcount, _types: INTEGER; code, param: INTEGER);
 
-(* FIXME: necessary for avoiding parsing error *)
-PROCEDURE dummy(); END dummy;
-
 END RTL_none.
