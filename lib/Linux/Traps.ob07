@@ -1,0 +1,29 @@
+MODULE Traps;
+IMPORT SYSTEM;
+
+TYPE
+
+	Context* = INTEGER;
+	
+	TrapHandler* = PROCEDURE (code: INTEGER; context: Context);
+	
+	Trap* = POINTER TO RECORD
+		handler*: TrapHandler;
+		ctx*: Context
+	END;
+
+
+PROCEDURE [extern:oberon, "SetTrap"] SetTrap*(trap: Trap);
+
+PROCEDURE NewTrap*(ctx: Context; trapHandler: TrapHandler): Trap;
+VAR
+	trap: Trap;
+BEGIN
+	NEW(trap);
+	trap.handler := trapHandler;
+	trap.ctx := ctx;
+	RETURN trap
+END NewTrap;
+
+
+END Traps.

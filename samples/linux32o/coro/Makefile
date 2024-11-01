@@ -5,9 +5,10 @@ LDFLAGS=-T./linker.ld
 CC=gcc
 CFLAGS=-m32
 DEF=-def API_sys
-OPTS=-entry _start -rtl RTL_sys
+OPTS=-entry _start -rtl none
 BINDIR=bin
 LIBDIR=lib
+LIBS=$(LIBDIR)/libcoro.a
 
 all: Test ProdCons Example StackTest
 
@@ -20,21 +21,25 @@ $(LIBDIR)/%.xo: %.ob07
 	$(OBC) $^ linux32o -out $@ $(DEF) $(OPTS)
 
 deps: dirs $(LIBDIR)/coroutines.o $(LIBDIR)/setjmp.o
+	cd rtl; ./build.sh
+	cp rtl/RTL_sys.xo $(LIBDIR)
+	cd $(LIBDIR); ar rcs libcoro.a RTL_sys.xo coroutines.o setjmp.o
 
 $(LIBDIR)/%.o: %.asm
 	$(FASM) $^ $@
 	
 Test: deps $(LIBDIR)/Test.xo
-	$(LD) $(LDFLAGS) $(LIBDIR)/Test.xo $(LIBDIR)/coroutines.o $(LIBDIR)/setjmp.o -o $(BINDIR)/Test
+	$(LD) $(LDFLAGS) $(LIBDIR)/Test.xo $(LIBS) -o $(BINDIR)/Test
+
 	
 ProdCons: deps $(LIBDIR)/ProdCons.xo
-	$(LD) $(LDFLAGS) $(LIBDIR)/ProdCons.xo $(LIBDIR)/coroutines.o $(LIBDIR)/setjmp.o -o $(BINDIR)/ProdCons
+	$(LD) $(LDFLAGS) $(LIBDIR)/ProdCons.xo $(LIBS) -o $(BINDIR)/ProdCons
 	
 Example: deps $(LIBDIR)/Example.xo
-	$(LD) $(LDFLAGS) $(LIBDIR)/Example.xo $(LIBDIR)/coroutines.o $(LIBDIR)/setjmp.o -o $(BINDIR)/Example
+	$(LD) $(LDFLAGS) $(LIBDIR)/Example.xo $(LIBS) -o $(BINDIR)/Example
 
 StackTest: deps $(LIBDIR)/StackTest.xo
-	$(LD) $(LDFLAGS) $(LIBDIR)/StackTest.xo $(LIBDIR)/coroutines.o $(LIBDIR)/setjmp.o -o $(BINDIR)/StackTest
+	$(LD) $(LDFLAGS) $(LIBDIR)/StackTest.xo $(LIBS) -o $(BINDIR)/StackTest
 
 coro_example:
 	$(CC) $(CFLAGS) -o $(BINDIR)/coro_example coro_example.c

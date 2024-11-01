@@ -1,5 +1,5 @@
 MODULE Coroutines;
-IMPORT SYSTEM, Out := Out_sys, API := API_sys;
+IMPORT SYSTEM, Out := Out_sys, TR := Traps;
 
 CONST 
 	IDLE* = 0;
@@ -30,12 +30,12 @@ TYPE
 	
 	JmpBuf = ARRAY N_REGS OF UINT32;
 	
-	ContextDesc = RECORD (API.Context)
+	ContextDesc = RECORD
 		csp: UINT32;
 		stack: Stack;
 		buf: JmpBuf;
 		handler: Handler;
-		trap: API.Trap;
+		trap: TR.Trap;
 		status: INTEGER;
 		udata*: Userdata;
 		errorCode*: INTEGER
@@ -54,18 +54,20 @@ PROCEDURE [extern, "setjmp"] setjmp(cpu: UINT32): INTEGER;
 
 PROCEDURE [extern, "longjmp"] longjmp(cpu: UINT32; code: INTEGER): INTEGER;
 
+PROCEDURE [extern:stdcall, "_exit_thread"] _exit_thread (code: INTEGER);
+
 
 PROCEDURE Error(err: INTEGER);
 BEGIN
 	CASE err OF
 	| HANDLER_ERR: 
 		Out.String("Invalid handler: NIL"); Out.Ln;
-		API.exit_thread(HANDLER_ERR);
+		_exit_thread(HANDLER_ERR);
 	END;
 END Error;
 
 
-PROCEDURE JmpTrap(code: INTEGER; context: API.Context);
+PROCEDURE JmpTrap(code: INTEGER; context: TR.Context);
 VAR
 	bufAddr: UINT32;
 	ctx: Context;
@@ -107,7 +109,7 @@ BEGIN
 	ctx.stack := stack;
 	ctx.handler := handler;
 	ctx.udata := data;
-	ctx.trap := API.NewTrap(ctx, JmpTrap);
+	ctx.trap := TR.NewTrap(spAddr, JmpTrap);
 	
 	coro_init(spAddr, entryAddr, spAddr);
 	
@@ -138,7 +140,7 @@ VAR
 	bufAddr, ctxAddr: UINT32;
 BEGIN
 	ctxAddr := SYSTEM.VAL(ctx, UINT32);
-	API.SetTrap(ctx.trap);
+	TR.SetTrap(ctx.trap);
 	
 	bufAddr := SYSTEM.ADR(ctx.buf);
 	IF setjmp(bufAddr) = 0 THEN
@@ -147,7 +149,7 @@ BEGIN
 		ctx.status := DEAD;
 	END;
 	
-	API.SetTrap(NIL);
+	TR.SetTrap(NIL);
 END PResume;
 
 
