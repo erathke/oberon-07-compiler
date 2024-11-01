@@ -1,5 +1,0 @@
-MODULE Hello;
-
-BEGIN
-	ASSERT(FALSE)
-END Hello.
