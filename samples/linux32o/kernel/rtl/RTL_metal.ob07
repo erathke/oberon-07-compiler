@@ -10,7 +10,9 @@
 MODULE RTL_metal;
 
 IMPORT SYSTEM, 
-	API IN "./API_metal.ob07";
+	API IN "./API_metal.ob07",
+	TR IN "./Traps.ob07";
+	
 
 CONST
 
@@ -519,6 +521,12 @@ BEGIN
 END _exit;
 
 
+PROCEDURE [stdcall] _exit_thread* (code: INTEGER);
+BEGIN
+    API.exit_thread(code)
+END _exit_thread;
+
+
 PROCEDURE [stdcall] _init* (modname: INTEGER; tcount, _types: INTEGER; code, param: INTEGER);
 VAR
     t0, t1, i, j: INTEGER;
@@ -544,6 +552,12 @@ BEGIN
     
     name := modname
 END _init;
+
+
+PROCEDURE [oberon] SetTrap*(trap: TR.Trap);
+BEGIN
+	API.SetTrap(trap);
+END SetTrap;
 
 
 END RTL_metal.

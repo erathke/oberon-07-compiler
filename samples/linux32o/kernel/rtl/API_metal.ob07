@@ -7,7 +7,7 @@
 
 MODULE API_metal;
 
-IMPORT SYSTEM;
+IMPORT SYSTEM, TR := Traps;
 
 
 CONST
@@ -33,6 +33,7 @@ VAR
 	MainParam*: INTEGER;
     fini: SOFINI;
     ram: Memory;
+    mainTrap, currentTrap: TR.Trap;
 
 PROCEDURE [oberon-] syscall(eax, ebx, ecx, edx: INTEGER): INTEGER;
 BEGIN
@@ -127,8 +128,15 @@ PROCEDURE exit_thread*(code: INTEGER);
 CONST 
 	SYS_exitthread = 2;
 BEGIN
-	syscall(SYS_exitthread, code, 0, 0);
+	//syscall(SYS_exitthread, code, currentTrap.ctx, 0);
+	currentTrap.handler(code, currentTrap.ctx);
 END exit_thread;
+
+
+PROCEDURE DefaultTrap(code: INTEGER; ctx: TR.Context);
+BEGIN
+	exit(code);
+END DefaultTrap;
 
 
 PROCEDURE _NEW* (size: INTEGER): INTEGER;
@@ -190,11 +198,22 @@ $END
 END _DISPOSE;
 
 
+PROCEDURE SetTrap*(trap: TR.Trap);
+BEGIN
+	IF trap = NIL THEN
+		currentTrap := mainTrap;
+	ELSE
+		currentTrap := trap;
+	END;
+END SetTrap;
+
 
 PROCEDURE init* (sp, code: INTEGER);
 BEGIN
     fini := NIL;
     MainParam := sp;
+    mainTrap := TR.NewTrap(0, DefaultTrap);
+	SetTrap(NIL); // set default trap
 END init;
 
 

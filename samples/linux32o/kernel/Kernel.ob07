@@ -1,5 +1,5 @@
 MODULE Kernel;
-IMPORT SYSTEM, Devices;
+IMPORT SYSTEM, Devices, CR := Coroutines;
 
 CONST 
 	VideoMemoryAddr = 0b8000H;
@@ -96,6 +96,8 @@ TYPE
 	END;
 	
 	TaskHandler = PROCEDURE(task: Task);
+	
+	ColorData = POINTER TO RECORD (CR.Userdata) fg, bg: BYTE END;
 	
 VAR
 	cursor: RECORD
@@ -758,10 +760,44 @@ BEGIN
 END NumberTaskHandler;
 
 
+PROCEDURE PrintDot(ctx: CR.Context);
+VAR
+	color: ColorData;
+	i, j: INTEGER;
+BEGIN
+	color := ctx.udata(ColorData);
+	WHILE i # 10 DO
+		FOR j := 0 TO 9999999 DO END;
+		Print(".", color.fg, color.bg);
+		INC(i);
+		CR.Yield(ctx);
+	END;
+
+END PrintDot;
+
+
+PROCEDURE RunTasks();
+VAR
+	steps: INTEGER;
+	co1, co2: CR.Context;
+	ud1, ud2: ColorData;
+BEGIN
+	NEW(ud1); ud1.fg := RED; ud1.bg := BLUE;
+	NEW(ud2); ud2.fg := BLUE; ud2.bg := RED;
+	
+	co1 := CR.Create(PrintDot, ud1);
+	co2 := CR.Create(PrintDot, ud2);
+	
+	FOR steps := 1 TO 10 DO
+		CR.Resume(co1);
+		CR.Resume(co2);
+	END;
+
+END RunTasks;
+
 BEGIN
 	Print("Booting OS...", BLUE, BLACK);
 	NewTask(NumberTaskHandler);
-	NewTask(NumberTaskHandler);
 	Process();
-	// SYS_exit
+	RunTasks();
 END Kernel.
