@@ -92,12 +92,16 @@ TYPE
 	Task = POINTER TO RECORD 
 		inbox: ARRAY 10 OF Message;
 		msgCount: INTEGER;
+		steps: INTEGER;
 		handler: PROCEDURE(task: Task)
 	END;
 	
 	TaskHandler = PROCEDURE(task: Task);
 	
-	ColorData = POINTER TO RECORD (CR.Userdata) fg, bg: BYTE END;
+	TaskData = POINTER TO RECORD (CR.Userdata) 
+		steps: INTEGER; 
+		fg, bg: BYTE 
+	END;
 	
 VAR
 	cursor: RECORD
@@ -107,8 +111,6 @@ VAR
 	masterCmd, masterData: Devices.Port;
 	slaveCmd, slaveData: Devices.Port;
 	keyboard: Devices.Keyboard;
-	tasks: ARRAY TASKS OF Task;
-	taskCount: INTEGER;
 	kbdPressedQueue: ARRAY TASKS OF Task;
 	kbdPressedQueueCount: INTEGER;
 	uptime: INTEGER;
@@ -648,6 +650,12 @@ END kernelInterruptHandler;
 
 
 // ----------------------------- USERSPACE -------------------------------------
+PROCEDURE Wait();
+BEGIN
+	//SYSTEM.CODE(0F3H, 090H); // PAUSE
+	SYSTEM.CODE(0F4H); // HLT
+END Wait;
+
 
 PROCEDURE Subscribe(task: Task);
 BEGIN
@@ -656,40 +664,19 @@ BEGIN
 END Subscribe;
 
 
-PROCEDURE NewTask(handler: TaskHandler);
+PROCEDURE NewTask(handler: TaskHandler): Task;
 VAR
 	task: Task;
 BEGIN
 	NEW(task);
 	task.handler := handler;
-	tasks[taskCount] := task;
-	INC(taskCount);
+	RETURN task
 END NewTask;
 
 
-PROCEDURE Process();
-VAR
-	i: INTEGER;
-	task: Task;
-BEGIN
-	FOR i := 0 TO taskCount - 1 DO
-		task := tasks[i];
-		Subscribe(task);
-		task.handler(task);
-	END;
-END Process;
-
-
-PROCEDURE Wait();
-BEGIN
-	//SYSTEM.CODE(0F3H, 090H); // PAUSE
-	SYSTEM.CODE(0F4H); // HLT
-END Wait;
-
-
-PROCEDURE NumberTaskHandler(task: Task);
+PROCEDURE InputTaskHandler(task: Task);
 CONST
-	MAXINT = "2147483647";
+	MAXINT = "100";
 
 VAR
 	msg: Message;
@@ -698,42 +685,49 @@ VAR
 	strCount: INTEGER;
 	ch: CHAR;
 
-PROCEDURE IsNumber(ch: CHAR): BOOLEAN;
-CONST
-	ZERO = ORD('0');
-	NINE = ORD('9');
-BEGIN
-	RETURN (ORD(ch) >= ZERO) & (ORD(ch) <= NINE)
-END IsNumber;
+	PROCEDURE IsNumber(ch: CHAR): BOOLEAN;
+	CONST
+		ZERO = ORD('0');
+		NINE = ORD('9');
+	BEGIN
+		RETURN (ORD(ch) >= ZERO) & (ORD(ch) <= NINE)
+	END IsNumber;
 
 
-PROCEDURE GreaterThan(s1, s2: ARRAY OF CHAR): BOOLEAN;
-VAR
-	i, len: INTEGER;
-	ch1, ch2: CHAR;
-	greater: BOOLEAN;
-BEGIN
-	len := LENGTH(s1);
-	IF len = LENGTH(s2) THEN
-		FOR i := 0 TO len - 1 DO
-			ch1 := s1[i]; ch2 := s2[i];
-			IF ORD(ch1) > ORD(ch2) THEN
-				greater := TRUE;
-				i := len;
-			END;
-		END
-	ELSE
-		greater := FALSE;
-	END;
+	PROCEDURE StrToInt(str: ARRAY OF CHAR): INTEGER;
+	CONST
+		ZERO = ORD('0');
+		NINE = ORD('9');
+	VAR
+		i, len, value, dec, h: INTEGER;
+		ch: CHAR;
+	BEGIN
+		len := LENGTH(str);
+		h := 1;
+		FOR i := len - 1  TO 0 BY -1 DO
+			ch := str[i];
+			dec := ORD(ch) - ZERO;
+			dec := h * dec;
+			INC(value, dec);
+			h := h * 10;
+		END;
+		
+		RETURN value
+	END StrToInt;
+
+	PROCEDURE GreaterThan(s1, s2: ARRAY OF CHAR): BOOLEAN;
+	VAR
+		i1, i2: INTEGER;
+	BEGIN
+		i1 := StrToInt(s1);
+		i2 := StrToInt(s2);
+		RETURN i1 > i2
+	END GreaterThan;
 	
-	RETURN greater
-END GreaterThan;
-
-
 BEGIN
 	PrintLn();
-	Print("Enter a number: ", GREEN, BLACK);
-	WHILE ~ eom & (strCount < 10) DO
+	Print("Enter the number of steps to process [<= 100]: ", GREEN, BLACK);
+	WHILE ~ eom & (strCount < 3) DO
 		Wait();
 		IF task.msgCount > 0 THEN
 			msg := task.inbox[task.msgCount-1];
@@ -751,24 +745,26 @@ BEGIN
 	
 	PrintLn();
 	IF GreaterThan(str, MAXINT) THEN
-		Print("Number exceeded max integer: ", GREEN, BLACK); Print(MAXINT, GREEN, BLACK);
+		Print("Number exceeded max steps: ", GREEN, BLACK); Print(MAXINT, GREEN, BLACK);
+		PrintLn();
+		Halt();
 	ELSE
-		Print("The number is: ", GREEN, BLACK); Print(str, GREEN, BLACK);
+		task.steps := StrToInt(str);
+		IntToStr(task.steps, str);
+		PrintLn();
 	END;
-	
-	PrintLn();
-END NumberTaskHandler;
+END InputTaskHandler;
 
 
 PROCEDURE PrintDot(ctx: CR.Context);
 VAR
-	color: ColorData;
+	data: TaskData;
 	i, j: INTEGER;
 BEGIN
-	color := ctx.udata(ColorData);
-	WHILE i # 10 DO
+	data := ctx.udata(TaskData);
+	WHILE i # data.steps DO
 		FOR j := 0 TO 9999999 DO END;
-		Print(".", color.fg, color.bg);
+		PrintChar(' ', data.fg, data.bg);
 		INC(i);
 		CR.Yield(ctx);
 	END;
@@ -776,28 +772,39 @@ BEGIN
 END PrintDot;
 
 
-PROCEDURE RunTasks();
+PROCEDURE RunTasks(steps: INTEGER);
 VAR
-	steps: INTEGER;
+	i: INTEGER;
 	co1, co2: CR.Context;
-	ud1, ud2: ColorData;
+	ud1, ud2: TaskData;
 BEGIN
-	NEW(ud1); ud1.fg := RED; ud1.bg := BLUE;
-	NEW(ud2); ud2.fg := BLUE; ud2.bg := RED;
+	NEW(ud1); ud1.fg := RED; ud1.bg := BLUE; ud1.steps := steps;
+	NEW(ud2); ud2.fg := BLUE; ud2.bg := RED; ud2.steps := steps;
 	
 	co1 := CR.Create(PrintDot, ud1);
 	co2 := CR.Create(PrintDot, ud2);
 	
-	FOR steps := 1 TO 10 DO
+	FOR i := 1 TO steps DO
 		CR.Resume(co1);
 		CR.Resume(co2);
 	END;
 
 END RunTasks;
 
+
+PROCEDURE Process();
+VAR
+	inputTask: Task;
+BEGIN
+	inputTask := NewTask(InputTaskHandler);
+	Subscribe(inputTask);
+	inputTask.handler(inputTask);
+	RunTasks(inputTask.steps);
+END Process;
+
+
 BEGIN
 	Print("Booting OS...", BLUE, BLACK);
-	NewTask(NumberTaskHandler);
 	Process();
-	RunTasks();
+	PrintLn();
 END Kernel.
