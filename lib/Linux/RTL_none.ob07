@@ -23,7 +23,7 @@ PROCEDURE [extern:stdcall, "_length"] _length* (len, str: INTEGER);
 PROCEDURE [extern:stdcall, "_lengthw"] _lengthw* (len, str: INTEGER);
 PROCEDURE [extern:stdcall, "_strcmp"] _strcmp* (op, len2, str2, len1, str1: INTEGER): BOOLEAN;
 PROCEDURE [extern:stdcall, "_strcmpw"] _strcmpw* (op, len2, str2, len1, str1: INTEGER): BOOLEAN;
-PROCEDURE [extern:stdcall, "_error"] _error* (modnum, _module, err, line: INTEGER);
+PROCEDURE [extern:stdcall, "_error"] _error* (modnum, _module, err, line, usererr: INTEGER);
 PROCEDURE [extern:stdcall, "_isrec"] _isrec* (t0, t1, r: INTEGER): INTEGER;
 PROCEDURE [extern:stdcall, "_is"] _is* (t0, p: INTEGER): INTEGER;
 PROCEDURE [extern:stdcall, "_guardrec"] _guardrec* (t0, t1: INTEGER): INTEGER;

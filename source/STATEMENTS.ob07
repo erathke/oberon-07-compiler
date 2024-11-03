@@ -23,7 +23,7 @@ CONST
 
     errASSERT = 1;  errPTR  =  2;  errDIV  =  3;  errPROC =  4;
     errGUARD  = 5;  errIDX  =  6;  errCASE =  7;  errCOPY =  8;
-    errCHR    = 9;  errWCHR = 10;  errBYTE = 11;
+    errCHR    = 9;  errWCHR = 10;  errBYTE = 11;  errRAISE = 12;
 
     chkIDX* = 0; chkGUARD* = 1; chkPTR* = 2; chkCHR* = 3; chkWCHR* = 4; chkBYTE* = 5;
     chkSTK* = MSP430.chkSTK; (* 6 *)
@@ -721,7 +721,13 @@ BEGIN
                 IL.OnError(pos.line, errASSERT);
                 IL.SetLabel(label)
             END
-
+		|PROG.stRAISE:
+			// FIXME: allow variable value
+            PExpression(parser, e);
+            PARS.check(isInt(e), pos, 66);
+            PARS.check(e.obj = eCONST, pos, 62);
+			IL.OnUserError(pos.line, errRAISE, ARITH.Int(e.value))
+            
         |PROG.stINC, PROG.stDEC:
             IL.pushBegEnd(begcall, endcall);
             varparam(parser, pos, isInt, TRUE, e);

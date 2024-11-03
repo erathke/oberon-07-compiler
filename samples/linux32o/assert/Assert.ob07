@@ -3,6 +3,7 @@ IMPORT Args, Out := Out_sys;
 
 CONST
 	MEM_SIZE = 1 * 1024;
+	ERR = 222;
 
 TYPE
 	Memory = POINTER TO RECORD
@@ -12,7 +13,7 @@ TYPE
 VAR
 	mem: Memory;
 	i: INTEGER;
-
+	b: BYTE;
 BEGIN
 	NEW(mem);
 	
@@ -29,5 +30,6 @@ BEGIN
 	END;
 	
 	DISPOSE(mem);
+	RAISE(ERR);
 	ASSERT(FALSE)
 END Assert.

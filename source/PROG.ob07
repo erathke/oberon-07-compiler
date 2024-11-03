@@ -41,7 +41,7 @@ CONST
     sysPUT8*   = 35;  sysPUT16*  = 36;  stCOPY*   = 37;  stWCHR*   = 38;
     sysWSADR*  = 39;  sysPUT32*  = 40;  (*sysNOP*   = 41;  sysEINT*  = 42;
     sysDINT*   = 43;*)sysGET8*   = 44;  sysGET16* = 45;  sysGET32* = 46;
-    sysVAL* = 47;
+    sysVAL*    = 47;  stRAISE*   = 48;
 
     default32* =  2;  _default32* = default32 + 1;
     stdcall*   =  4;  _stdcall*   = stdcall + 1;
@@ -711,6 +711,7 @@ PROCEDURE enterStProcs (unit: UNIT);
 
 BEGIN
     Enter(unit, "assert", stASSERT, idSTPROC);
+    Enter(unit, "raise",  stRAISE,  idSTPROC);
     Enter(unit, "dec",    stDEC,    idSTPROC);
     Enter(unit, "excl",   stEXCL,   idSTPROC);
     Enter(unit, "inc",    stINC,    idSTPROC);

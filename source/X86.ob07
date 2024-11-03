@@ -807,7 +807,7 @@ VAR
 
     n, a, label, cc: INTEGER;
 
-    opcode, param1, param2: INTEGER;
+    opcode, param1, param2, param3: INTEGER;
 
     float: REAL;
    
@@ -820,6 +820,7 @@ BEGIN
 
         param1 := cmd.param1;
         param2 := cmd.param2;
+        param3 := cmd.param3;
 
         opcode := cmd.opcode;
 
@@ -975,6 +976,7 @@ BEGIN
             pushc(param2)
 
         |IL.opONERR:
+            pushc(param3);
             pushc(param2);
             jmp(param1)
 

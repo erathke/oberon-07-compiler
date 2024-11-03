@@ -431,7 +431,7 @@ BEGIN
 END append;
 
 
-PROCEDURE [stdcall] _error* (modnum, _module, err, line: INTEGER);
+PROCEDURE [stdcall] _error* (modnum, _module, err, line, usererr: INTEGER);
 VAR
     s, temp: ARRAY 1024 OF CHAR;
     errmsg: ARRAY 64 OF CHAR;
@@ -448,6 +448,9 @@ BEGIN
     | 9: errmsg := "CHR out of range"
     |10: errmsg := "WCHR out of range"
     |11: errmsg := "BYTE out of range"
+    ELSE
+		err := usererr;
+		errmsg := "user error";
     END;
 	
 	append(s, "[[ERROR: "); append(s, errmsg);
