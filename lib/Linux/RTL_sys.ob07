@@ -394,25 +394,33 @@ BEGIN
 END PCharToStr;
 
 
-PROCEDURE IntToStr (x: INTEGER; VAR str: ARRAY OF CHAR);
+PROCEDURE IntToStr(x: INTEGER; VAR str: ARRAY OF CHAR);
 VAR
     i, a: INTEGER;
-
+	zero: INTEGER;
 BEGIN
-    i := 0;
-    a := x;
-    REPEAT
-        INC(i);
-        a := a DIV 10
-    UNTIL a = 0;
+	i := 0;
+	a := x;
+	zero := ORD('0');
 
-    str[i] := 0X;
+	IF x < 0 THEN
+		str[i] := "-";
+		a := -a;
+		x := -x;
+		INC(i);
+	END;
 
-    REPEAT
-        DEC(i);
-        str[i] := CHR(x MOD 10 + ORD("0"));
-        x := x DIV 10
-    UNTIL x = 0
+	REPEAT
+		INC(i); a := a DIV 10
+	UNTIL a = 0;
+
+	str[i] := 0X;
+
+	REPEAT
+		DEC(i);
+		str[i] := CHR(x MOD 10 + zero);
+		x := x DIV 10
+	UNTIL x = 0
 END IntToStr;
 
 
