@@ -13,7 +13,6 @@ TYPE
 VAR
 	mem: Memory;
 	i: INTEGER;
-	b: BYTE;
 BEGIN
 	NEW(mem);
 	
@@ -30,6 +29,5 @@ BEGIN
 	END;
 	
 	DISPOSE(mem);
-	RAISE(ERR);
 	ASSERT(FALSE)
 END Assert.
