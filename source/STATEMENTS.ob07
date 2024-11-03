@@ -657,7 +657,7 @@ VAR
     proc,
     label,
     size,
-    n, i:   INTEGER;
+    n, i, x:   INTEGER;
     code:   ARITH.VALUE;
     wchar,
     comma:  BOOLEAN;
@@ -723,11 +723,21 @@ BEGIN
             END
 		|PROG.stRAISE:
 			// FIXME: allow variable value
-            PExpression(parser, e);
-            PARS.check(isInt(e), pos, 66);
-            PARS.check(e.obj = eCONST, pos, 62);
-			IL.OnUserError(pos.line, errRAISE, ARITH.Int(e.value))
-            
+			PExpression(parser, e);
+			IF e._type = tINTEGER THEN
+				IF e.obj = eCONST THEN
+					IL.OnUserError(pos.line, errRAISE, ARITH.Int(e.value))
+				ELSE
+					//varparam(parser, pos, isInt, TRUE, e);
+					x := ARITH.getInt(e.value);
+					ASSERT(FALSE);
+				END;
+			ELSE
+				//varparam(parser, pos, isInt, TRUE, e);
+				x := ARITH.Int(e.value);
+				ASSERT(FALSE);
+			END;
+			
         |PROG.stINC, PROG.stDEC:
             IL.pushBegEnd(begcall, endcall);
             varparam(parser, pos, isInt, TRUE, e);
