@@ -976,7 +976,18 @@ BEGIN
             pushc(param2)
 
         |IL.opONERR:
-            pushc(param3);
+            pushc(0);
+            pushc(param2);
+            jmp(param1)
+        
+        |IL.opONRAISE:
+            IF cmd.fconst  THEN
+                pushc(param3);
+			ELSE
+				UnOp(reg1);
+                push(reg1);
+                drop
+			END;
             pushc(param2);
             jmp(param1)
 

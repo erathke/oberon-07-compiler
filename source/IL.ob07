@@ -84,7 +84,7 @@ CONST
     opSAVE16C* = 213; (*opWCHR* = 214;*) opHANDLER* = 215;
 
     opSYSVCALL* = 216; opSYSVCALLI* = 217; opSYSVCALLP* = 218; opFNAME* = 219; opFASTCALL* = 220;
-	opCALLEXT* = 222;
+	opONRAISE* = 221; opCALLEXT* = 222;
 
     opSADR_PARAM* = -1; opLOAD64_PARAM* = -2; opLLOAD64_PARAM* = -3; opGLOAD64_PARAM* = -4;
     opVADR_PARAM* = -5; opCONST_PARAM* = -6; opGLOAD32_PARAM* = -7; opLLOAD32_PARAM* = -8;
@@ -142,7 +142,8 @@ TYPE
         param1*:    INTEGER;
         param2*:    INTEGER;
         param3*:    INTEGER;
-        float*:     REAL
+        float*:     REAL;
+        fconst*:	BOOLEAN
 
     END;
 
@@ -724,15 +725,16 @@ BEGIN
 END OnError;
 
 
-PROCEDURE OnUserError* (line, error, usererr: INTEGER);
+PROCEDURE OnUserError* (line, error, usererr: INTEGER; isConst: BOOLEAN);
 VAR
     cmd: COMMAND;
 BEGIN
     cmd := NewCmd();
-    cmd.opcode := opONERR;
+    cmd.opcode := opONRAISE;
     cmd.param1 := codes.errlabels[error];
     cmd.param2 := line;
     cmd.param3 := usererr;
+    cmd.fconst := isConst;
     insert(codes.last, cmd)
 END OnUserError;
 

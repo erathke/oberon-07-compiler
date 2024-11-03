@@ -721,17 +721,14 @@ BEGIN
                 IL.OnError(pos.line, errASSERT);
                 IL.SetLabel(label)
             END
+
 		|PROG.stRAISE:
 			PExpression(parser, e);
+			PARS.check(isInt(e), pos, 66);
 			IF e.obj = eCONST THEN
-                IL.OnUserError(pos.line, errRAISE, ARITH.Int(e.value));
+                IL.OnUserError(pos.line, errRAISE, ARITH.Int(e.value), TRUE);
             ELSE
-                label := IL.NewLabel();
-                IL.not;
-                IL.AndOrOpt(label);
-                // FIXME: allow variable value
-                IL.OnUserError(pos.line, errRAISE, -1);
-                IL.SetLabel(label);
+                IL.OnUserError(pos.line, errRAISE, -1, FALSE);
             END
 			
         |PROG.stINC, PROG.stDEC:
