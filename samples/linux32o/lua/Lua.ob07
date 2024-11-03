@@ -47,6 +47,7 @@ PROCEDURE [extern, "lua_pcallk"] _lua_pcallk(L: lua_State; nargs, nresults, msgh
 PROCEDURE [extern, "luaL_openlibs"] openlibs*(L: lua_State);
 PROCEDURE [extern, "lua_pushcclosure"] pushcclosure*(L: lua_State; fn: lua_CFunction; n: INTEGER);
 PROCEDURE [extern, "lua_setglobal"] _lua_setglobal(L: lua_State; name: cstr);
+PROCEDURE [extern, "lua_getglobal"] _lua_getglobal(L: lua_State; name: cstr): INTEGER;
 PROCEDURE [extern, "lua_tolstring"]	_lua_tolstring(L: lua_State; index: INTEGER; VAR len: csize_t): cstr;
 PROCEDURE [extern, "lua_tointegerx"] tointegerx*(L: lua_State; index: INTEGER; VAR isnum: BOOLEAN): INTEGER;
 PROCEDURE [extern, "lua_tonumberx"] _lua_tonumberx(L: lua_State; index: INTEGER; VAR isnum: BOOLEAN): REAL;
@@ -64,6 +65,7 @@ PROCEDURE [extern, "lua_pushinteger"] pushinteger*(L: lua_State; n: INTEGER);
 PROCEDURE [extern, "lua_pushnumber"] pushnumber*(L: lua_State; n: REAL);
 PROCEDURE [extern, "lua_pushstring"] _lua_pushstring(L: lua_State; s: cstr): cptr;
 PROCEDURE [extern, "lua_settop"] settop*(L: lua_State; index: INTEGER);
+PROCEDURE [extern, "lua_gettop"] gettop*(L: lua_State): INTEGER;
 PROCEDURE [extern, "luaL_setfuncs"] _luaL_setfuncs(L: lua_State; l: cptr; nup: INTEGER);
 PROCEDURE [extern, "luaL_requiref"] _luaL_requiref(L: lua_State; modname: cstr; openf: lua_CFunction; glb: INTEGER);
 PROCEDURE [extern, "lua_createtable"] createtable*(L: lua_State; narr, nrec: INTEGER);
@@ -91,7 +93,7 @@ BEGIN
 END loadfilex;
 
 
-PROCEDURE pcall*(L: lua_State; nargs, nresults, msgh: INTEGER): INTEGER;
+PROCEDURE [oberon-] pcall*(L: lua_State; nargs, nresults, msgh: INTEGER): INTEGER;
 BEGIN
 	RETURN _lua_pcallk(L, nargs, nresults, msgh, 0, NIL)
 END pcall;
@@ -120,6 +122,12 @@ PROCEDURE setglobal*(L: lua_State; name: ARRAY OF CHAR);
 BEGIN
 	_lua_setglobal(L, SYSTEM.ADR(name[0]));
 END setglobal;
+
+
+PROCEDURE getglobal*(L: lua_State; name: ARRAY OF CHAR): INTEGER;
+BEGIN
+	RETURN _lua_getglobal(L, SYSTEM.ADR(name[0]))
+END getglobal;
 
 
 PROCEDURE tolstring*(L: lua_State; index: INTEGER; VAR str: ARRAY OF CHAR);

@@ -3,7 +3,6 @@ IMPORT Args, Out := Out_sys;
 
 CONST
 	MEM_SIZE = 1 * 1024;
-	ERR = 222;
 
 TYPE
 	Memory = POINTER TO RECORD
@@ -27,7 +26,7 @@ BEGIN
 			Out.Ln;
 		END
 	END;
-	
+	RAISE(i);
 	DISPOSE(mem);
 	ASSERT(FALSE)
 END Assert.

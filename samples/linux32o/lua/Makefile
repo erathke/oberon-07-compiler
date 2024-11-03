@@ -9,29 +9,30 @@ HELLO_SRCO=HelloLua.ob07
 HELLO_OBJO=$(LIBDIR)/HelloLua.xo
 USERDATA_SRCO=Userdata.ob07
 USERDATA_OBJO=$(LIBDIR)/Userdata.xo
+PCALL_SRCO=Pcall.ob07
+PCALL_OBJO=$(LIBDIR)/Pcall.xo
 BINDIR=bin
 HELLO_EXE=$(BINDIR)/HelloLua
 USERDATA_EXE=$(BINDIR)/Userdata
+PCALL_EXE=$(BINDIR)/Pcall
 
-all: hello userdata
+all: hello userdata pcall
+
+
+$(LIBDIR)/%.xo: %.ob07
+	$(OBC) $^ linux32o -out $@ $(DEF) $(OPTS)
 
 hello: $(HELLO_OBJO)
 	@mkdir -p $(BINDIR)
 	$(CC) $(CFLAGS) -nostartfiles -o $(HELLO_EXE) $^ $(LIBS) -lm
 
-
-$(LIBDIR)/HelloLua.xo: $(HELLO_SRCO)
-	$(OBC) $^ linux32o -out $@ $(DEF) $(OPTS)
-
-
 userdata: $(USERDATA_OBJO)
 	@mkdir -p $(BINDIR)
 	$(CC) $(CFLAGS) -nostartfiles -o $(USERDATA_EXE) $^ $(LIBS) -lm
 
-
-$(LIBDIR)/Userdata.xo: $(USERDATA_SRCO)
-	$(OBC) $^ linux32o -out $@ $(DEF) $(OPTS)
-
+pcall: $(PCALL_OBJO)
+	@mkdir -p $(BINDIR)
+	$(CC) $(CFLAGS) -nostartfiles -o $(PCALL_EXE) $^ $(LIBS) -lm
 
 clean:
-	$(RM) $(BINDIR)/* $(HELLO_OBJO) $(USERDATA_OBJO)
+	$(RM) $(BINDIR)/* $(HELLO_OBJO) $(USERDATA_OBJO) $(PCALL_OBJO)

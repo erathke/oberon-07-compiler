@@ -1,0 +1,38 @@
+MODULE Pcall;
+IMPORT SYSTEM, Out := Out_sys, Lua IN "./Lua.ob07";
+
+VAR
+	L: Lua.State;
+	script: ARRAY 32 OF CHAR;
+	top, typ: INTEGER;
+
+
+PROCEDURE [ccall] ErrorHandler(L: Lua.State): INTEGER;
+CONST
+	ERR = 77;
+VAR
+	err: INTEGER;
+	isNum: BOOLEAN;
+BEGIN
+	err := Lua.tointegerx(L, 1, isNum);
+	IF isNum THEN
+		RAISE(ERR)
+	END;
+	RETURN 0
+END ErrorHandler;
+
+
+BEGIN
+	script := "pcall.lua";
+	L := Lua.newstate();
+	Lua.openlibs(L);	
+	ASSERT(Lua.dofile(L, script) = Lua.LUA_OK);
+	
+	Lua.pushcclosure(L, ErrorHandler, 0);
+	top := Lua.gettop(L);
+	
+	ASSERT(Lua.getglobal(L, "doit") = Lua.LUA_TFUNCTION);
+	Lua.pcall(L, 0, 0, top);
+	
+	Lua.close(L);
+END Pcall.
