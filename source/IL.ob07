@@ -550,19 +550,6 @@ BEGIN
 END AddCmd2;
 
 
-PROCEDURE AddCmd3* (opcode: INTEGER; param1, param2, param3: INTEGER);
-VAR
-    cmd: COMMAND;
-BEGIN
-    cmd := NewCmd();
-    cmd.opcode := opcode;
-    cmd.param1 := param1;
-    cmd.param2 := param2;
-    cmd.param3 := param3;
-    insert(codes.last, cmd)
-END AddCmd3;
-
-
 PROCEDURE Const* (val: INTEGER);
 BEGIN
     AddCmd(opCONST, val)
@@ -738,8 +725,15 @@ END OnError;
 
 
 PROCEDURE OnUserError* (line, error, usererr: INTEGER);
+VAR
+    cmd: COMMAND;
 BEGIN
-    AddCmd3(opONERR, codes.errlabels[error], line, usererr)
+    cmd := NewCmd();
+    cmd.opcode := opONERR;
+    cmd.param1 := codes.errlabels[error];
+    cmd.param2 := line;
+    cmd.param3 := usererr;
+    insert(codes.last, cmd)
 END OnUserError;
 
 
