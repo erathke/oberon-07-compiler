@@ -1,0 +1,60 @@
+MODULE Wren;
+IMPORT SYSTEM;
+
+CONST
+	RESULT_SUCCESS* = 0;
+	RESULT_COMPILE_ERROR* = 1;
+	RESULT_RUNTIME_ERROR* = 2;
+
+TYPE
+	CString* = INTEGER;
+	CPtr = INTEGER;
+	
+	VM* = CPtr;
+	InterpretResult* = INTEGER;
+	
+	Function = CPtr;
+	WriteFn* = PROCEDURE [ccall] (vm: VM; text: CString);
+	ErrorFn* = PROCEDURE [ccall];
+	Userdata* = POINTER TO RECORD END;
+
+	Configuration* = RECORD
+		reallocateFn: Function;
+		resolveModuleFn: Function;
+		loadModuleFn: Function;
+		bindForeignMethodFn: Function;
+		bindForeignClassFn: Function;
+		writeFn*: WriteFn;
+		errorFn*: ErrorFn;
+		initialHeapSize: INTEGER;
+		minHeapSize: INTEGER;
+		heapGrowPercent: INTEGER;
+		userdata*: Userdata
+	END;
+	
+
+PROCEDURE [extern, "wrenInitConfiguration"] _wrenInitConfiguration(config: CPtr);
+PROCEDURE [extern, "wrenNewVM"] _wrenNewVM(config: CPtr): VM;
+PROCEDURE [extern, "wrenInterpret"] _wrenInterpret(vm: VM; modName, script: CString): InterpretResult;
+PROCEDURE [extern, "wrenFreeVM"] FreeVM*(vm: VM);
+
+
+PROCEDURE InitConfiguration*(VAR config: Configuration);
+BEGIN
+	_wrenInitConfiguration(SYSTEM.ADR(config))
+END InitConfiguration;
+
+
+PROCEDURE NewVM*(VAR config: Configuration): VM;
+BEGIN
+	RETURN _wrenNewVM(SYSTEM.ADR(config))
+END NewVM;
+
+
+PROCEDURE Interpret*(vm: VM; modName, script: ARRAY OF CHAR): InterpretResult;
+BEGIN
+	RETURN _wrenInterpret(vm, SYSTEM.ADR(modName[0]), SYSTEM.ADR(script[0]))
+END Interpret;
+
+
+END Wren.
