@@ -394,25 +394,33 @@ BEGIN
 END PCharToStr;
 
 
-PROCEDURE IntToStr (x: INTEGER; VAR str: ARRAY OF CHAR);
+PROCEDURE IntToStr(x: INTEGER; VAR str: ARRAY OF CHAR);
 VAR
     i, a: INTEGER;
-
+	zero: INTEGER;
 BEGIN
-    i := 0;
-    a := x;
-    REPEAT
-        INC(i);
-        a := a DIV 10
-    UNTIL a = 0;
+	i := 0;
+	a := x;
+	zero := ORD('0');
 
-    str[i] := 0X;
+	IF x < 0 THEN
+		str[i] := "-";
+		a := -a;
+		x := -x;
+		INC(i);
+	END;
 
-    REPEAT
-        DEC(i);
-        str[i] := CHR(x MOD 10 + ORD("0"));
-        x := x DIV 10
-    UNTIL x = 0
+	REPEAT
+		INC(i); a := a DIV 10
+	UNTIL a = 0;
+
+	str[i] := 0X;
+
+	REPEAT
+		DEC(i);
+		str[i] := CHR(x MOD 10 + zero);
+		x := x DIV 10
+	UNTIL x = 0
 END IntToStr;
 
 
@@ -431,7 +439,7 @@ BEGIN
 END append;
 
 
-PROCEDURE [stdcall] _error* (modnum, _module, err, line: INTEGER);
+PROCEDURE [stdcall] _error* (modnum, _module, err, line, usererr: INTEGER);
 VAR
     s, temp: ARRAY 1024 OF CHAR;
     errmsg: ARRAY 64 OF CHAR;
@@ -448,6 +456,9 @@ BEGIN
     | 9: errmsg := "CHR out of range"
     |10: errmsg := "WCHR out of range"
     |11: errmsg := "BYTE out of range"
+    ELSE
+		err := usererr;
+		errmsg := "user error";
     END;
 	
 	append(s, "[[ERROR: "); append(s, errmsg);

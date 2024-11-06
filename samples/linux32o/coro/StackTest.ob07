@@ -37,8 +37,8 @@ VAR
 	data: Data;
 BEGIN
 	NEW(data);
-	data.n := 168;
-	c1 := CR.Create(Task, data);
+	data.n := 200;
+	c1 := CR.Create(Task, data, 8196);
 	IF CR.Resume(c1) = CR.SUSPENDED THEN
 		CR.Resume(c1);
 	END;
@@ -46,6 +46,5 @@ END Init;
 
 
 BEGIN
-
 	Init()
 END StackTest.

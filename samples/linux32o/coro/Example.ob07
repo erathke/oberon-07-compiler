@@ -31,7 +31,7 @@ VAR
 	udata: XData;
 BEGIN
 	udata := coro.udata(XData);
-	co2 := CR.Create(G, udata);
+	co2 := CR.Create(G, udata, 0);
 	CR.Resume(co2);
 	
 	Out.String("F: BEFORE YIELD "); Out.Ln;
@@ -48,7 +48,7 @@ END F;
 
 BEGIN
 	NEW(xdata);
-	co1 := CR.Create(F, xdata);
+	co1 := CR.Create(F, xdata, 0);
 	CR.Resume(co1); Out.String("f yielded "); Out.Int(xdata.x, 0); Out.Ln;
 	CR.Resume(co1); Out.String("f yielded "); Out.Int(xdata.x, 0); Out.Ln;
 	CR.Resume(co1); Out.String("f yielded "); Out.Int(xdata.x, 0); Out.Ln;

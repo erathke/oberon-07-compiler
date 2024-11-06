@@ -15,7 +15,7 @@ CONST
 
     BIT_DEPTH* = (ORD(LSL(1, 31) > 0) + 1) * 32;
 
-    MEM_SIZE = 2 * 1024 * 1024;
+    MEM_SIZE = 4 * 1024 * 1024;
 
 TYPE
 
@@ -142,58 +142,33 @@ END DefaultTrap;
 
 
 PROCEDURE _NEW* (size: INTEGER): INTEGER;
+CONST 
+	ISIZE = 4;
 VAR
     res, ptr, words: INTEGER;
-$IF (API_DEBUG)
-	msg: ARRAY 32 OF CHAR;
-$END
-
-PROCEDURE Alloc(VAR ptr: INTEGER; size: INTEGER);
 BEGIN
-	IF size + ram.offset > MEM_SIZE THEN
+    IF size + ram.offset > MEM_SIZE THEN
 		DebugMsg(SYSTEM.SADR("Out of memory"), 14); 
 		exit(1);
 	END;
-	ptr := SYSTEM.ADR(ram.data[ram.offset]);
+	res := SYSTEM.ADR(ram.data[ram.offset]);
 	INC(ram.offset, size);
-END Alloc;
-
-
-BEGIN
-
-$IF (API_DEBUG)
-	Debug(SYSTEM.SADR("Alloc: "), 8, FALSE);
-	IntToStr(size, msg);
-	Debug(SYSTEM.ADR(msg[0]), LENGTH(msg), TRUE);
-$END
-
-    Alloc(res, size);
     
-    IF res # 0 THEN
-        ptr := res;
-        words := size DIV SYSTEM.SIZE(INTEGER);
-        WHILE words > 0 DO
-            SYSTEM.PUT(ptr, 0);
-            INC(ptr, SYSTEM.SIZE(INTEGER));
-            DEC(words)
-        END
-    END
-	
+    // TODO: cleanup memory on dispose
+	ptr := res;
+	words := size DIV ISIZE;
+	WHILE words > 0 DO
+		SYSTEM.PUT(ptr, 0);
+		ptr := ptr + ISIZE;
+		words := words - 1;
+	END;
+    
     RETURN res
 END _NEW;
 
 
 PROCEDURE _DISPOSE* (p: INTEGER): INTEGER;
-$IF (API_DEBUG)
-VAR
-	msg: ARRAY 32 OF CHAR;
 BEGIN
-	Debug(SYSTEM.SADR("Free: "), 7, FALSE);
-	IntToStr(p, msg);
-	Debug(SYSTEM.ADR(msg[0]), LENGTH(msg), TRUE);
-$ELSE
-BEGIN
-$END
     //free(p)
     RETURN 0
 END _DISPOSE;

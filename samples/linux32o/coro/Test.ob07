@@ -31,7 +31,7 @@ END Calc;
 
 BEGIN
 	NEW(data); data.r := 0;
-	c1 := CR.Create(Calc, data); 
+	c1 := CR.Create(Calc, data, 512); 
 	ASSERT(status = CR.IDLE);
 	status := CR.Resume(c1);
 	ASSERT(status = CR.SUSPENDED);

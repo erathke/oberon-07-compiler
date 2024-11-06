@@ -1,0 +1,64 @@
+MODULE Skynet;
+IMPORT CR := Coroutines, Out := Out_sys;
+
+CONST
+	NUM_FIBERS = 10;
+	STACK_SIZE = 256;
+
+TYPE 
+	Data = POINTER TO RECORD (CR.Userdata)
+		_num, _size, _div: INTEGER
+	END;
+
+PROCEDURE Calc(ctx: CR.Context);
+VAR
+	data, newData: Data;
+	i: INTEGER;
+	fibers: ARRAY NUM_FIBERS OF CR.Context;
+	partial: INTEGER;
+BEGIN
+	data := ctx.udata(Data);
+	IF data._size = 1 THEN
+		CR.Yield(ctx);
+	ELSE
+		FOR i := 0 TO data._div - 1 DO
+			NEW(newData);
+			newData._num := data._num + i * (data._size DIV data._div);
+			newData._size := data._size DIV data._div;
+			newData._div := data._div;
+			fibers[i] := CR.Create(Calc, newData, STACK_SIZE);
+		END;
+		
+		partial := 0;
+		FOR i := 0 TO data._div - 1 DO
+			CR.Resume(fibers[i]);
+			partial := partial + fibers[i].udata(Data)._num;
+		END;
+		data._num := partial;
+
+		CR.Yield(ctx);
+	END;
+END Calc;
+
+
+PROCEDURE Run();
+CONST 
+	TOTAL_FIBERS = 10000;
+VAR
+	data: Data;
+	root: CR.Context;
+BEGIN
+	NEW(data);
+	data._num := 0;
+	data._size := TOTAL_FIBERS;
+	data._div := NUM_FIBERS;
+	
+	root := CR.Create(Calc, data, STACK_SIZE);
+	CR.Resume(root);
+	Out.String("Total: "); Out.Int(data._num, 0); Out.Ln;
+END Run;
+
+
+BEGIN
+	Run();
+END Skynet.
