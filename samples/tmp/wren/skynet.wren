@@ -2,7 +2,7 @@
 class Skynet {
   static makeFiber(num, size, div) {
     return Fiber.new {
-      if (size == 1) {
+      if (size <= 1) {
         Fiber.yield(num)
       } else {
         var fibers = []
@@ -22,6 +22,6 @@ class Skynet {
 }
 
 var start = System.clock
-var result = Skynet.makeFiber(0, 1000000, 10).call()
+var result = Skynet.makeFiber(0, 10000, 10).call()
 var end = System.clock
 System.print("Result: %(result) in %(end - start) s")
