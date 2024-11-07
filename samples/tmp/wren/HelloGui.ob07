@@ -1,14 +1,19 @@
 MODULE HelloGui;
 IMPORT SYSTEM, 
-	Out := Out_sys,
-	Files, 
+	Out := Out_sys, Args, Files,
 	RL IN "./Raylib.ob07", 
 	Wren IN "./Wren.ob07";
 
+CONST
+	NULL = 0;
+	MAIN_MODULE = "main";
 
-PROCEDURE [ccall] WriteFn(vm: Wren.VM; textPtr: Wren.CString);
 VAR
-	text: ARRAY 128 OF CHAR;
+	scriptName: ARRAY 64 OF CHAR;
+	
+
+PROCEDURE GetStringFromPtr(textPtr: Wren.CString; VAR text: ARRAY OF CHAR);
+VAR
 	i: INTEGER;
 	c: CHAR;
 BEGIN
@@ -17,14 +22,59 @@ BEGIN
 		text[i] := c;
 		INC(i);
 	UNTIL c = 0X;
+END GetStringFromPtr;
+
+
+PROCEDURE [ccall] WriteFn(vm: Wren.VM; textPtr: Wren.CString);
+VAR
+	text: ARRAY 128 OF CHAR;
+BEGIN
+	GetStringFromPtr(textPtr, text);
 	Out.String(text);
 END WriteFn;
 
 
-PROCEDURE main();
+PROCEDURE [ccall] DrawBubble(vm: Wren.VM);
+VAR
+	x, y: INTEGER;
+	radius: REAL;
+	color: RL.Color;
+BEGIN
+	x := FLOOR(Wren.GetSlotDouble(vm, 1));
+	y := FLOOR(Wren.GetSlotDouble(vm, 2));
+	radius := Wren.GetSlotDouble(vm, 3);
+	color.r := FLOOR(Wren.GetSlotDouble(vm, 4));
+	color.g := FLOOR(Wren.GetSlotDouble(vm, 5));
+	color.b := FLOOR(Wren.GetSlotDouble(vm, 6));
+	color.a := FLOOR(Wren.GetSlotDouble(vm, 7));
+	
+	RL.DrawCircle(x, y, radius, color);
+END DrawBubble;
+
+
+PROCEDURE [ccall] BindForeignMethod(vm: Wren.VM; modNamePtr, 
+	classNamePtr: Wren.CString; isStatic: BOOLEAN; signaturePtr: Wren.CString): Wren.ForeignMethod;
+VAR
+	modName, className: ARRAY 32 OF CHAR;
+	signature: ARRAY 64 OF CHAR;
+	method: Wren.ForeignMethod;
+BEGIN
+	method := NIL;
+	GetStringFromPtr(modNamePtr, modName);
+	GetStringFromPtr(classNamePtr, className);
+	GetStringFromPtr(signaturePtr, signature);
+	
+	IF (className = "GameEngine") & (signature = "bubble(_,_,_,_,_,_,_)") THEN
+		method := DrawBubble;
+	END;
+	
+	RETURN method
+END BindForeignMethod;
+
+
+PROCEDURE main(scriptName: ARRAY OF CHAR);
 CONST
 	FILE_SIZE = 4096;
-	NULL = 0;
 VAR
 	bgColor: RL.Color;
 	fontSize: INTEGER;
@@ -34,41 +84,75 @@ VAR
 	script: ARRAY FILE_SIZE OF CHAR;
 	scriptFile: Files.File;
 	scriptSize: INTEGER;
+	gameEngineClass: Wren.Handle;
+	gameEngineUpdate: Wren.Handle;
+	
+	
+	PROCEDURE [oberon-] Update(vm: Wren.VM; class, update: Wren.Handle; elapsedTime: REAL): Wren.InterpretResult;
+	BEGIN
+		Wren.EnsureSlots(vm, 2);
+		Wren.SetSlotHandle(vm, 0, class);
+		Wren.SetSlotDouble(vm, 1, elapsedTime);
+		RETURN Wren.Call(vm, update)
+	END Update;
+	
 BEGIN
-
+	
+	Wren.InitConfiguration(config);
+	config.writeFn := WriteFn;
+	config.bindForeignMethodFn := BindForeignMethod;
+	//config.initialHeapSize := 10 * 1024;
+	vm := Wren.NewVM(config);
+	ASSERT(vm # NULL);
+	
+	// Loading file
+	scriptFile := Files.Open(scriptName, Files.OPEN_R);
+	ASSERT(scriptFile # NULL);
+	scriptSize := Files.Read(scriptFile, script, FILE_SIZE);
+	Files.Close(scriptFile);
+	//
+	result := Wren.Interpret(vm, MAIN_MODULE, script);
+	IF result # Wren.RESULT_SUCCESS THEN
+		Wren.FreeVM(vm);
+		RAISE(result); 
+	END;
+	// loading variables
+	Wren.EnsureSlots(vm, 1);
+	Wren.GetVariable(vm, MAIN_MODULE, "GameEngine", 0);
+	gameEngineClass := Wren.GetSlotHandle(vm, 0);
+	ASSERT(gameEngineClass # NULL);
+	gameEngineUpdate := Wren.MakeCallHandle(vm, "update(_)");
+	ASSERT(gameEngineUpdate # NULL);
+	
+	
+	//------------------------------
+	
 	RL.IntToColor(RL.WHITE, bgColor);
 	fontSize := 16;
 	
 	RL.SetTargetFPS(60);
 	RL.InitWindow(800, 600, "HelloGui");
 	
-	Wren.InitConfiguration(config);
-	config.writeFn := WriteFn;
-	vm := Wren.NewVM(config);
-	ASSERT(vm # NULL);
-	
-	// Loading file
-	scriptFile := Files.Open("mandelbrot.wren", Files.OPEN_R);
-	ASSERT(scriptFile # NULL);
-	scriptSize := Files.Read(scriptFile, script, FILE_SIZE);
-	ASSERT(scriptSize > 0);
-	Files.Close(scriptFile);
-	
-	result := Wren.Interpret(vm, "main", script);
-	IF result # Wren.RESULT_SUCCESS THEN RAISE(-1); END;
-	
 	WHILE ~ RL.WindowShouldClose() DO	
 		RL.BeginDrawing();
 			RL.ClearBackground(bgColor);
+			Update(vm, gameEngineClass, gameEngineUpdate, RL.GetFrameTime());
 		RL.EndDrawing();
 	END;
 	
-	Wren.FreeVM(vm);
+	
 	RL.CloseWindow();
 	
+	
+	Wren.FreeVM(vm);
 END main;
 
 
 BEGIN
-	main()
+	IF Args.argc < 2 THEN
+		Out.String("usage: HelloGui <script>"); Out.Ln;
+	ELSE
+		Args.GetArg(1, scriptName);
+		main(scriptName)
+	END;
 END HelloGui.

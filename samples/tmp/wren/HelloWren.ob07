@@ -5,9 +5,8 @@ IMPORT SYSTEM,
 	Wren IN "./Wren.ob07";
 
 
-PROCEDURE [ccall] WriteFn(vm: Wren.VM; textPtr: Wren.CString);
+PROCEDURE GetStringFromPtr(textPtr: Wren.CString; VAR text: ARRAY OF CHAR);
 VAR
-	text: ARRAY 128 OF CHAR;
 	i: INTEGER;
 	c: CHAR;
 BEGIN
@@ -16,6 +15,14 @@ BEGIN
 		text[i] := c;
 		INC(i);
 	UNTIL c = 0X;
+END GetStringFromPtr;
+
+
+PROCEDURE [ccall] WriteFn(vm: Wren.VM; textPtr: Wren.CString);
+VAR
+	text: ARRAY 128 OF CHAR;
+BEGIN
+	GetStringFromPtr(textPtr, text);
 	Out.String(text);
 END WriteFn;
 

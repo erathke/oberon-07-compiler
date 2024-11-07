@@ -8,25 +8,29 @@ CONST
 
 TYPE
 	CString* = INTEGER;
-	CPtr = INTEGER;
+	CPtr* = INTEGER;
 	
 	VM* = CPtr;
+	Handle* = CPtr;
 	InterpretResult* = INTEGER;
 	
 	Function = CPtr;
+	ForeignMethod* = PROCEDURE [ccall] (vm: VM);
 	WriteFn* = PROCEDURE [ccall] (vm: VM; text: CString);
 	ErrorFn* = PROCEDURE [ccall];
+	WrenForeignMethodFn* = PROCEDURE [ccall] (vm: VM; modName, 
+		className: CString; isStatic: BOOLEAN; signature: CString): ForeignMethod;
 	Userdata* = POINTER TO RECORD END;
 
 	Configuration* = RECORD
 		reallocateFn: Function;
 		resolveModuleFn: Function;
 		loadModuleFn: Function;
-		bindForeignMethodFn: Function;
+		bindForeignMethodFn*: WrenForeignMethodFn;
 		bindForeignClassFn: Function;
 		writeFn*: WriteFn;
 		errorFn*: ErrorFn;
-		initialHeapSize: INTEGER;
+		initialHeapSize*: INTEGER;
 		minHeapSize: INTEGER;
 		heapGrowPercent: INTEGER;
 		userdata*: Userdata
@@ -36,7 +40,17 @@ TYPE
 PROCEDURE [extern, "wrenInitConfiguration"] _wrenInitConfiguration(config: CPtr);
 PROCEDURE [extern, "wrenNewVM"] _wrenNewVM(config: CPtr): VM;
 PROCEDURE [extern, "wrenInterpret"] _wrenInterpret(vm: VM; modName, script: CString): InterpretResult;
+PROCEDURE [extern, "wrenGetVariable"] _wrenGetVariable(vm: VM; modName, varName: CString; slot: INTEGER);
+PROCEDURE [extern, "wrenMakeCallHandle"] _wrenMakeCallHandle(vm: VM; signature: CString): Handle;
+
 PROCEDURE [extern, "wrenFreeVM"] FreeVM*(vm: VM);
+PROCEDURE [extern, "wrenEnsureSlots"] EnsureSlots*(vm: VM; numSlots: INTEGER);
+
+PROCEDURE [extern, "wrenGetSlotDouble"] GetSlotDouble*(vm: VM; slot: INTEGER): REAL;
+PROCEDURE [extern, "wrenSetSlotDouble"] SetSlotDouble*(vm: VM; slot: INTEGER; value: REAL);
+PROCEDURE [extern, "wrenGetSlotHandle"] GetSlotHandle*(vm: VM; slot: INTEGER): Handle;
+PROCEDURE [extern, "wrenSetSlotHandle"] SetSlotHandle*(vm: VM; slot: INTEGER; handle: Handle);
+PROCEDURE [extern, "wrenCall"] Call*(vm: VM; handle: Handle): InterpretResult;
 
 
 PROCEDURE InitConfiguration*(VAR config: Configuration);
@@ -55,6 +69,18 @@ PROCEDURE Interpret*(vm: VM; modName, script: ARRAY OF CHAR): InterpretResult;
 BEGIN
 	RETURN _wrenInterpret(vm, SYSTEM.ADR(modName[0]), SYSTEM.ADR(script[0]))
 END Interpret;
+
+
+PROCEDURE GetVariable*(vm: VM; varName, script: ARRAY OF CHAR; slot: INTEGER);
+BEGIN
+	_wrenGetVariable(vm, SYSTEM.ADR(varName[0]), SYSTEM.ADR(script[0]), slot);
+END GetVariable;
+
+
+PROCEDURE MakeCallHandle*(vm: VM; signature: ARRAY OF CHAR): Handle;
+BEGIN
+	RETURN _wrenMakeCallHandle(vm, SYSTEM.ADR(signature[0]))
+END MakeCallHandle;
 
 
 END Wren.

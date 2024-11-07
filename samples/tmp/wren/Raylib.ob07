@@ -48,6 +48,7 @@ PROCEDURE [extern, "_LoadFont"] _LoadFont(fileName: ADDRESS; font: Font);
 PROCEDURE [extern, "_LoadFontEx"] _LoadFontEx(fileName: ADDRESS; font: Font; 
 	fontSize: INTEGER; codepoints: ADDRESS; coudepointsCount: INTEGER);
 
+PROCEDURE [extern, "GetFrameTime"] GetFrameTime*(): REAL;
 
 PROCEDURE InitWindow*(w, h: INTEGER; title: ARRAY OF CHAR);
 BEGIN 
