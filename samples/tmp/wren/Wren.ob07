@@ -5,6 +5,10 @@ CONST
 	RESULT_SUCCESS* = 0;
 	RESULT_COMPILE_ERROR* = 1;
 	RESULT_RUNTIME_ERROR* = 2;
+	
+	ERROR_COMPILE* = 0;
+	ERROR_RUNTIME* = 1;
+	ERROR_STACK_TRACE* = 2;
 
 TYPE
 	CString* = INTEGER;
@@ -15,15 +19,23 @@ TYPE
 	InterpretResult* = INTEGER;
 	
 	Function = CPtr;
+	
+	Userdata* = POINTER TO RECORD END;
+	
 	ForeignMethod* = PROCEDURE [ccall] (vm: VM);
+	
 	WriteFn* = PROCEDURE [ccall] (vm: VM; text: CString);
-	ErrorFn* = PROCEDURE [ccall];
+	
+	ErrorFn* = PROCEDURE [ccall] (vm: VM; errType: BYTE; modName: CString; 
+		line: INTEGER; message: CString);
+	
 	WrenForeignMethodFn* = PROCEDURE [ccall] (vm: VM; modName, 
 		className: CString; isStatic: BOOLEAN; signature: CString): ForeignMethod;
-	Userdata* = POINTER TO RECORD END;
-
+		
+	ReallocateFn* = PROCEDURE [ccall](memory: CPtr; newSize: INTEGER; userData: Userdata): CPtr;
+	
 	Configuration* = RECORD
-		reallocateFn: Function;
+		reallocateFn*: ReallocateFn;
 		resolveModuleFn: Function;
 		loadModuleFn: Function;
 		bindForeignMethodFn*: WrenForeignMethodFn;
