@@ -1,0 +1,56 @@
+MODULE TestArena;
+IMPORT SYSTEM, Arena;
+
+
+PROCEDURE RunTest1;
+CONST 
+	STEPS = 20;
+VAR
+	mem: Arena.Memory;
+	i, ptr: INTEGER;
+BEGIN
+	mem := Arena.NewMemory(0);
+	FOR i := 1 TO STEPS DO
+		ptr := Arena.Alloc(mem, i * 10);
+	END;
+	
+	Arena.Debug(mem);
+	
+END RunTest1;
+
+
+PROCEDURE PutData(addr, size: INTEGER; ch: CHAR);
+VAR 
+	i: INTEGER;
+BEGIN
+	WHILE i < size DO
+		SYSTEM.PUT8(addr + i, ch);
+		INC(i);
+	END;
+END PutData;
+
+
+PROCEDURE RunTest2;
+CONST 
+	STEPS = 5;
+VAR
+	mem: Arena.Memory;
+	i, ptr1, ptr2: INTEGER;
+BEGIN
+	mem := Arena.NewMemory(0);
+	FOR i := 1 TO STEPS DO
+		ptr1 := Arena.Alloc(mem, i * 5);
+		//ptr2 := Arena.Alloc(mem, i * 10);
+		PutData(ptr1, i * 5, '#');
+		ptr1 := Arena.Realloc(mem, ptr1, i * 10);
+		ptr1 := Arena.Realloc(mem, ptr1, i * 15);
+	END;
+	
+	Arena.Debug(mem);
+	
+END RunTest2;
+
+BEGIN
+	//RunTest1();
+	RunTest2();
+END TestArena.

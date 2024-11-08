@@ -1,23 +1,14 @@
 MODULE HelloWren;
 IMPORT SYSTEM, 
 	Out := Out_sys,
-	Files, 
+	Files,
+	Arena IN "./Arena.ob07",
 	Wren IN "./Wren.ob07";
 
 
 CONST
 	NULL = 0;
-	//MEM_SIZE = 10 * 1024 * 1024;
 
-TYPE
-	Memory = POINTER TO RECORD(Wren.Userdata)
-		//data: ARRAY MEM_SIZE OF BYTE;
-		total, offset: INTEGER
-	END;
-
-PROCEDURE [extern, "malloc"] malloc(size: INTEGER): INTEGER;
-PROCEDURE [extern, "realloc"] realloc(ptr, size: INTEGER): INTEGER;
-PROCEDURE [extern, "free"] free(ptr: INTEGER);
 
 PROCEDURE GetStringFromPtr(textPtr: Wren.CString; VAR text: ARRAY OF CHAR);
 VAR
@@ -52,24 +43,35 @@ BEGIN
 END ErrorFn;
 
 
-PROCEDURE [ccall] ReallocateFn(memory: Wren.CPtr; newSize: INTEGER; userData: Wren.Userdata): Wren.CPtr;
+PROCEDURE [ccall] ReallocateFn(addr: Wren.CPtr; newSize: INTEGER; userData: Wren.Userdata): Wren.CPtr;
 VAR
-	mem: Memory;
-	memoryAddr, dataAddr: Wren.CPtr;
+	mem: Arena.Memory;
 BEGIN
-	mem := userData(Memory);
-	IF memory = NULL THEN // alloc
-		memory := malloc(newSize);
-		INC(mem.total, newSize);
+	mem := userData(Arena.Memory);
+	IF mem.pcount = 6495 THEN
+		Out.String("mem offset: "); Out.Int(mem.offset, 0); Out.Ln;
+		//RAISE(-1); // unknown
+	END;
+	
+	IF addr = NULL THEN // alloc
+		//Out.String("alloc: "); Out.Int(newSize, 0); Out.Ln;
+		addr := Arena.Alloc(mem, newSize);
+		//memory := malloc(newSize);
+		INC(mem.offset, newSize);
 	ELSE
 		IF newSize # 0 THEN // realloc
-			memory := realloc(memory, newSize);
-			INC(mem.total, newSize);
+			//Out.String("realloc: "); Out.Int(newSize, 0); Out.Ln;
+			addr := Arena.Realloc(mem, addr, newSize);
+			//memory := realloc(memory, newSize);
+			INC(mem.offset, newSize);
 		ELSE // free
-			free(memory);
+			//Out.String("free: "); Out.Int(newSize, 0); Out.Ln;
+			//Arena.Free(mem, memory);
+			//free(memory);
+			addr := NULL;
 		END;
 	END;
-	RETURN memory
+	RETURN addr
 END ReallocateFn;
 
 
@@ -83,10 +85,10 @@ VAR
 	script: ARRAY FILE_SIZE OF CHAR;
 	scriptFile: Files.File;
 	scriptSize: INTEGER;
-	mem: Memory;
+	mem: Arena.Memory;
 BEGIN
 
-	NEW(mem);
+	mem := Arena.NewMemory(0);
 	Wren.InitConfiguration(config);
 	config.writeFn := WriteFn;
 	config.errorFn := ErrorFn;
@@ -98,10 +100,10 @@ BEGIN
 	ASSERT(vm # NULL);
 	
 	// Loading file
-	scriptFile := Files.Open("skynet.wren", Files.OPEN_R);
+	scriptFile := Files.Open("hello.wren", Files.OPEN_R);
 	ASSERT(scriptFile # NULL);
 	scriptSize := Files.Read(scriptFile, script, FILE_SIZE);
-	ASSERT(scriptSize > 0);
+	//ASSERT(scriptSize > 0);
 	Files.Close(scriptFile);
 	
 	result := Wren.Interpret(vm, "main", script);
@@ -109,7 +111,7 @@ BEGIN
 	
 	Wren.FreeVM(vm);
 	
-	Out.String("total memory: "); Out.Int(mem.total, 0); Out.Ln;
+	Out.String("total memory: "); Out.Int(mem.offset, 0); Out.Ln;
 	
 END main;
 

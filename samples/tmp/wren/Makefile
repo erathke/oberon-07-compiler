@@ -19,15 +19,22 @@ exe: $(OBJC) $(OBJO)
 lib/glue.o: $(SRCC)
 	$(CC) $(CFLAGS) -c $^ -o $@ -I$(INCLUDE)
 
-lib/HelloGui.xo: $(SRCO)
+lib/%.xo: %.ob07
 	$(OBC) $^ linux32o -out $@ $(DEF) $(OPTS)
 
-lib/HelloWren.xo: HelloWren.ob07
-	$(OBC) $^ linux32o -out $@ $(DEF) $(OPTS)
+#lib/HelloWren.xo: HelloWren.ob07
+#	$(OBC) $^ linux32o -out $@ $(DEF) $(OPTS)
 
 wren: lib/HelloWren.xo
 	@mkdir -p $(BINDIR)
 	$(CC) $(CFLAGS) -o $(BINDIR)/HelloWren $^ ./lib/libwren-i686.a -lm
+	
+arena: lib/TestArena.xo
+	@mkdir -p $(BINDIR)
+	$(CC) $(CFLAGS) -o $(BINDIR)/TestArena $^ ./lib/libwren-i686.a -lm
 
 clean:
 	$(RM) $(EXE) $(OBJC) $(OBJO)
+
+wipe:
+	$(RM) $(BINDIR)/* lib/*.xo
