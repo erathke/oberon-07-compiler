@@ -1,5 +1,5 @@
 MODULE TestArena;
-IMPORT SYSTEM, Arena, Out := Out_sys;
+IMPORT SYSTEM, Arena, Out := Out_sys, H := Hashtable;
 
 
 PROCEDURE RunTest1;
@@ -97,8 +97,43 @@ BEGIN
 END RunTest3;
 
 
+PROCEDURE RunTest4();
+CONST
+	BUCKETS = 10;
+	ITEMS = 25;
+TYPE
+	AddrData = POINTER TO RECORD(H.Data)
+		addr: INTEGER
+	END;
+VAR
+	hash: H.Hashtable;
+	i: INTEGER;
+	data: AddrData;
+	hdata: H.Data;
 BEGIN
-	//RunTest1();
-	//RunTest2();
+	hash := H.Create(BUCKETS);
+	FOR i := 0 TO ITEMS - 1 DO
+		NEW(data);
+		data.addr := i;
+		H.Set(hash, i, data);
+	END;
+	
+	H.Print(hash);
+	
+	FOR i := 0 TO ITEMS - 1 DO
+		hdata := H.Get(hash, i);
+		ASSERT(hdata # NIL);
+		data := hdata(AddrData);
+		ASSERT(data.addr = i);
+	END;
+	
+	
+END RunTest4;
+
+
+BEGIN
+	RunTest1();
+	RunTest2();
 	RunTest3();
+	RunTest4();
 END TestArena.

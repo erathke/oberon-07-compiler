@@ -1,0 +1,139 @@
+MODULE Hashtable;
+IMPORT SYSTEM, Out := Out_sys;
+
+TYPE
+	Data* = POINTER TO RECORD END;
+	
+	Item = POINTER TO ItemDesc;
+	ItemDesc = RECORD
+		key: INTEGER;
+		value: Data;
+		next: Item
+	END;
+	
+	Bucket = POINTER TO BucketDesc;
+	BucketDesc = RECORD
+		next: Bucket;
+		values: Item;
+		count: INTEGER
+	END;
+	
+	Hashtable* = POINTER TO RECORD
+		head: Bucket;
+		size: INTEGER
+	END;
+
+
+PROCEDURE Create*(buckets: INTEGER): Hashtable;
+VAR
+	hash: Hashtable;
+	b1, b2: Bucket;
+	i: INTEGER;
+BEGIN
+	ASSERT(buckets >= 1);
+	NEW(hash);
+	hash.size := buckets;
+	NEW(hash.head);
+	
+	b1 := hash.head;
+	FOR i := 2 TO buckets DO
+		NEW(b2);
+		b1.next := b2;
+		b1 := b2;
+		b2 := b2.next;
+	END;
+
+	RETURN hash
+END Create; 
+
+
+PROCEDURE Set*(hash: Hashtable; key: INTEGER; value: Data);
+VAR
+	hv, idx, i: INTEGER;
+	b: Bucket;
+	item, pitem: Item;
+BEGIN
+	hv := key; // TODO: hash function
+	idx := hv MOD hash.size;
+	b := hash.head;
+	IF idx > 0 THEN
+		i := 0;
+		b := hash.head;
+		WHILE i < idx DO
+			INC(i);
+			b := b.next;
+		END;
+	END;
+	
+	item := b.values;
+	IF item = NIL THEN
+		NEW(item);
+		item.key := key;
+		item.value := value;
+		b.values := item;
+	ELSE
+		WHILE item # NIL DO
+			pitem := item;
+			item := item.next;
+		END;
+		NEW(item);
+		item.key := key;
+		item.value := value;
+		pitem.next := item;
+	END;
+	INC(b.count);
+	
+END Set;
+
+
+PROCEDURE Get*(hash: Hashtable; key: INTEGER): Data;
+VAR
+	value: Data;
+	hv, idx, i: INTEGER;
+	b: Bucket;
+	item: Item;
+	found: BOOLEAN;
+BEGIN
+	hv := key; // TODO: hash function
+	idx := hv MOD hash.size;
+	
+	b := hash.head;
+	IF idx > 0 THEN
+		i := 0;
+		b := hash.head;
+		WHILE i < idx DO
+			INC(i);
+			b := b.next;
+		END;
+	END;
+	item := b.values;
+	IF item # NIL THEN
+		WHILE (item # NIL) & (~ found) DO
+			IF item.key = key THEN
+				found := TRUE;
+				value := item.value;
+			END;
+			item := item.next;
+		END;
+	END;
+	
+	RETURN value
+END Get;
+
+PROCEDURE Print*(hash: Hashtable);
+VAR
+	b: Bucket;
+	i: INTEGER;
+BEGIN
+	b := hash.head;
+	WHILE b # NIL DO
+		Out.String("bucket["); Out.Int(i, 0);
+		Out.String("]: "); Out.Int(b.count, 0);
+		Out.Ln;
+		b := b.next;
+		INC(i);
+	END;
+	
+END Print;
+
+END Hashtable.

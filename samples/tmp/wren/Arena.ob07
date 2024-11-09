@@ -141,7 +141,7 @@ BEGIN
 	WHILE i < p.size DO
 		SYSTEM.GET8(p.addr + i, ch);
 		IF ch = 0X THEN Out.Char('.')
-		ELSE Out.Char(ch); END;
+		ELSE Out.Char('#'); END;
 		INC(i);
 	END;
 END DebugData;
