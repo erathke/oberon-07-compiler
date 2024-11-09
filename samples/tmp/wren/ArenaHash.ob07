@@ -1,0 +1,156 @@
+MODULE ArenaHash;
+IMPORT SYSTEM, Wren, Out := Out_sys, H := Hashtable;
+
+CONST
+	OP_ALLOC = 'a';
+	OP_REALLOC = 'r';
+	OP_FREE = 'f';
+
+TYPE
+	Pointer = POINTER TO RECORD (H.Data)
+		addr, size: INTEGER;
+		next: Pointer;
+		op: CHAR
+	END;
+
+	Memory* = POINTER TO RECORD(Wren.Userdata)
+		size: INTEGER;
+		offset*: INTEGER;
+		pcount*: INTEGER;
+		table: H.Hashtable;
+		data: INTEGER
+	END;
+
+PROCEDURE [extern, "malloc"] malloc(size: INTEGER): INTEGER;
+//PROCEDURE [extern, "realloc"] realloc(ptr, size: INTEGER): INTEGER;
+PROCEDURE [extern, "free"] free(ptr: INTEGER);
+
+
+PROCEDURE Create*(size: INTEGER): Memory;
+VAR
+	mem: Memory;
+BEGIN
+	NEW(mem);
+	mem.size := size;
+	mem.data := malloc(size);
+	mem.table := H.Create(64);
+	RETURN mem
+END Create;
+
+
+PROCEDURE Destroy*(mem: Memory);
+BEGIN
+	free(mem.data);
+	DISPOSE(mem);
+END Destroy;
+
+
+PROCEDURE DoAlloc(mem: Memory; VAR p: Pointer; size: INTEGER; op: CHAR);
+CONST 
+	MEM_ALIGN = 16;
+BEGIN 
+	p.size := size + MEM_ALIGN;
+	
+	p.addr := mem.data + mem.offset + MEM_ALIGN;
+	p.op := op;
+	INC(mem.offset, size);
+	INC(mem.pcount);
+	
+	H.Set(mem.table, p.addr, p);
+END DoAlloc;
+
+
+PROCEDURE Alloc*(mem: Memory; size: INTEGER): INTEGER;
+VAR
+	pnew: Pointer;
+BEGIN
+	//IF mem.offset >= mem.size THEN
+	//	RAISE(-1); // Out of memory
+	//END;
+	NEW(pnew); // put memory on itself?
+	DoAlloc(mem, pnew, size, OP_ALLOC);
+	RETURN pnew.addr
+END Alloc;
+
+
+PROCEDURE CopyData(mem: Memory; fromPtr, toPtr: Pointer);
+BEGIN
+	SYSTEM.MOVE(fromPtr.addr, toPtr.addr, fromPtr.size);
+END CopyData;
+
+
+PROCEDURE DoFree(mem: Memory; VAR p: Pointer);
+BEGIN
+	p.op := 'f';
+END DoFree;
+
+
+PROCEDURE Free*(mem: Memory; addr: INTEGER);
+VAR
+	p: Pointer;
+	d: H.Data;
+BEGIN
+	d := H.Get(mem.table, addr);
+	p := d(Pointer);
+	//ASSERT(p # NIL);
+	DoFree(mem, p);
+END Free;
+
+
+PROCEDURE Realloc*(mem: Memory; addr: INTEGER; newSize: INTEGER): INTEGER;
+VAR
+	pOld, pNew: Pointer;
+	d: H.Data;
+BEGIN
+	d := H.Get(mem.table, addr);
+	pOld := d(Pointer);
+	ASSERT(pOld # NIL);
+	
+	NEW(pNew);
+	DoAlloc(mem, pNew, newSize, OP_REALLOC);
+	CopyData(mem, pOld, pNew);
+	DoFree(mem, pOld);
+		
+	RETURN pNew.addr
+END Realloc;
+
+
+PROCEDURE DebugData(p: Pointer);
+VAR 
+	i: INTEGER;
+	ch: CHAR;
+BEGIN
+	WHILE i < p.size DO
+		SYSTEM.GET8(p.addr + i, ch);
+		IF ch = 0X THEN Out.Char('.')
+		ELSE Out.Char('#'); END;
+		INC(i);
+	END;
+END DebugData;
+
+
+PROCEDURE Debug*(mem: Memory);
+VAR
+	p: Pointer;
+	addr: INTEGER;
+BEGIN
+	addr := mem.data;
+	Out.String("Start: "); Out.Int(addr, 0); Out.Ln;
+	H.Print(mem.table);
+	(*
+	p := mem.head;
+	WHILE p # NIL DO
+		Out.String("["); Out.Char(p.op);
+		Out.String(", "); Out.Int(p.addr, 0);
+		Out.String(", "); Out.Int(p.size, 0);
+		Out.String(", "); DebugData(p);
+		Out.String("]"); Out.Ln;
+		p := p.next;
+	END;
+	*)
+	addr := mem.data + mem.offset;
+	Out.String("End: "); Out.Int(addr, 0); Out.Ln;
+END Debug;
+
+
+END ArenaHash.

@@ -1,5 +1,5 @@
 MODULE TestArena;
-IMPORT SYSTEM, Arena, Out := Out_sys, H := Hashtable;
+IMPORT SYSTEM, Arena := ArenaHash, Out := Out_sys, H := Hashtable;
 
 
 PROCEDURE RunTest1;

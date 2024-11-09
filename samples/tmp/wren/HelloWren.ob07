@@ -2,7 +2,7 @@ MODULE HelloWren;
 IMPORT SYSTEM, 
 	Out := Out_sys,
 	Files,
-	Arena IN "./Arena.ob07",
+	Arena IN "./ArenaHash.ob07",
 	Wren IN "./Wren.ob07";
 
 
@@ -55,18 +55,18 @@ BEGIN
 	mem := userData(Arena.Memory);
 	
 	IF addr = NULL THEN // alloc
-		//addr := Arena.Alloc(mem, newSize);
-		addr := malloc(newSize);
-		INC(mem.offset, newSize);
+		addr := Arena.Alloc(mem, newSize);
+		//addr := malloc(newSize);
+		//INC(mem.offset, newSize);
 	ELSE
 		IF newSize # 0 THEN // realloc
-			//addr := Arena.Realloc(mem, addr, newSize);
-			addr := realloc(addr, newSize);
-			INC(mem.offset, newSize);
+			addr := Arena.Realloc(mem, addr, newSize);
+			//addr := realloc(addr, newSize);
+			//INC(mem.offset, newSize);
 		ELSE // free
-			//Arena.Free(mem, addr);
+			Arena.Free(mem, addr);
 			//addr := NULL;
-			free(addr);
+			//free(addr);
 		END;
 	END;
 	RETURN addr
