@@ -2,43 +2,58 @@ MODULE Arena;
 IMPORT SYSTEM, Wren, Out := Out_sys;
 
 CONST
-	MEM_SIZE = 512 * 1024;
+	OP_ALLOC = 'a';
+	OP_REALLOC = 'r';
+	OP_FREE = 'f';
 
 TYPE
 	Pointer = POINTER TO RECORD
 		addr, size: INTEGER;
-		next: Pointer
+		next: Pointer;
+		op: CHAR
 	END;
 
 	Memory* = POINTER TO RECORD(Wren.Userdata)
+		size: INTEGER;
 		offset*: INTEGER;
 		pcount*: INTEGER;
 		head, tail: Pointer;
-		data: ARRAY MEM_SIZE OF BYTE
+		data: INTEGER
 	END;
 
+PROCEDURE [extern, "malloc"] malloc(size: INTEGER): INTEGER;
+//PROCEDURE [extern, "realloc"] realloc(ptr, size: INTEGER): INTEGER;
+PROCEDURE [extern, "free"] free(ptr: INTEGER);
 
-PROCEDURE NewMemory*(size: INTEGER): Memory;
+
+PROCEDURE Create*(size: INTEGER): Memory;
 VAR
 	mem: Memory;
 BEGIN
 	NEW(mem);
+	mem.size := size;
+	mem.data := malloc(size);
 	mem.head := NIL;
 	mem.tail := NIL;
 	RETURN mem
-END NewMemory;
+END Create;
 
 
-PROCEDURE Alloc*(mem: Memory; size: INTEGER): INTEGER;
-VAR
-	p: Pointer;
+PROCEDURE Destroy*(mem: Memory);
 BEGIN
-	IF mem.offset >= MEM_SIZE THEN
-		RAISE(-1); // Out of memory
-	END;
-	NEW(p); // put memory on itself?
-	p.size := size;
-	p.addr := SYSTEM.ADR(mem.data[mem.offset]);
+	free(mem.data);
+	DISPOSE(mem);
+END Destroy;
+
+
+PROCEDURE DoAlloc(mem: Memory; VAR p: Pointer; size: INTEGER; op: CHAR);
+CONST 
+	MEM_ALIGN = 16;
+BEGIN 
+	p.size := size + MEM_ALIGN;
+	
+	p.addr := mem.data + mem.offset + MEM_ALIGN;
+	p.op := op;
 	INC(mem.offset, size);
 	INC(mem.pcount);
 	IF mem.pcount = 1 THEN // first
@@ -48,21 +63,31 @@ BEGIN
 		mem.tail.next := p;
 		mem.tail := mem.tail.next;
 	END;
-	RETURN p.addr
+END DoAlloc;
+
+
+PROCEDURE Alloc*(mem: Memory; size: INTEGER): INTEGER;
+VAR
+	pnew: Pointer;
+BEGIN
+	//IF mem.offset >= mem.size THEN
+	//	RAISE(-1); // Out of memory
+	//END;
+	NEW(pnew); // put memory on itself?
+	DoAlloc(mem, pnew, size, OP_ALLOC);
+	RETURN pnew.addr
 END Alloc;
 
 
 PROCEDURE CopyData(mem: Memory; fromPtr, toPtr: Pointer);
 BEGIN
-	
 	SYSTEM.MOVE(fromPtr.addr, toPtr.addr, fromPtr.size);
-	
 END CopyData;
 
 
-PROCEDURE Realloc*(mem: Memory; addr: INTEGER; newSize: INTEGER): INTEGER;
+PROCEDURE FindByAddr(mem: Memory; addr: INTEGER; VAR b: Pointer);
 VAR
-	p, b: Pointer;
+	p: Pointer;
 	found : BOOLEAN;
 BEGIN
 	p := mem.head;
@@ -73,19 +98,39 @@ BEGIN
 		b := p;
 		p := p.next;
 	END;
-	ASSERT(b # NIL);
-	
-	addr := Alloc(mem, newSize);
-	CopyData(mem, b, mem.tail);
-	
-	RETURN addr
-END Realloc;
+END FindByAddr;
 
 
-PROCEDURE Free*(mem: Memory; ptr: INTEGER);
+PROCEDURE DoFree(mem: Memory; VAR p: Pointer);
 BEGIN
-	
+	p.op := 'f';
+END DoFree;
+
+
+PROCEDURE Free*(mem: Memory; addr: INTEGER);
+VAR
+	p: Pointer;
+BEGIN
+	FindByAddr(mem, addr, p);
+	//ASSERT(p # NIL);
+	DoFree(mem, p);
 END Free;
+
+
+PROCEDURE Realloc*(mem: Memory; addr: INTEGER; newSize: INTEGER): INTEGER;
+VAR
+	pOld, pNew: Pointer;
+BEGIN
+	FindByAddr(mem, addr, pOld);
+	//ASSERT(pOld # NIL);
+	
+	NEW(pNew);
+	DoAlloc(mem, pNew, newSize, OP_REALLOC);
+	CopyData(mem, pOld, pNew);
+	DoFree(mem, pOld);
+		
+	RETURN pNew.addr
+END Realloc;
 
 
 PROCEDURE DebugData(p: Pointer);
@@ -105,25 +150,22 @@ END DebugData;
 PROCEDURE Debug*(mem: Memory);
 VAR
 	p: Pointer;
-	start: INTEGER;
+	addr: INTEGER;
 BEGIN
-	start := SYSTEM.ADR(mem.data[0]);
-	Out.String("Start: "); Out.Int(start, 0); Out.Ln;
+	addr := mem.data;
+	Out.String("Start: "); Out.Int(addr, 0); Out.Ln;
 	p := mem.head;
 	WHILE p # NIL DO
-		Out.String("["); Out.Int(p.addr, 0);
+		Out.String("["); Out.Char(p.op);
+		Out.String(", "); Out.Int(p.addr, 0);
 		Out.String(", "); Out.Int(p.size, 0);
 		Out.String(", "); DebugData(p);
 		Out.String("]"); Out.Ln;
 		p := p.next;
 	END;
-	start := SYSTEM.ADR(mem.data[mem.offset]);
-	Out.String("End: "); Out.Int(start, 0); Out.Ln;
+	addr := mem.data + mem.offset;
+	Out.String("End: "); Out.Int(addr, 0); Out.Ln;
 END Debug;
 
-
-//PROCEDURE [extern, "malloc"] malloc(size: INTEGER): INTEGER;
-//PROCEDURE [extern, "realloc"] realloc(ptr, size: INTEGER): INTEGER;
-//PROCEDURE [extern, "free"] free(ptr: INTEGER);
 
 END Arena.

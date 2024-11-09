@@ -1,20 +1,23 @@
 MODULE TestArena;
-IMPORT SYSTEM, Arena;
+IMPORT SYSTEM, Arena, Out := Out_sys;
 
 
 PROCEDURE RunTest1;
 CONST 
 	STEPS = 20;
+	MEM_SIZE = 512 * 1024;
 VAR
 	mem: Arena.Memory;
 	i, ptr: INTEGER;
 BEGIN
-	mem := Arena.NewMemory(0);
+	Out.String("------------------------------------------------"); Out.Ln;
+	mem := Arena.Create(MEM_SIZE);
 	FOR i := 1 TO STEPS DO
-		ptr := Arena.Alloc(mem, i * 10);
+		ptr := Arena.Alloc(mem, i * 2);
 	END;
 	
 	Arena.Debug(mem);
+	Arena.Destroy(mem);
 	
 END RunTest1;
 
@@ -33,24 +36,69 @@ END PutData;
 PROCEDURE RunTest2;
 CONST 
 	STEPS = 5;
+	MEM_SIZE = 512 * 1024;
 VAR
 	mem: Arena.Memory;
 	i, ptr1, ptr2: INTEGER;
 BEGIN
-	mem := Arena.NewMemory(0);
+	Out.String("------------------------------------------------"); Out.Ln;
+	mem := Arena.Create(MEM_SIZE);
 	FOR i := 1 TO STEPS DO
 		ptr1 := Arena.Alloc(mem, i * 5);
-		//ptr2 := Arena.Alloc(mem, i * 10);
 		PutData(ptr1, i * 5, '#');
-		ptr1 := Arena.Realloc(mem, ptr1, i * 10);
-		ptr1 := Arena.Realloc(mem, ptr1, i * 15);
+		ptr2 := Arena.Realloc(mem, ptr1, i * 10);
+		ptr2 := Arena.Realloc(mem, ptr2, i * 15);
+	END;
+	
+	Arena.Debug(mem);
+	Arena.Destroy(mem);
+	
+END RunTest2;
+
+
+PROCEDURE RunTest3;
+CONST 
+	STEPS = 5;
+	MEM_SIZE = 1024;
+TYPE
+	Point = POINTER TO PointDesc;
+	PointDesc = RECORD
+		x, y: INTEGER
+	END;
+VAR
+	mem: Arena.Memory;
+	i, ptr: INTEGER;
+	dataSize: INTEGER;
+	points: ARRAY STEPS OF Point;
+	p: Point;
+BEGIN
+	Out.String("------------------------------------------------"); Out.Ln;
+	dataSize := SYSTEM.SIZE(PointDesc);
+	mem := Arena.Create(MEM_SIZE);
+	FOR i := 0 TO STEPS - 1 DO
+		ptr := Arena.Alloc(mem, dataSize);
+		p := SYSTEM.VAL(ptr, Point);
+		p.x := i + 10000000;
+		p.y := (i + 10000000) * 2;
+		points[i] := p;
 	END;
 	
 	Arena.Debug(mem);
 	
-END RunTest2;
+	FOR i := 0 TO STEPS - 1 DO
+		p := points[i];
+		Out.String("p["); Out.Int(i, 0); 
+		Out.String("] = x: "); Out.Int(p.x, 0); 
+		Out.String(", y: "); Out.Int(p.y, 0); 
+		Out.Ln; 
+	END;
+	Arena.Destroy(mem);
+	
+END RunTest3;
+
 
 BEGIN
 	//RunTest1();
-	RunTest2();
+	//RunTest2();
+	RunTest3();
 END TestArena.

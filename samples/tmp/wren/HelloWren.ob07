@@ -8,7 +8,12 @@ IMPORT SYSTEM,
 
 CONST
 	NULL = 0;
+	MEM_SIZE = 512 * 1024;
 
+
+PROCEDURE [extern, "malloc"] malloc(size: INTEGER): INTEGER;
+PROCEDURE [extern, "realloc"] realloc(ptr, size: INTEGER): INTEGER;
+PROCEDURE [extern, "free"] free(ptr: INTEGER);
 
 PROCEDURE GetStringFromPtr(textPtr: Wren.CString; VAR text: ARRAY OF CHAR);
 VAR
@@ -48,27 +53,20 @@ VAR
 	mem: Arena.Memory;
 BEGIN
 	mem := userData(Arena.Memory);
-	IF mem.pcount = 6495 THEN
-		Out.String("mem offset: "); Out.Int(mem.offset, 0); Out.Ln;
-		//RAISE(-1); // unknown
-	END;
 	
 	IF addr = NULL THEN // alloc
-		//Out.String("alloc: "); Out.Int(newSize, 0); Out.Ln;
-		addr := Arena.Alloc(mem, newSize);
-		//memory := malloc(newSize);
+		//addr := Arena.Alloc(mem, newSize);
+		addr := malloc(newSize);
 		INC(mem.offset, newSize);
 	ELSE
 		IF newSize # 0 THEN // realloc
-			//Out.String("realloc: "); Out.Int(newSize, 0); Out.Ln;
-			addr := Arena.Realloc(mem, addr, newSize);
-			//memory := realloc(memory, newSize);
+			//addr := Arena.Realloc(mem, addr, newSize);
+			addr := realloc(addr, newSize);
 			INC(mem.offset, newSize);
 		ELSE // free
-			//Out.String("free: "); Out.Int(newSize, 0); Out.Ln;
-			//Arena.Free(mem, memory);
-			//free(memory);
-			addr := NULL;
+			//Arena.Free(mem, addr);
+			//addr := NULL;
+			free(addr);
 		END;
 	END;
 	RETURN addr
@@ -88,7 +86,7 @@ VAR
 	mem: Arena.Memory;
 BEGIN
 
-	mem := Arena.NewMemory(0);
+	mem := Arena.Create(MEM_SIZE);
 	Wren.InitConfiguration(config);
 	config.writeFn := WriteFn;
 	config.errorFn := ErrorFn;
@@ -103,7 +101,6 @@ BEGIN
 	scriptFile := Files.Open("hello.wren", Files.OPEN_R);
 	ASSERT(scriptFile # NULL);
 	scriptSize := Files.Read(scriptFile, script, FILE_SIZE);
-	//ASSERT(scriptSize > 0);
 	Files.Close(scriptFile);
 	
 	result := Wren.Interpret(vm, "main", script);
@@ -111,7 +108,9 @@ BEGIN
 	
 	Wren.FreeVM(vm);
 	
-	Out.String("total memory: "); Out.Int(mem.offset, 0); Out.Ln;
+	Out.String("total memory: "); Out.Int(mem.offset, 0);
+	Out.String(", count: "); Out.Int(mem.pcount, 0);
+	Out.Ln;
 	
 END main;
 
