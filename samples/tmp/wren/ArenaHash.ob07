@@ -131,23 +131,11 @@ END DebugData;
 
 PROCEDURE Debug*(mem: Memory);
 VAR
-	p: Pointer;
 	addr: INTEGER;
 BEGIN
 	addr := mem.data;
 	Out.String("Start: "); Out.Int(addr, 0); Out.Ln;
 	H.Print(mem.table);
-	(*
-	p := mem.head;
-	WHILE p # NIL DO
-		Out.String("["); Out.Char(p.op);
-		Out.String(", "); Out.Int(p.addr, 0);
-		Out.String(", "); Out.Int(p.size, 0);
-		Out.String(", "); DebugData(p);
-		Out.String("]"); Out.Ln;
-		p := p.next;
-	END;
-	*)
 	addr := mem.data + mem.offset;
 	Out.String("End: "); Out.Int(addr, 0); Out.Ln;
 END Debug;

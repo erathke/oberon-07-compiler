@@ -56,21 +56,38 @@ BEGIN
 	
 	IF addr = NULL THEN // alloc
 		addr := Arena.Alloc(mem, newSize);
-		//addr := malloc(newSize);
-		//INC(mem.offset, newSize);
 	ELSE
 		IF newSize # 0 THEN // realloc
 			addr := Arena.Realloc(mem, addr, newSize);
-			//addr := realloc(addr, newSize);
-			//INC(mem.offset, newSize);
 		ELSE // free
 			Arena.Free(mem, addr);
-			//addr := NULL;
-			//free(addr);
+			addr := NULL;
 		END;
 	END;
 	RETURN addr
 END ReallocateFn;
+
+
+PROCEDURE [ccall] OSReallocateFn(addr: Wren.CPtr; newSize: INTEGER; userData: Wren.Userdata): Wren.CPtr;
+VAR
+	mem: Arena.Memory;
+BEGIN
+	mem := userData(Arena.Memory);
+	
+	IF addr = NULL THEN // alloc
+		addr := malloc(newSize);
+		INC(mem.offset, newSize);
+	ELSE
+		IF newSize # 0 THEN // realloc
+			addr := realloc(addr, newSize);
+			INC(mem.offset, newSize);
+		ELSE // free
+			free(addr);
+			addr := NULL;
+		END;
+	END;
+	RETURN addr
+END OSReallocateFn;
 
 
 PROCEDURE main();
@@ -90,6 +107,7 @@ BEGIN
 	Wren.InitConfiguration(config);
 	config.writeFn := WriteFn;
 	config.errorFn := ErrorFn;
+	//config.reallocateFn := OSReallocateFn;
 	config.reallocateFn := ReallocateFn;
 	config.userdata := mem;
 	//config.initialHeapSize := 20 * 1024 * 1024;

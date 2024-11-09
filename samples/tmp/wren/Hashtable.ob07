@@ -120,6 +120,7 @@ BEGIN
 	RETURN value
 END Get;
 
+
 PROCEDURE Print*(hash: Hashtable);
 VAR
 	b: Bucket;
