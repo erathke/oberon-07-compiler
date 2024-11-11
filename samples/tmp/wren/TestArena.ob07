@@ -111,6 +111,7 @@ VAR
 	data: AddrData;
 	hdata: H.Data;
 BEGIN
+	Out.String("------------------------------------------------"); Out.Ln;
 	hash := H.Create(BUCKETS);
 	FOR i := 0 TO ITEMS - 1 DO
 		NEW(data);
@@ -131,9 +132,47 @@ BEGIN
 END RunTest4;
 
 
+PROCEDURE RunTest5();
+CONST
+	BUCKETS = 10;
+	ITEMS = 30;
+TYPE
+	AddrData = POINTER TO RECORD(H.Data)
+		addr: INTEGER
+	END;
+VAR
+	hash: H.Hashtable;
+	i, j: INTEGER;
+	data: AddrData;
+	hdata: H.Data;
 BEGIN
-	RunTest1();
-	RunTest2();
-	RunTest3();
-	RunTest4();
+	Out.String("------------------------------------------------"); Out.Ln;
+	hash := H.Create(BUCKETS);
+	FOR i := 0 TO ITEMS - 1 DO
+		NEW(data);
+		data.addr := i;
+		H.Set(hash, i, data);
+	END;
+	
+	H.Print(hash);
+	
+	j := ITEMS DIV 2;
+	FOR i := 0 TO j DO
+		IF i MOD 2 = 0 THEN
+			hdata := H.Delete(hash, i);
+			ASSERT(hdata # NIL);
+		END;
+	END;
+	Out.String("==================="); Out.Ln;
+	H.Print(hash);
+	
+END RunTest5;
+
+
+BEGIN
+	//RunTest1();
+	//RunTest2();
+	//RunTest3();
+	//RunTest4();
+	RunTest5();
 END TestArena.

@@ -4,7 +4,6 @@ IMPORT SYSTEM, Wren, Out := Out_sys, H := Hashtable;
 CONST
 	OP_ALLOC = 'a';
 	OP_REALLOC = 'r';
-	OP_FREE = 'f';
 
 TYPE
 	Pointer = POINTER TO RECORD (H.Data)
@@ -64,9 +63,6 @@ PROCEDURE Alloc*(mem: Memory; size: INTEGER): INTEGER;
 VAR
 	pnew: Pointer;
 BEGIN
-	//IF mem.offset >= mem.size THEN
-	//	RAISE(-1); // Out of memory
-	//END;
 	NEW(pnew); // put memory on itself?
 	DoAlloc(mem, pnew, size, OP_ALLOC);
 	RETURN pnew.addr
@@ -78,22 +74,10 @@ BEGIN
 	SYSTEM.MOVE(fromPtr.addr, toPtr.addr, fromPtr.size);
 END CopyData;
 
-
-PROCEDURE DoFree(mem: Memory; VAR p: Pointer);
-BEGIN
-	p.op := 'f';
-END DoFree;
-
-
 PROCEDURE Free*(mem: Memory; addr: INTEGER);
-VAR
-	p: Pointer;
-	d: H.Data;
 BEGIN
-	d := H.Get(mem.table, addr);
-	p := d(Pointer);
-	//ASSERT(p # NIL);
-	DoFree(mem, p);
+	DEC(mem.pcount);
+	H.Delete(mem.table, addr);
 END Free;
 
 
@@ -109,7 +93,7 @@ BEGIN
 	NEW(pNew);
 	DoAlloc(mem, pNew, newSize, OP_REALLOC);
 	CopyData(mem, pOld, pNew);
-	DoFree(mem, pOld);
+	H.Delete(mem.table, pOld.addr);
 		
 	RETURN pNew.addr
 END Realloc;

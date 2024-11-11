@@ -15,7 +15,7 @@ CONST
 
     BIT_DEPTH* = (ORD(LSL(1, 31) > 0) + 1) * 32;
 
-    MEM_SIZE = 2 * 1024 * 1024;
+    MEM_SIZE = 10 * 1024 * 1024;
 
 TYPE
 

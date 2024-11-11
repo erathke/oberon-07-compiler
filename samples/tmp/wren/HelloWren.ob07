@@ -8,7 +8,7 @@ IMPORT SYSTEM,
 
 CONST
 	NULL = 0;
-	MEM_SIZE = 512 * 1024;
+	MEM_SIZE = 10 * 1024 * 1024;
 
 
 PROCEDURE [extern, "malloc"] malloc(size: INTEGER): INTEGER;
@@ -116,7 +116,7 @@ BEGIN
 	ASSERT(vm # NULL);
 	
 	// Loading file
-	scriptFile := Files.Open("hello.wren", Files.OPEN_R);
+	scriptFile := Files.Open("skynet.wren", Files.OPEN_R);
 	ASSERT(scriptFile # NULL);
 	scriptSize := Files.Read(scriptFile, script, FILE_SIZE);
 	Files.Close(scriptFile);
