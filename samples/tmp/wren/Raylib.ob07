@@ -1,5 +1,5 @@
 MODULE Raylib;
-IMPORT SYSTEM;
+IMPORT SYSTEM, Out := Out_sys;
 
 CONST
 	
@@ -26,6 +26,17 @@ TYPE
 	ADDRESS = INTEGER;
 	
 	Font* = ADDRESS;
+	
+	Texture2D* = RECORD
+		id: ADDRESS;
+		width, height: INTEGER;
+		mipmaps: INTEGER;
+		format: INTEGER
+	END;
+	
+	Rectangle* = RECORD
+		x*, y*, width*, height*: INTEGER
+	END;
 
 
 PROCEDURE [extern, "SetTargetFPS"] SetTargetFPS*(fps: INTEGER);
@@ -47,8 +58,11 @@ PROCEDURE [extern, "_DrawText"] _DrawText(str: ADDRESS; x, y, font: INTEGER; col
 PROCEDURE [extern, "_LoadFont"] _LoadFont(fileName: ADDRESS; font: Font);
 PROCEDURE [extern, "_LoadFontEx"] _LoadFontEx(fileName: ADDRESS; font: Font; 
 	fontSize: INTEGER; codepoints: ADDRESS; coudepointsCount: INTEGER);
-
 PROCEDURE [extern, "GetFrameTime"] GetFrameTime*(): REAL;
+PROCEDURE [extern, "_LoadTexture"] _LoadTexture(path, texture: ADDRESS);
+PROCEDURE [extern, "_DrawTexture"] _DrawTexture(texture: ADDRESS; x, y: INTEGER; color: ADDRESS);
+PROCEDURE [extern, "_DrawTextureRec"] _DrawTextureRec(texture: ADDRESS; source: ADDRESS; position: ADDRESS; color: ADDRESS);
+
 
 PROCEDURE InitWindow*(w, h: INTEGER; title: ARRAY OF CHAR);
 BEGIN 
@@ -120,5 +134,24 @@ PROCEDURE LoadFontEx*(filename: ARRAY OF CHAR; font: Font; fontSize: INTEGER);
 BEGIN
 	_LoadFontEx(SYSTEM.ADR(filename[0]), font, fontSize, NULL, 0);
 END LoadFontEx;
+
+
+PROCEDURE LoadTexture*(path: ARRAY OF CHAR; VAR texture: Texture2D);
+BEGIN
+	_LoadTexture(SYSTEM.ADR(path[0]), SYSTEM.ADR(texture));
+END LoadTexture;
+
+
+PROCEDURE DrawTexture*(texture: Texture2D; x, y: INTEGER; color: Color);
+BEGIN
+	_DrawTexture(SYSTEM.ADR(texture), x, y, SYSTEM.ADR(color));
+END DrawTexture;
+
+
+PROCEDURE DrawTextureRec*(texture: Texture2D; source: Rectangle; position: Vector2; color: Color);
+BEGIN
+	_DrawTextureRec(SYSTEM.ADR(texture), SYSTEM.ADR(source), SYSTEM.ADR(position), SYSTEM.ADR(color));
+END DrawTextureRec;
+
 
 END Raylib.

@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <assert.h>
 #include "raylib.h"
 
 // Raylib
@@ -24,3 +25,26 @@ Font* _LoadFont(const char *fileName) {
 	return &font;
 }
 
+void _LoadTexture(const char *fileName, Texture* texture) {
+	Texture2D t = LoadTexture(fileName);
+	*texture = t;
+}
+
+void _DrawTexture(Texture2D *texture, int x, int y, Color* color) {
+	DrawTexture(*texture, x, y, *color);
+}
+
+
+typedef struct {
+	int x, y, width, height;
+} ORectangle;
+
+typedef struct {
+	int x, y;
+} OVector2;
+
+void _DrawTextureRec(Texture2D *texture, ORectangle *source, OVector2* position, Color* color) {
+	Rectangle rect = (Rectangle) {source->x, source->y, source->width, source->height};
+	Vector2 p = (Vector2) {position->x, position->y};
+	DrawTextureRec(*texture, rect, p, *color);
+}

@@ -7,9 +7,15 @@ IMPORT SYSTEM,
 CONST
 	NULL = 0;
 	MAIN_MODULE = "main";
+	SCREEN_WIDTH = 800;
+	SCREEN_HEIGHT = 640;
+	SPRITE_WIDTH = 64;
+	SPRITE_HEIGHT = 64;
 
 VAR
 	scriptName: ARRAY 64 OF CHAR;
+
+PROCEDURE [extern, "malloc"] malloc(size: INTEGER): INTEGER;
 	
 
 PROCEDURE GetStringFromPtr(textPtr: Wren.CString; VAR text: ARRAY OF CHAR);
@@ -76,7 +82,7 @@ PROCEDURE main(scriptName: ARRAY OF CHAR);
 CONST
 	FILE_SIZE = 4096;
 VAR
-	bgColor: RL.Color;
+	bgColor, fgColor: RL.Color;
 	fontSize: INTEGER;
 	vm: Wren.VM;
 	config: Wren.Configuration;
@@ -86,7 +92,11 @@ VAR
 	scriptSize: INTEGER;
 	gameEngineClass: Wren.Handle;
 	gameEngineUpdate: Wren.Handle;
-	
+	texture: RL.Texture2D;
+	source: RL.Rectangle;
+	position: RL.Vector2;
+	currentSprite, direction: INTEGER;
+	elapsedTime: REAL;
 	
 	PROCEDURE [oberon-] Update(vm: Wren.VM; class, update: Wren.Handle; elapsedTime: REAL): Wren.InterpretResult;
 	BEGIN
@@ -118,31 +128,55 @@ BEGIN
 	END;
 	// loading variables
 	Wren.EnsureSlots(vm, 1);
-	Wren.GetVariable(vm, MAIN_MODULE, "GameEngine", 0);
+	Wren.GetVariable(vm, MAIN_MODULE, "update", 0);
 	gameEngineClass := Wren.GetSlotHandle(vm, 0);
 	ASSERT(gameEngineClass # NULL);
-	gameEngineUpdate := Wren.MakeCallHandle(vm, "update(_)");
+	gameEngineUpdate := Wren.MakeCallHandle(vm, "call(_)");
 	ASSERT(gameEngineUpdate # NULL);
-	
-	
 	//------------------------------
 	
 	RL.IntToColor(RL.WHITE, bgColor);
+	RL.IntToColor(RL.RED, fgColor);
 	fontSize := 16;
 	
 	RL.SetTargetFPS(60);
-	RL.InitWindow(800, 600, "HelloGui");
+	RL.InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "AMIGA bouncing ball");
+	
+	RL.LoadTexture("assets/ball_frames.png", texture);
+	//NEW(source);
+	//sourceAddr := malloc(32);
+	//source := SYSTEM.VAL(sourceAddr, RL.Rectangle);
+	currentSprite := 0;
+	direction := 1;
+	source.x := currentSprite * SPRITE_WIDTH;
+	source.y := 0;
+	source.width := SPRITE_WIDTH;
+	source.height := SPRITE_HEIGHT;
+	position.x := 100; position.y := 100;
 	
 	WHILE ~ RL.WindowShouldClose() DO	
+		elapsedTime := elapsedTime + RL.GetFrameTime();
+		IF elapsedTime > 0.0300 THEN
+			elapsedTime := 0.0;
+			INC(currentSprite, direction);
+			currentSprite := currentSprite MOD 4;
+			source.x := currentSprite * 64;
+			
+		END;
+		INC(position.x, 4 * direction);
+		IF position.x <= 0 THEN
+			direction := 1;
+		ELSIF position.x >= (SCREEN_WIDTH - SPRITE_WIDTH) THEN
+			direction := -1;
+		END;
 		RL.BeginDrawing();
 			RL.ClearBackground(bgColor);
-			Update(vm, gameEngineClass, gameEngineUpdate, RL.GetFrameTime());
+			RL.DrawTextureRec(texture, source, position, bgColor);
+			//Update(vm, gameEngineClass, gameEngineUpdate, RL.GetFrameTime());
 		RL.EndDrawing();
 	END;
 	
-	
 	RL.CloseWindow();
-	
 	
 	Wren.FreeVM(vm);
 END main;
