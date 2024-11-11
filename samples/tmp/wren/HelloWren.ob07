@@ -2,13 +2,13 @@ MODULE HelloWren;
 IMPORT SYSTEM, 
 	Out := Out_sys,
 	Files,
-	Arena IN "./ArenaHash.ob07",
+	Arena IN "./Arena2.ob07",
 	Wren IN "./Wren.ob07";
 
 
 CONST
 	NULL = 0;
-	MEM_SIZE = 10 * 1024 * 1024;
+	MEM_SIZE = 100 * 1024 * 1024;
 
 
 PROCEDURE [extern, "malloc"] malloc(size: INTEGER): INTEGER;
@@ -110,7 +110,7 @@ BEGIN
 	//config.reallocateFn := OSReallocateFn;
 	config.reallocateFn := ReallocateFn;
 	config.userdata := mem;
-	//config.initialHeapSize := 20 * 1024 * 1024;
+	//config.initialHeapSize := 50 * 1024 * 1024;
 	
 	vm := Wren.NewVM(config);
 	ASSERT(vm # NULL);
@@ -127,7 +127,7 @@ BEGIN
 	Wren.FreeVM(vm);
 	
 	Out.String("total memory: "); Out.Int(mem.offset, 0);
-	Out.String(", count: "); Out.Int(mem.pcount, 0);
+	//Out.String(", count: "); Out.Int(mem.pcount, 0);
 	Out.Ln;
 	
 END main;

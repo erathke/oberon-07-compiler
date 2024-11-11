@@ -1,5 +1,5 @@
 MODULE TestArena;
-IMPORT SYSTEM, Arena := ArenaHash, Out := Out_sys, H := Hashtable;
+IMPORT SYSTEM, Arena := Arena2, Out := Out_sys, H := Hashtable;
 
 
 PROCEDURE RunTest1;
@@ -128,7 +128,6 @@ BEGIN
 		ASSERT(data.addr = i);
 	END;
 	
-	
 END RunTest4;
 
 
@@ -170,9 +169,9 @@ END RunTest5;
 
 
 BEGIN
-	//RunTest1();
-	//RunTest2();
-	//RunTest3();
-	//RunTest4();
+	RunTest1();
+	RunTest2();
+	RunTest3();
+	RunTest4();
 	RunTest5();
 END TestArena.
