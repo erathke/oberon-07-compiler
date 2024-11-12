@@ -62,6 +62,10 @@ PROCEDURE [extern, "wrenGetSlotDouble"] GetSlotDouble*(vm: VM; slot: INTEGER): R
 PROCEDURE [extern, "wrenSetSlotDouble"] SetSlotDouble*(vm: VM; slot: INTEGER; value: REAL);
 PROCEDURE [extern, "wrenGetSlotHandle"] GetSlotHandle*(vm: VM; slot: INTEGER): Handle;
 PROCEDURE [extern, "wrenSetSlotHandle"] SetSlotHandle*(vm: VM; slot: INTEGER; handle: Handle);
+PROCEDURE [extern, "wrenGetSlotString"] GetSlotString*(vm: VM; slot: INTEGER): CString;
+PROCEDURE [extern, "wrenSetSlotNewForeign"] SetSlotNewForeign*(vm: VM; slot, classSlot, size: INTEGER): CPtr;
+PROCEDURE [extern, "wrenGetSlotForeign"] GetSlotForeign*(vm: VM; slot, classSlot: INTEGER): CPtr;
+
 PROCEDURE [extern, "wrenCall"] Call*(vm: VM; handle: Handle): InterpretResult;
 
 

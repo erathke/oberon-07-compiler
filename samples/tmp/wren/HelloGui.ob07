@@ -4,6 +4,7 @@ IMPORT SYSTEM,
 	RL IN "./Raylib.ob07", 
 	Wren IN "./Wren.ob07";
 
+
 CONST
 	NULL = 0;
 	MAIN_MODULE = "main";
@@ -12,10 +13,9 @@ CONST
 	SPRITE_WIDTH = 64;
 	SPRITE_HEIGHT = 64;
 
-VAR
-	scriptName: ARRAY 64 OF CHAR;
 
-PROCEDURE [extern, "malloc"] malloc(size: INTEGER): INTEGER;
+VAR
+	bgColor, fgColor: RL.Color;
 	
 
 PROCEDURE GetStringFromPtr(textPtr: Wren.CString; VAR text: ARRAY OF CHAR);
@@ -40,22 +40,64 @@ BEGIN
 END WriteFn;
 
 
-PROCEDURE [ccall] DrawBubble(vm: Wren.VM);
+PROCEDURE [ccall] ErrorFn(vm: Wren.VM; errType: BYTE; modNamePtr: Wren.CString; 
+	line: INTEGER; msgPtr: Wren.CString);
 VAR
-	x, y: INTEGER;
-	radius: REAL;
-	color: RL.Color;
+	msg: ARRAY 128 OF CHAR;
+	modName: ARRAY 32 OF CHAR;
 BEGIN
-	x := FLOOR(Wren.GetSlotDouble(vm, 1));
-	y := FLOOR(Wren.GetSlotDouble(vm, 2));
-	radius := Wren.GetSlotDouble(vm, 3);
-	color.r := FLOOR(Wren.GetSlotDouble(vm, 4));
-	color.g := FLOOR(Wren.GetSlotDouble(vm, 5));
-	color.b := FLOOR(Wren.GetSlotDouble(vm, 6));
-	color.a := FLOOR(Wren.GetSlotDouble(vm, 7));
+	GetStringFromPtr(msgPtr, msg);
+	GetStringFromPtr(modNamePtr, modName);
 	
-	RL.DrawCircle(x, y, radius, color);
-END DrawBubble;
+	Out.String(modName); Out.String(": "); Out.Int(line, 0); Out.Ln;
+	Out.String(msg); Out.Ln;
+
+END ErrorFn;
+
+
+PROCEDURE [ccall] LoadTexture(vm: Wren.VM); 
+TYPE
+	TexturePtr = POINTER TO RL.Texture2D;
+VAR
+	path: ARRAY 128 OF CHAR;
+	pathPtr, texturePtr: INTEGER;
+	textureSize: INTEGER;
+	texture: TexturePtr;
+BEGIN
+	pathPtr := Wren.GetSlotString(vm, 1);
+	GetStringFromPtr(pathPtr, path);
+	
+	textureSize := SYSTEM.SIZE(RL.Texture2D);
+	texturePtr := Wren.SetSlotNewForeign(vm, 0, 0, textureSize);
+	texture := SYSTEM.VAL(texturePtr, TexturePtr);
+	RL.LoadTexture(path, texture^);
+END LoadTexture;
+
+
+PROCEDURE [ccall] DrawTexture(vm: Wren.VM);
+TYPE
+	TexturePtr = POINTER TO RL.Texture2D;
+VAR
+	texturePtr: INTEGER;
+	texture: TexturePtr;
+	sprite: INTEGER;
+	rect: RL.Rectangle;
+	pos: RL.Vector2;
+BEGIN
+	Wren.EnsureSlots(vm, 4);
+	
+	texturePtr := Wren.GetSlotForeign(vm, 1, 0);
+	sprite := FLOOR(Wren.GetSlotDouble(vm, 2));
+	pos.x := FLOOR(Wren.GetSlotDouble(vm, 3));
+	pos.y := FLOOR(Wren.GetSlotDouble(vm, 4));
+	rect.x := SPRITE_WIDTH * sprite;
+	rect.y := 0;
+	rect.width := SPRITE_WIDTH;
+	rect.height := SPRITE_HEIGHT;
+	texture := SYSTEM.VAL(texturePtr, TexturePtr);
+	
+	RL.DrawTextureRec(texture^, rect, pos, fgColor);
+END DrawTexture;
 
 
 PROCEDURE [ccall] BindForeignMethod(vm: Wren.VM; modNamePtr, 
@@ -70,8 +112,10 @@ BEGIN
 	GetStringFromPtr(classNamePtr, className);
 	GetStringFromPtr(signaturePtr, signature);
 	
-	IF (className = "GameEngine") & (signature = "bubble(_,_,_,_,_,_,_)") THEN
-		method := DrawBubble;
+	IF (className = "Texture") & (signature = "load(_)") THEN
+		method := LoadTexture;
+	ELSIF (className = "App") & (signature = "draw(_,_,_,_)") THEN
+		method := DrawTexture;
 	END;
 	
 	RETURN method
@@ -82,7 +126,6 @@ PROCEDURE main(scriptName: ARRAY OF CHAR);
 CONST
 	FILE_SIZE = 4096;
 VAR
-	bgColor, fgColor: RL.Color;
 	fontSize: INTEGER;
 	vm: Wren.VM;
 	config: Wren.Configuration;
@@ -90,13 +133,17 @@ VAR
 	script: ARRAY FILE_SIZE OF CHAR;
 	scriptFile: Files.File;
 	scriptSize: INTEGER;
-	gameEngineClass: Wren.Handle;
-	gameEngineUpdate: Wren.Handle;
-	texture: RL.Texture2D;
-	source: RL.Rectangle;
-	position: RL.Vector2;
-	currentSprite, direction: INTEGER;
-	elapsedTime: REAL;
+	initClass, updateClass, viewClass: Wren.Handle;
+	initHandle, updateHandle, viewHandle: Wren.Handle;
+	
+	
+	PROCEDURE [oberon-] Init(vm: Wren.VM; class, init: Wren.Handle): Wren.InterpretResult;
+	BEGIN
+		Wren.EnsureSlots(vm, 1);
+		Wren.SetSlotHandle(vm, 0, class);
+		RETURN Wren.Call(vm, init)
+	END Init;
+	
 	
 	PROCEDURE [oberon-] Update(vm: Wren.VM; class, update: Wren.Handle; elapsedTime: REAL): Wren.InterpretResult;
 	BEGIN
@@ -106,10 +153,19 @@ VAR
 		RETURN Wren.Call(vm, update)
 	END Update;
 	
+	
+	PROCEDURE [oberon-] View(vm: Wren.VM; class, view: Wren.Handle): Wren.InterpretResult;
+	BEGIN
+		Wren.EnsureSlots(vm, 1);
+		Wren.SetSlotHandle(vm, 0, class);
+		RETURN Wren.Call(vm, view)
+	END View;
+	
 BEGIN
 	
 	Wren.InitConfiguration(config);
 	config.writeFn := WriteFn;
+	config.errorFn := ErrorFn;
 	config.bindForeignMethodFn := BindForeignMethod;
 	//config.initialHeapSize := 10 * 1024;
 	vm := Wren.NewVM(config);
@@ -128,11 +184,26 @@ BEGIN
 	END;
 	// loading variables
 	Wren.EnsureSlots(vm, 1);
+	Wren.GetVariable(vm, MAIN_MODULE, "init", 0);
+	initClass := Wren.GetSlotHandle(vm, 0);
+	ASSERT(initClass # NULL);
+	initHandle := Wren.MakeCallHandle(vm, "call()");
+	ASSERT(initHandle # NULL);
+	
+	Wren.EnsureSlots(vm, 1);
 	Wren.GetVariable(vm, MAIN_MODULE, "update", 0);
-	gameEngineClass := Wren.GetSlotHandle(vm, 0);
-	ASSERT(gameEngineClass # NULL);
-	gameEngineUpdate := Wren.MakeCallHandle(vm, "call(_)");
-	ASSERT(gameEngineUpdate # NULL);
+	updateClass := Wren.GetSlotHandle(vm, 0);
+	ASSERT(updateClass # NULL);
+	updateHandle := Wren.MakeCallHandle(vm, "call(_)");
+	ASSERT(updateHandle # NULL);
+	
+	Wren.EnsureSlots(vm, 1);
+	Wren.GetVariable(vm, MAIN_MODULE, "view", 0);
+	viewClass := Wren.GetSlotHandle(vm, 0);
+	ASSERT(updateClass # NULL);
+	viewHandle := Wren.MakeCallHandle(vm, "call()");
+	ASSERT(viewHandle # NULL);
+	
 	//------------------------------
 	
 	RL.IntToColor(RL.WHITE, fgColor);
@@ -141,36 +212,14 @@ BEGIN
 	
 	RL.SetTargetFPS(60);
 	RL.InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "AMIGA bouncing ball");
-	RL.LoadTexture("assets/ball_frames.png", texture);
 	
-	// model
-	currentSprite := 0;
-	direction := 1;
-	source.x := currentSprite * SPRITE_WIDTH;
-	source.y := 0;
-	source.width := SPRITE_WIDTH;
-	source.height := SPRITE_HEIGHT;
-	position.x := 100; position.y := 100;
+	Init(vm, initClass, initHandle);
 	
-	WHILE ~ RL.WindowShouldClose() DO	
-		elapsedTime := elapsedTime + RL.GetFrameTime();
-		IF elapsedTime > 0.0300 THEN
-			elapsedTime := 0.0;
-			INC(currentSprite, direction);
-			currentSprite := currentSprite MOD 4;
-			source.x := currentSprite * 64;
-			
-		END;
-		INC(position.x, 4 * direction);
-		IF position.x <= 0 THEN
-			direction := 1;
-		ELSIF position.x >= (SCREEN_WIDTH - SPRITE_WIDTH) THEN
-			direction := -1;
-		END;
+	WHILE ~ RL.WindowShouldClose() DO
+		Update(vm, updateClass, updateHandle, RL.GetFrameTime());
 		RL.BeginDrawing();
 			RL.ClearBackground(bgColor);
-			RL.DrawTextureRec(texture, source, position, fgColor);
-			//Update(vm, gameEngineClass, gameEngineUpdate, RL.GetFrameTime());
+			View(vm, viewClass, viewHandle);
 		RL.EndDrawing();
 	END;
 	
@@ -181,10 +230,6 @@ END main;
 
 
 BEGIN
-	IF Args.argc < 2 THEN
-		Out.String("usage: HelloGui <script>"); Out.Ln;
-	ELSE
-		Args.GetArg(1, scriptName);
-		main(scriptName)
-	END;
+	main("amiga.wren")
+
 END HelloGui.

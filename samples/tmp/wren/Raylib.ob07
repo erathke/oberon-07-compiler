@@ -29,7 +29,7 @@ TYPE
 	
 	Texture2D* = RECORD
 		id: ADDRESS;
-		width, height: INTEGER;
+		width*, height: INTEGER;
 		mipmaps: INTEGER;
 		format: INTEGER
 	END;
