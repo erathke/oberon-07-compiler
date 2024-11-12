@@ -135,17 +135,15 @@ BEGIN
 	ASSERT(gameEngineUpdate # NULL);
 	//------------------------------
 	
-	RL.IntToColor(RL.WHITE, bgColor);
-	RL.IntToColor(RL.RED, fgColor);
+	RL.IntToColor(RL.WHITE, fgColor);
+	RL.IntToColor(0AAAAAAFFH, bgColor);
 	fontSize := 16;
 	
 	RL.SetTargetFPS(60);
 	RL.InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "AMIGA bouncing ball");
-	
 	RL.LoadTexture("assets/ball_frames.png", texture);
-	//NEW(source);
-	//sourceAddr := malloc(32);
-	//source := SYSTEM.VAL(sourceAddr, RL.Rectangle);
+	
+	// model
 	currentSprite := 0;
 	direction := 1;
 	source.x := currentSprite * SPRITE_WIDTH;
@@ -171,7 +169,7 @@ BEGIN
 		END;
 		RL.BeginDrawing();
 			RL.ClearBackground(bgColor);
-			RL.DrawTextureRec(texture, source, position, bgColor);
+			RL.DrawTextureRec(texture, source, position, fgColor);
 			//Update(vm, gameEngineClass, gameEngineUpdate, RL.GetFrameTime());
 		RL.EndDrawing();
 	END;
