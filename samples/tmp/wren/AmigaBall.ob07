@@ -8,8 +8,6 @@ IMPORT SYSTEM,
 CONST
 	NULL = 0;
 	MAIN_MODULE = "main";
-	SCREEN_WIDTH = 800;
-	SCREEN_HEIGHT = 640;
 	SPRITE_WIDTH = 64;
 	SPRITE_HEIGHT = 64;
 
@@ -55,6 +53,25 @@ BEGIN
 END ErrorFn;
 
 
+PROCEDURE [ccall] InitWindow(vm: Wren.VM); 
+
+VAR
+	title: ARRAY 128 OF CHAR;
+	titlePtr: INTEGER;
+	windowWidth, windowHeight: INTEGER;
+	
+BEGIN
+	Wren.EnsureSlots(vm, 3);
+	
+	windowWidth := FLOOR(Wren.GetSlotDouble(vm, 1));
+	windowHeight := FLOOR(Wren.GetSlotDouble(vm, 2));
+	titlePtr := Wren.GetSlotString(vm, 3);
+	GetStringFromPtr(titlePtr, title);
+	
+	RL.InitWindow(windowWidth, windowHeight, title);
+END InitWindow;
+
+
 PROCEDURE [ccall] LoadTexture(vm: Wren.VM); 
 TYPE
 	TexturePtr = POINTER TO RL.Texture2D;
@@ -64,6 +81,7 @@ VAR
 	textureSize: INTEGER;
 	texture: TexturePtr;
 BEGIN
+	Wren.EnsureSlots(vm, 1);
 	pathPtr := Wren.GetSlotString(vm, 1);
 	GetStringFromPtr(pathPtr, path);
 	
@@ -84,16 +102,19 @@ VAR
 	rect: RL.Rectangle;
 	pos: RL.Vector2;
 BEGIN
-	Wren.EnsureSlots(vm, 4);
+	Wren.EnsureSlots(vm, 6);
 	
 	texturePtr := Wren.GetSlotForeign(vm, 1, 0);
 	sprite := FLOOR(Wren.GetSlotDouble(vm, 2));
+	
 	pos.x := FLOOR(Wren.GetSlotDouble(vm, 3));
 	pos.y := FLOOR(Wren.GetSlotDouble(vm, 4));
-	rect.x := SPRITE_WIDTH * sprite;
+	
+	rect.width := FLOOR(Wren.GetSlotDouble(vm, 5));
+	rect.height := FLOOR(Wren.GetSlotDouble(vm, 6));
+	rect.x := rect.width * sprite;
 	rect.y := 0;
-	rect.width := SPRITE_WIDTH;
-	rect.height := SPRITE_HEIGHT;
+	
 	texture := SYSTEM.VAL(texturePtr, TexturePtr);
 	
 	RL.DrawTextureRec(texture^, rect, pos, fgColor);
@@ -102,21 +123,27 @@ END DrawTexture;
 
 PROCEDURE [ccall] BindForeignMethod(vm: Wren.VM; modNamePtr, 
 	classNamePtr: Wren.CString; isStatic: BOOLEAN; signaturePtr: Wren.CString): Wren.ForeignMethod;
+CONST
+	ERR_INVALID_METHOD = 100;
 VAR
 	modName, className: ARRAY 32 OF CHAR;
 	signature: ARRAY 64 OF CHAR;
 	method: Wren.ForeignMethod;
 BEGIN
-	method := NIL;
+
 	GetStringFromPtr(modNamePtr, modName);
 	GetStringFromPtr(classNamePtr, className);
 	GetStringFromPtr(signaturePtr, signature);
 	
 	IF (className = "Texture") & (signature = "load(_)") THEN
 		method := LoadTexture;
-	ELSIF (className = "App") & (signature = "draw(_,_,_,_)") THEN
+	ELSIF (className = "App") & (signature = "draw(_,_,_,_,_,_)") THEN
 		method := DrawTexture;
+	ELSIF (className = "App") & (signature = "initWindow(_,_,_)") THEN
+		method := InitWindow;
 	END;
+	
+	IF method = NIL THEN RAISE(ERR_INVALID_METHOD) END;
 	
 	RETURN method
 END BindForeignMethod;
@@ -235,7 +262,7 @@ BEGIN
 	RL.IntToColor(0AAAAAAFFH, bgColor);
 	fontSize := 16;
 	RL.SetTargetFPS(60);
-	RL.InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "AMIGA bouncing ball");
+	//RL.InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "AMIGA bouncing ball");
 	
 	// Initializing app
 	Init(vm, initClass, initHandle);
