@@ -1,4 +1,4 @@
-MODULE HelloGui;
+MODULE AmigaBall;
 IMPORT SYSTEM, 
 	Out := Out_sys, Args, Files,
 	RL IN "./Raylib.ob07", 
@@ -161,13 +161,43 @@ VAR
 		RETURN Wren.Call(vm, view)
 	END View;
 	
-BEGIN
 	
+	PROCEDURE MakeCallHandle(VAR vm: Wren.VM; methodName: ARRAY OF CHAR; arity: INTEGER; VAR handle: Wren.Handle);
+	VAR
+		signature: ARRAY 128 OF CHAR;
+		i, len: INTEGER;
+	BEGIN
+		COPY(methodName, signature);
+		len := LENGTH(signature);
+		signature[len] := "(";
+		FOR i := 1 TO arity DO
+			INC(len);
+			signature[len] := "_";
+			IF i < arity THEN
+				INC(len);
+				signature[len] := ",";
+			END;
+		END;
+		INC(len);
+		signature[len] := ")";
+		handle := Wren.MakeCallHandle(vm, signature);
+	END MakeCallHandle;
+	
+	
+	PROCEDURE MakeVarHandle(VAR vm: Wren.VM; moduleName, varName: ARRAY OF CHAR; VAR handle: Wren.Handle);
+	BEGIN
+		Wren.EnsureSlots(vm, 1);
+		Wren.GetVariable(vm, moduleName, varName, 0);
+		handle := Wren.GetSlotHandle(vm, 0);
+	END MakeVarHandle;
+	
+	
+BEGIN
+	// Creating vm
 	Wren.InitConfiguration(config);
 	config.writeFn := WriteFn;
 	config.errorFn := ErrorFn;
 	config.bindForeignMethodFn := BindForeignMethod;
-	//config.initialHeapSize := 10 * 1024;
 	vm := Wren.NewVM(config);
 	ASSERT(vm # NULL);
 	
@@ -176,60 +206,57 @@ BEGIN
 	ASSERT(scriptFile # NULL);
 	scriptSize := Files.Read(scriptFile, script, FILE_SIZE);
 	Files.Close(scriptFile);
-	//
+	
+	// Loading script
 	result := Wren.Interpret(vm, MAIN_MODULE, script);
 	IF result # Wren.RESULT_SUCCESS THEN
 		Wren.FreeVM(vm);
-		RAISE(result); 
+		RAISE(result);
 	END;
-	// loading variables
-	Wren.EnsureSlots(vm, 1);
-	Wren.GetVariable(vm, MAIN_MODULE, "init", 0);
-	initClass := Wren.GetSlotHandle(vm, 0);
+	
+	// Loading handlers
+	MakeVarHandle(vm, MAIN_MODULE, "init", initClass);
 	ASSERT(initClass # NULL);
-	initHandle := Wren.MakeCallHandle(vm, "call()");
+	MakeCallHandle(vm, "call", 0, initHandle);
 	ASSERT(initHandle # NULL);
 	
-	Wren.EnsureSlots(vm, 1);
-	Wren.GetVariable(vm, MAIN_MODULE, "update", 0);
-	updateClass := Wren.GetSlotHandle(vm, 0);
+	MakeVarHandle(vm, MAIN_MODULE, "update", updateClass);
 	ASSERT(updateClass # NULL);
-	updateHandle := Wren.MakeCallHandle(vm, "call(_)");
+	MakeCallHandle(vm, "call", 1, updateHandle);
 	ASSERT(updateHandle # NULL);
 	
-	Wren.EnsureSlots(vm, 1);
-	Wren.GetVariable(vm, MAIN_MODULE, "view", 0);
-	viewClass := Wren.GetSlotHandle(vm, 0);
-	ASSERT(updateClass # NULL);
-	viewHandle := Wren.MakeCallHandle(vm, "call()");
+	MakeVarHandle(vm, MAIN_MODULE, "view", viewClass);
+	ASSERT(viewClass # NULL);
+	MakeCallHandle(vm, "call", 0, viewHandle);
 	ASSERT(viewHandle # NULL);
 	
-	//------------------------------
-	
+	// Raylib initialization
 	RL.IntToColor(RL.WHITE, fgColor);
 	RL.IntToColor(0AAAAAAFFH, bgColor);
 	fontSize := 16;
-	
 	RL.SetTargetFPS(60);
 	RL.InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "AMIGA bouncing ball");
 	
+	// Initializing app
 	Init(vm, initClass, initHandle);
 	
+	// Main loop
 	WHILE ~ RL.WindowShouldClose() DO
 		Update(vm, updateClass, updateHandle, RL.GetFrameTime());
 		RL.BeginDrawing();
 			RL.ClearBackground(bgColor);
-			View(vm, viewClass, viewHandle);
+			View(vm, viewClass, initHandle);
 		RL.EndDrawing();
 	END;
 	
+	// Cleaning up
 	RL.CloseWindow();
-	
 	Wren.FreeVM(vm);
+	
 END main;
 
 
 BEGIN
 	main("amiga.wren")
 
-END HelloGui.
+END AmigaBall.

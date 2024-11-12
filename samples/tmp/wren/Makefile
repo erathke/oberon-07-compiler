@@ -6,13 +6,13 @@ OBC=../../../compilerX
 DEF=-def API_sys
 OPTS=-entry _start -rtl RTL_sys
 SRCC=lib/glue.c
-SRCO=HelloGui.ob07
+SRCO=AmigaBall.ob07
 OBJC=lib/glue.o
-OBJO=lib/HelloGui.xo
+OBJO=lib/AmigaBall.xo
 BINDIR=bin
-EXE=$(BINDIR)/HelloGui
+EXE=$(BINDIR)/AmigaBall
 
-exe: $(OBJC) $(OBJO)
+amiga: $(OBJC) $(OBJO)
 	@mkdir -p $(BINDIR)
 	$(CC) $(CFLAGS) -o $(EXE) $^ $(LIBS) -lm
 
