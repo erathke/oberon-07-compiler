@@ -1,4 +1,4 @@
-MODULE HelloWren;
+MODULE Skynet;
 IMPORT SYSTEM, 
 	Out := Out_sys,
 	Files,
@@ -10,10 +10,6 @@ CONST
 	NULL = 0;
 	MEM_SIZE = 100 * 1024 * 1024;
 
-
-PROCEDURE [extern, "malloc"] malloc(size: INTEGER): INTEGER;
-PROCEDURE [extern, "realloc"] realloc(ptr, size: INTEGER): INTEGER;
-PROCEDURE [extern, "free"] free(ptr: INTEGER);
 
 PROCEDURE GetStringFromPtr(textPtr: Wren.CString; VAR text: ARRAY OF CHAR);
 VAR
@@ -68,29 +64,7 @@ BEGIN
 END ReallocateFn;
 
 
-PROCEDURE [ccall] OSReallocateFn(addr: Wren.CPtr; newSize: INTEGER; userData: Wren.Userdata): Wren.CPtr;
-VAR
-	mem: Arena.Memory;
-BEGIN
-	mem := userData(Arena.Memory);
-	
-	IF addr = NULL THEN // alloc
-		addr := malloc(newSize);
-		INC(mem.offset, newSize);
-	ELSE
-		IF newSize # 0 THEN // realloc
-			addr := realloc(addr, newSize);
-			INC(mem.offset, newSize);
-		ELSE // free
-			free(addr);
-			addr := NULL;
-		END;
-	END;
-	RETURN addr
-END OSReallocateFn;
-
-
-PROCEDURE main();
+PROCEDURE main(scriptName: ARRAY OF CHAR);
 CONST
 	FILE_SIZE = 4096;
 VAR
@@ -107,7 +81,6 @@ BEGIN
 	Wren.InitConfiguration(config);
 	config.writeFn := WriteFn;
 	config.errorFn := ErrorFn;
-	//config.reallocateFn := OSReallocateFn;
 	config.reallocateFn := ReallocateFn;
 	config.userdata := mem;
 	//config.initialHeapSize := 50 * 1024 * 1024;
@@ -116,23 +89,20 @@ BEGIN
 	ASSERT(vm # NULL);
 	
 	// Loading file
-	scriptFile := Files.Open("skynet.wren", Files.OPEN_R);
+	scriptFile := Files.Open(scriptName, Files.OPEN_R);
 	ASSERT(scriptFile # NULL);
 	scriptSize := Files.Read(scriptFile, script, FILE_SIZE);
 	Files.Close(scriptFile);
 	
 	result := Wren.Interpret(vm, "main", script);
-	IF result # Wren.RESULT_SUCCESS THEN RAISE(-1); END;
-	
+	IF result # Wren.RESULT_SUCCESS THEN RAISE(result); END;
 	Wren.FreeVM(vm);
 	
-	Out.String("total memory: "); Out.Int(mem.offset, 0);
-	//Out.String(", count: "); Out.Int(mem.pcount, 0);
-	Out.Ln;
-	
+	Out.String("total memory: "); Out.Int(mem.offset, 0); Out.Ln;
 END main;
 
 
 BEGIN
-	main()
-END HelloWren.
+	main("skynet.wren")
+
+END Skynet.

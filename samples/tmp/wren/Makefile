@@ -1,34 +1,33 @@
 CC=cc
-LIBS=./lib/libraylib-i686.a ./lib/libwren-i686.a
+LIB_WREN=./lib/libwren-i686.a
+LIB_RAYLIB=./lib/libraylib-i686.a
+LIBS=$(LIB_WREN) $(LIB_RAYLIB)
 INCLUDE=./include
 CFLAGS=-m32 -no-pie -nostartfiles
 OBC=../../../compilerX
 DEF=-def API_sys
 OPTS=-entry _start -rtl RTL_sys
-SRCC=lib/glue.c
-SRCO=HelloGui.ob07
-OBJC=lib/glue.o
-OBJO=lib/HelloGui.xo
 BINDIR=bin
-EXE=$(BINDIR)/HelloGui
 
-exe: $(OBJC) $(OBJO)
-	@mkdir -p $(BINDIR)
-	$(CC) $(CFLAGS) -o $(EXE) $^ $(LIBS) -lm
+all: amiga arena skynet
 
-lib/glue.o: $(SRCC)
+lib/%.o: lib/%.c
 	$(CC) $(CFLAGS) -c $^ -o $@ -I$(INCLUDE)
 
 lib/%.xo: %.ob07
 	$(OBC) $^ linux32o -out $@ $(DEF) $(OPTS)
 
-wren: lib/HelloWren.xo
+amiga: lib/glue.o lib/AmigaBall.xo
 	@mkdir -p $(BINDIR)
-	$(CC) $(CFLAGS) -o $(BINDIR)/HelloWren $^ ./lib/libwren-i686.a -lm
-	
+	$(CC) $(CFLAGS) -o $(BINDIR)/$@ $^ $(LIBS) -lm
+
 arena: lib/TestArena.xo
 	@mkdir -p $(BINDIR)
-	$(CC) $(CFLAGS) -o $(BINDIR)/TestArena $^ ./lib/libwren-i686.a -lm
+	$(CC) $(CFLAGS) -o $(BINDIR)/$@ $^ $(LIB_WREN) -lm
+
+skynet: lib/Skynet.xo
+	@mkdir -p $(BINDIR)
+	$(CC) $(CFLAGS) -o $(BINDIR)/$@ $^ $(LIB_WREN) -lm
 
 clean:
-	$(RM) $(BINDIR)/* lib/*.xo
+	$(RM) $(BINDIR)/* lib/*.xo lib/*.o
