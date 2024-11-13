@@ -15,6 +15,8 @@ CONST
 	NULL = 0;
 TYPE
 	
+	ADDRESS = INTEGER;
+	
 	Vector2* = RECORD
 		x*, y*: INTEGER
 	END;
@@ -23,9 +25,13 @@ TYPE
 		r*, g*, b*, a*: BYTE
 	END;
 
-	ADDRESS = INTEGER;
-	
-	Font* = ADDRESS;
+	Image* = RECORD
+		data: ADDRESS;             // Image raw data
+		width: INTEGER;              // Image base width
+		height: INTEGER;             // Image base height
+		mipmaps: INTEGER;            // Mipmap levels, 1 by default
+		format: INTEGER             // Data format (PixelFormat type)
+	END;
 	
 	Texture2D* = RECORD
 		id: ADDRESS;
@@ -37,6 +43,37 @@ TYPE
 	Rectangle* = RECORD
 		x*, y*, width*, height*: INTEGER
 	END;
+	
+	GlyphInfo = RECORD
+		value: INTEGER;              // Character value (Unicode)
+		offsetX: INTEGER;            // Character offset X when drawing
+		offsetY: INTEGER;            // Character offset Y when drawing
+		advanceX: INTEGER;           // Character advance position X
+		image: Image            // Character image data
+	END;
+
+	Font* = RECORD
+		baseSize: INTEGER;           // Base size (default chars height)
+		glyphCount: INTEGER;         // Number of glyph characters
+		glyphPadding: INTEGER;       // Padding around the glyph characters
+		texture: Texture2D;      // Texture atlas containing the glyphs
+		recs: ADDRESS;        // Rectangles in texture for the glyphs
+		glyphs: ADDRESS      // Glyphs info data
+	END;
+	
+	AudioStream* = RECORD
+		buffer: ADDRESS;     // Pointer to internal data used by the audio system
+		processor: ADDRESS;  // Pointer to internal data processor, useful for audio effects
+		sampleRate: INTEGER; // Frequency (samples per second)
+		sampleSize: INTEGER; // Bit depth (bits per sample): 8, 16, 32 (24 not supported)
+		channels: INTEGER    // Number of channels (1-mono, 2-stereo, ...)
+	END;
+	
+	// Sound
+	Sound* = RECORD 
+		stream: AudioStream;   // Audio stream
+		frameCount: INTEGER    // Total number of frames (considering channels)
+	END;
 
 
 PROCEDURE [extern, "SetTargetFPS"] SetTargetFPS*(fps: INTEGER);
@@ -47,21 +84,33 @@ PROCEDURE [extern, "EndDrawing"] EndDrawing*();
 PROCEDURE [extern, "GetMouseX"] GetMouseX*(): INTEGER;
 PROCEDURE [extern, "GetMouseY"] GetMouseY*(): INTEGER;
 PROCEDURE [extern, "IsMouseButtonPressed"] IsMouseButtonPressed*(button: INTEGER): BOOLEAN;
-PROCEDURE [extern, "_CreateFont"] CreateFont*(): Font;
-PROCEDURE [extern, "_DestroyFont"] DestroyFont*(font: Font);
+
 
 PROCEDURE [extern, "InitWindow"] _InitWindow(w, h: INTEGER; title: ADDRESS);
 PROCEDURE [extern, "_ClearBackground"] _ClearBackground(color: ADDRESS);
 PROCEDURE [extern, "_DrawCircle"] _DrawCircle(cx, cy: INTEGER; r: REAL; color: ADDRESS);
 PROCEDURE [extern, "_DrawRectangle"] _DrawRectangle(x, y, w, h: INTEGER; color: ADDRESS);
+PROCEDURE [extern, "_DrawLine"] _DrawLine(startPosX, startPosY, endPosX, endPosY: INTEGER; color: ADDRESS);
 PROCEDURE [extern, "_DrawText"] _DrawText(str: ADDRESS; x, y, font: INTEGER; color: ADDRESS);
-PROCEDURE [extern, "_LoadFont"] _LoadFont(fileName: ADDRESS; font: Font);
-PROCEDURE [extern, "_LoadFontEx"] _LoadFontEx(fileName: ADDRESS; font: Font; 
+PROCEDURE [extern, "_LoadFont"] _LoadFont(fileName: ADDRESS; font: ADDRESS);
+PROCEDURE [extern, "_LoadFontEx"] _LoadFontEx(fileName: ADDRESS; font: ADDRESS; 
 	fontSize: INTEGER; codepoints: ADDRESS; coudepointsCount: INTEGER);
 PROCEDURE [extern, "GetFrameTime"] GetFrameTime*(): REAL;
 PROCEDURE [extern, "_LoadTexture"] _LoadTexture(path, texture: ADDRESS);
 PROCEDURE [extern, "_DrawTexture"] _DrawTexture(texture: ADDRESS; x, y: INTEGER; color: ADDRESS);
 PROCEDURE [extern, "_DrawTextureRec"] _DrawTextureRec(texture: ADDRESS; source: ADDRESS; position: ADDRESS; color: ADDRESS);
+
+PROCEDURE [extern, "_LoadImage"] _LoadImage(fileName: ADDRESS; image: ADDRESS);
+PROCEDURE [extern, "_UnloadImage"] _UnloadImage(image: ADDRESS);
+PROCEDURE [extern, "_SetWindowIcon"] _SetWindowIcon(image: ADDRESS);
+
+// Audio
+PROCEDURE [extern, "InitAudioDevice"] InitAudioDevice*();
+PROCEDURE [extern, "CloseAudioDevice"] CloseAudioDevice*();
+PROCEDURE [extern, "_LoadSound"] _LoadSound(fileName: ADDRESS; sound: ADDRESS);
+PROCEDURE [extern, "_PlaySound"] _PlaySound(sound: ADDRESS);
+PROCEDURE [extern, "_StopSound"] _StopSound(sound: ADDRESS);
+PROCEDURE [extern, "_IsSoundPlaying"] _IsSoundPlaying(sound: ADDRESS): BOOLEAN;
 
 
 PROCEDURE InitWindow*(w, h: INTEGER; title: ARRAY OF CHAR);
@@ -85,6 +134,12 @@ END;
 PROCEDURE DrawRectangle*(x, y, w, h: INTEGER; color: Color);
 BEGIN 
 	_DrawRectangle(x, y, w, h, SYSTEM.ADR(color));
+END;
+
+
+PROCEDURE DrawLine*(startPosX, startPosY, endPosX, endPosY: INTEGER; color: Color);
+BEGIN 
+	_DrawLine(startPosX, startPosY, endPosX, endPosY, SYSTEM.ADR(color));
 END;
 
 
@@ -124,15 +179,15 @@ BEGIN
 END IntToColor;
 
 
-PROCEDURE LoadFont*(filename: ARRAY OF CHAR; font: Font);
+PROCEDURE LoadFont*(filename: ARRAY OF CHAR; VAR font: Font);
 BEGIN
-	_LoadFont(SYSTEM.ADR(filename[0]), font);
+	_LoadFont(SYSTEM.ADR(filename[0]), SYSTEM.ADR(font));
 END LoadFont;
 
 
-PROCEDURE LoadFontEx*(filename: ARRAY OF CHAR; font: Font; fontSize: INTEGER);
+PROCEDURE LoadFontEx*(filename: ARRAY OF CHAR; VAR font: Font; fontSize: INTEGER);
 BEGIN
-	_LoadFontEx(SYSTEM.ADR(filename[0]), font, fontSize, NULL, 0);
+	_LoadFontEx(SYSTEM.ADR(filename[0]), SYSTEM.ADR(font), fontSize, NULL, 0);
 END LoadFontEx;
 
 
@@ -152,6 +207,48 @@ PROCEDURE DrawTextureRec*(texture: Texture2D; source: Rectangle; position: Vecto
 BEGIN
 	_DrawTextureRec(SYSTEM.ADR(texture), SYSTEM.ADR(source), SYSTEM.ADR(position), SYSTEM.ADR(color));
 END DrawTextureRec;
+
+
+PROCEDURE LoadImage*(fileName: ARRAY OF CHAR; VAR image: Image);
+BEGIN
+	_LoadImage(SYSTEM.ADR(fileName[0]), SYSTEM.ADR(image));
+END LoadImage;
+
+
+PROCEDURE UnloadImage*(VAR image: Image);
+BEGIN
+	_UnloadImage(SYSTEM.ADR(image));
+END UnloadImage;
+
+
+PROCEDURE SetWindowIcon*(VAR image: Image);
+BEGIN
+	_SetWindowIcon(SYSTEM.ADR(image));
+END SetWindowIcon;
+
+
+PROCEDURE LoadSound*(fileName: ARRAY OF CHAR; VAR sound: Sound);
+BEGIN
+	_LoadSound(SYSTEM.ADR(fileName[0]), SYSTEM.ADR(sound));
+END LoadSound;
+
+
+PROCEDURE PlaySound*(VAR sound: Sound);
+BEGIN
+	_PlaySound(SYSTEM.ADR(sound));
+END PlaySound;
+
+
+PROCEDURE StopSound*(VAR sound: Sound);
+BEGIN
+	_StopSound(SYSTEM.ADR(sound));
+END StopSound;
+
+
+PROCEDURE IsSoundPlaying*(VAR sound: Sound): BOOLEAN;
+BEGIN
+	RETURN _IsSoundPlaying(SYSTEM.ADR(sound))
+END IsSoundPlaying;
 
 
 END Raylib.

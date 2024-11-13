@@ -40,24 +40,30 @@ class Ball {
 	
 	direction() { _direction }
 	
+	foreign boing()
+	
 	move(px) {
 		_x = _x + (px * _direction)
 		_y = _y + (px * _direction * _angleY)
 		if (_x <= _bounds.x1()) {
 			_direction = 1
 			_angleY = _angleY * -1
+			boing()
 		} 
 		if (_x >= _bounds.x2() ) {
 			_direction = -1
 			_angleY = _angleY * -1
+			boing()
 		}
 		
 		if (_y <= _bounds.y1()) {
 			_angleY = _angleY * -1
+			boing()
 		}
 		
 		if (_y >= _bounds.y2()) {
 			_angleY = _angleY * -1
+			boing()
 		}
 	}
 }
@@ -92,7 +98,7 @@ class App {
 			_currentSprite = _currentSprite + _b1.direction()
 			_currentSprite = _currentSprite % 4
 		}
-		_b1.move(4)
+		_b1.move(3)
 	}
 	
 	view() {
@@ -104,7 +110,7 @@ class App {
 	}
 }
 
-var app = App.new(480, 320, "AMIGA bouncing ball")
+var app = App.new(480, 320, "Amiga - boing ball")
 
 var init = Fn.new {
 	app.init()

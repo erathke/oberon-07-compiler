@@ -14,6 +14,9 @@ CONST
 
 VAR
 	bgColor, fgColor: RL.Color;
+	windowWidth, windowHeight: INTEGER;
+	windowIcon: RL.Image;
+	boingSound: RL.Sound;
 	
 
 PROCEDURE GetStringFromPtr(textPtr: Wren.CString; VAR text: ARRAY OF CHAR);
@@ -58,7 +61,6 @@ PROCEDURE [ccall] InitWindow(vm: Wren.VM);
 VAR
 	title: ARRAY 128 OF CHAR;
 	titlePtr: INTEGER;
-	windowWidth, windowHeight: INTEGER;
 	
 BEGIN
 	Wren.EnsureSlots(vm, 3);
@@ -92,7 +94,7 @@ BEGIN
 END LoadTexture;
 
 
-PROCEDURE [ccall] DrawTexture(vm: Wren.VM);
+PROCEDURE [ccall] DrawScene(vm: Wren.VM);
 TYPE
 	TexturePtr = POINTER TO RL.Texture2D;
 VAR
@@ -101,6 +103,10 @@ VAR
 	sprite: INTEGER;
 	rect: RL.Rectangle;
 	pos: RL.Vector2;
+	shadowColor, lineColor: RL.Color;
+	shadowRadius: INTEGER;
+	shadowRect: RL.Rectangle;
+	i, lineCount, colCount, lineDist: INTEGER;
 BEGIN
 	Wren.EnsureSlots(vm, 6);
 	
@@ -117,8 +123,39 @@ BEGIN
 	
 	texture := SYSTEM.VAL(texturePtr, TexturePtr);
 	
+	lineDist := 20;
+	lineCount := windowHeight DIV lineDist;
+	colCount := windowWidth DIV lineDist;
+	
+	RL.IntToColor(0CC44DDFFH, lineColor);
+	FOR i := 1 TO lineCount-1 DO
+		RL.DrawLine(lineDist, (i * lineDist), windowWidth - lineDist, (i * lineDist), lineColor);
+		RL.DrawLine(lineDist, (i * lineDist)+1, windowWidth - lineDist, (i * lineDist)+1, lineColor);
+		
+	END;
+	FOR i := 1 TO colCount-1 DO
+		RL.DrawLine((i * lineDist), lineDist, (i * lineDist), windowHeight - lineDist, lineColor);
+		RL.DrawLine((i * lineDist)+1, lineDist, (i * lineDist)+1, windowHeight - lineDist, lineColor);
+	END;
+	
+	shadowRect.x := pos.x + (rect.width DIV 2) + 16;
+	shadowRect.y := pos.y + (rect.height DIV 2);
+	shadowRadius := rect.width DIV 2;
+	RL.IntToColor(000000033H, shadowColor);
+	RL.DrawCircle(shadowRect.x, shadowRect.y, FLT(shadowRadius + 2), shadowColor);
+	
 	RL.DrawTextureRec(texture^, rect, pos, fgColor);
-END DrawTexture;
+	
+END DrawScene;
+
+
+PROCEDURE [ccall] BallBoing(vm: Wren.VM);
+BEGIN
+	IF RL.IsSoundPlaying(boingSound) THEN
+		RL.StopSound(boingSound);
+	END;
+	RL.PlaySound(boingSound);
+END BallBoing;
 
 
 PROCEDURE [ccall] BindForeignMethod(vm: Wren.VM; modNamePtr, 
@@ -138,9 +175,11 @@ BEGIN
 	IF (className = "Texture") & (signature = "load(_)") THEN
 		method := LoadTexture;
 	ELSIF (className = "App") & (signature = "draw(_,_,_,_,_,_)") THEN
-		method := DrawTexture;
+		method := DrawScene;
 	ELSIF (className = "App") & (signature = "initWindow(_,_,_)") THEN
 		method := InitWindow;
+	ELSIF (className = "Ball") & (signature = "boing()") THEN
+		method := BallBoing;
 	END;
 	
 	IF method = NIL THEN RAISE(ERR_INVALID_METHOD) END;
@@ -262,10 +301,14 @@ BEGIN
 	RL.IntToColor(0AAAAAAFFH, bgColor);
 	fontSize := 16;
 	RL.SetTargetFPS(60);
-	//RL.InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "AMIGA bouncing ball");
 	
 	// Initializing app
 	Init(vm, initClass, initHandle);
+	RL.LoadImage("assets/icon.png", windowIcon);
+	RL.SetWindowIcon(windowIcon);
+	
+	RL.InitAudioDevice();
+	RL.LoadSound("assets/boing.mp3", boingSound);
 	
 	// Main loop
 	WHILE ~ RL.WindowShouldClose() DO
@@ -277,6 +320,8 @@ BEGIN
 	END;
 	
 	// Cleaning up
+	RL.UnloadImage(windowIcon);
+	RL.CloseAudioDevice();
 	RL.CloseWindow();
 	Wren.FreeVM(vm);
 	
