@@ -1,65 +1,69 @@
 MODULE Data;
 IMPORT SYSTEM, Out := Out_sys;
 
-CONST
-	STACK_SIZE = 8;
-
 TYPE
 
 	ADDRESS = INTEGER;
 	
 	PersonDesc = RECORD 
+		name: ARRAY 32 OF CHAR;
 		age, m1, m2: INTEGER
 	END;
 	
 	PersonArr = ARRAY 4 OF INTEGER;
 	
 	Person = POINTER TO PersonDesc;
-
 	
 
+PROCEDURE [extern, "update2"] Update2(person: Person);
 PROCEDURE [extern, "update4"] Update4(VAR person: PersonDesc);
-PROCEDURE [extern, "update3"] Update3(str: ARRAY OF CHAR);
 PROCEDURE [extern, "update5"] Update5(b: ARRAY OF BYTE);
-
-PROCEDURE [extern, "malloc"] malloc(size: INTEGER): ADDRESS;
+PROCEDURE [extern, "update7"] Update7(person: PersonDesc);
+PROCEDURE [extern, "updateName"] UpdateName(person: Person; name: ARRAY OF CHAR);
 
 
 PROCEDURE Run();
 VAR
 	p1: PersonDesc;
 	p2: Person;
-	addr, size: ADDRESS;
-	name: ARRAY 32 OF CHAR;
-	personB: ARRAY 12 OF BYTE;
+	size: INTEGER;
+	personB: ARRAY 44 OF BYTE;
 BEGIN
+	p1.name := "Pedro";
 	p1.age := 40;
 	p1.m1 := 22;
 	p1.m2 := 99;	
 	
 	size := SYSTEM.SIZE(PersonDesc);
-	addr := malloc(size);
 	Out.String("Person: "); Out.Int(size, 0); Out.Ln;
-	
-	p2 := SYSTEM.VAL(addr, Person);
+	NEW(p2);
 	p2^ := p1;
-	Out.String("p2: "); Out.Int(p2.age, 0);
+	Out.String("p2: "); Out.String(p2.name);
+	Out.String(", "); Out.Int(p2.age, 0);
 	Out.String(", "); Out.Int(p2.m1, 0);
 	Out.String(", "); Out.Int(p2.m2, 0);
 	Out.Ln;
 	
-	SYSTEM.MOVE(SYSTEM.ADR(p1), SYSTEM.ADR(personB), size);
-	
-	name := "Evandro";
-	Update3(name);
 	Update4(p1);
-	Update5(personB);
 	
+	Update2(p2);
+	
+	Out.String("name before: "); Out.String(p2.name); Out.Ln;
+	UpdateName(p2, "Paulo");
+	Out.String("name after: "); Out.String(p2.name); Out.Ln;
+	
+	Update7(p1);
+	Out.String("m2 after: "); Out.Int(p1.m2, 0); Out.Ln;
+	ASSERT(p1.m2 = 876);
+	
+	SYSTEM.MOVE(SYSTEM.ADR(p1), SYSTEM.ADR(personB), size);
+	Update5(personB);
 	
 END Run;
 
 
 BEGIN
 	Out.Ln; Out.String("================================================"); Out.Ln;
-	Run()
+	Run();
+	Out.String("================================================"); Out.Ln;
 END Data.
