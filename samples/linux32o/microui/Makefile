@@ -7,9 +7,7 @@ ARFLAGS=rc
 OBC=../../../compilerX
 DEF=-def API_sys
 OPTS=-entry _start -rtl RTL_sys
-SRCC=lib/glue.c
-SRCO=HelloGui.ob07
-OBJC=lib/glue.o
+OBJC=lib/raylib_glue.o lib/glue.o
 OBJO=lib/HelloGui.xo
 BINDIR=bin
 EXE=$(BINDIR)/HelloGui
@@ -22,10 +20,10 @@ exe: $(OBJC) $(OBJO)
 	@mkdir -p $(BINDIR)
 	$(CC) $(CFLAGS) -nostartfiles -o $(EXE) $^ $(LIBS) -lm
 
-lib/glue.o: $(SRCC)
+lib/%.o: lib/%.c
 	$(CC) $(CFLAGS) -c $^ -o $@ -I$(INCLUDE)
 
-lib/HelloGui.xo: $(SRCO)
+lib/%.xo: %.ob07
 	$(OBC) $^ linux32o -out $@ $(DEF) $(OPTS)
 
 clean:

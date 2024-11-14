@@ -23,7 +23,6 @@ BEGIN
 	wr1.x := 20; wr1.y := 20; wr1.w := 200; wr1.h := 150;
 	wr2.x := 300; wr2.y := 20; wr2.w := 200; wr2.h := 200;
 	widths2[0] := -1;
-	font := RL.CreateFont();
 	
 	IF Args.argc > 1 THEN
 		Args.GetArg(1, title);
@@ -71,7 +70,6 @@ BEGIN
 			IF MUI.SliderEx(ctx, svalue2, 0.0, 100.00, 1.0, "%.0f", MUI.OPT_NONE) THEN
 			END;
 			
-			
 			MUI.EndWindow(ctx);
 		END;
 	
@@ -84,7 +82,6 @@ BEGIN
 	END;
 	
 	MUI.Destroy(ctx);
-	RL.DestroyFont(font);
 	RL.CloseWindow();
 
 END start;
