@@ -3,6 +3,14 @@
 #include "raylib.h"
 
 // Raylib
+void _InitWindow(int w, int h, int size, const char *title) {
+	InitWindow(w, h, title);
+}
+
+void _ClearBackground(Color* color) {
+	ClearBackground(*color);
+}
+
 void _DrawCircle(int x, int y, double r, Color* color) {
 	DrawCircle(x, y, r, *color);
 }
@@ -15,11 +23,11 @@ void _DrawRectangle(int x, int y, int w, int h, Color* color) {
 	DrawRectangle(x, y, w, h, *color);
 }
 
-void _ClearBackground(Color* color) {
-	ClearBackground(*color);
+void _DrawRectangleLines(int posX, int posY, int width, int height, Color* color) {
+	DrawRectangleLines(posX, posY, width, height, *color);
 }
 
-void _DrawText(const char *text, int x, int y, int font, Color* color) {
+void _DrawText(int size, const char *text, int x, int y, int font, Color* color) {
 	DrawText(text, x, y, font, *color);
 }
 
@@ -27,11 +35,11 @@ void _LoadFontEx(const char *fileName, Font *font, int fontSize, int *codepoints
 	*font = LoadFontEx(fileName, fontSize, codepoints, codepointCount);
 }
 
-void _UnloadFont(const char *fileName, Font *font) {
+void _LoadFont(int size, const char *fileName, int type, Font *font) {
 	*font = LoadFont(fileName);
 }
 
-void _LoadTexture(const char *fileName, Texture* texture) {
+void _LoadTexture(int size, const char *fileName, Texture* texture) {
 	*texture = LoadTexture(fileName);
 }
 
@@ -53,11 +61,11 @@ void _DrawTextureRec(Texture2D *texture, ORectangle *source, OVector2* position,
 	DrawTextureRec(*texture, rect, p, *color);
 }
 
-void _LoadImage(const char *fileName, Image* image) {
+void _LoadImage(int size, const char *fileName, int type, Image* image) {
 	*image = LoadImage(fileName);
 }
 
-void _UnloadImage(Image* image) {
+void _UnloadImage(int type, Image* image) {
 	UnloadImage(*image);
 }
 
@@ -66,7 +74,7 @@ void _SetWindowIcon(Image *image) {
 } 
 
 // raudio
-void _LoadSound(const char *fileName, Sound *sound) {
+void _LoadSound(int size, const char *fileName, int type, Sound *sound) {
 	*sound = LoadSound(fileName);
 }
 

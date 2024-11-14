@@ -17,7 +17,7 @@ VAR
 	windowWidth, windowHeight: INTEGER;
 	windowIcon: RL.Image;
 	boingSound: RL.Sound;
-	
+
 
 PROCEDURE GetStringFromPtr(textPtr: Wren.CString; VAR text: ARRAY OF CHAR);
 VAR
@@ -103,10 +103,35 @@ VAR
 	sprite: INTEGER;
 	rect: RL.Rectangle;
 	pos: RL.Vector2;
-	shadowColor, lineColor: RL.Color;
+	shadowColor: RL.Color;
 	shadowRadius: INTEGER;
 	shadowRect: RL.Rectangle;
-	i, lineCount, colCount, lineDist: INTEGER;
+	
+	PROCEDURE DrawBG();
+	VAR
+		lineColor: RL.Color;
+		i, lineCount, colCount, lineDist: INTEGER;
+		r1: RL.Rectangle;
+	BEGIN 
+		RL.IntToColor(0AA00AAFFH, lineColor);
+		
+		r1.x := windowWidth DIV 12;
+		r1.width := windowWidth - (r1.x * 2);
+		r1.y := windowHeight DIV 9;
+		FOR i := 1 TO 7 DO	
+			r1.height := (r1.y * i);
+			RL.DrawRectangleLines(r1.x, r1.y, r1.width, r1.height, lineColor);
+			RL.DrawRectangleLines(r1.x + 1, r1.y + 1, r1.width, r1.height, lineColor);
+		END;
+		
+		FOR i := 1 TO 9 DO	
+			r1.width := (r1.x * i);
+			RL.DrawRectangleLines(r1.x, r1.y, r1.width, r1.height, lineColor);
+			RL.DrawRectangleLines(r1.x + 1, r1.y + 1, r1.width, r1.height, lineColor);
+		END;
+		
+	END DrawBG;
+	
 BEGIN
 	Wren.EnsureSlots(vm, 6);
 	
@@ -123,20 +148,7 @@ BEGIN
 	
 	texture := SYSTEM.VAL(texturePtr, TexturePtr);
 	
-	lineDist := 20;
-	lineCount := windowHeight DIV lineDist;
-	colCount := windowWidth DIV lineDist;
-	
-	RL.IntToColor(0CC44DDFFH, lineColor);
-	FOR i := 1 TO lineCount-1 DO
-		RL.DrawLine(lineDist, (i * lineDist), windowWidth - lineDist, (i * lineDist), lineColor);
-		RL.DrawLine(lineDist, (i * lineDist)+1, windowWidth - lineDist, (i * lineDist)+1, lineColor);
-		
-	END;
-	FOR i := 1 TO colCount-1 DO
-		RL.DrawLine((i * lineDist), lineDist, (i * lineDist), windowHeight - lineDist, lineColor);
-		RL.DrawLine((i * lineDist)+1, lineDist, (i * lineDist)+1, windowHeight - lineDist, lineColor);
-	END;
+	DrawBG();
 	
 	shadowRect.x := pos.x + (rect.width DIV 2) + 16;
 	shadowRect.y := pos.y + (rect.height DIV 2);
