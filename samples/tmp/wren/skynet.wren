@@ -21,7 +21,9 @@ class Skynet {
   }
 }
 
+var fiberCount = 1000000
+System.print("Starting %(fiberCount) fibers...")
 var start = System.clock
-var result = Skynet.makeFiber(0, 100000, 10).call()
+var result = Skynet.makeFiber(0, fiberCount, 10).call()
 var end = System.clock
 System.print("Result: %(result) in %(end - start) s")

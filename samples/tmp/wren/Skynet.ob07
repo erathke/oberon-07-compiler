@@ -1,14 +1,13 @@
 MODULE Skynet;
 IMPORT SYSTEM, 
 	Out := Out_sys,
-	Files,
-	Arena IN "./Arena2.ob07",
-	Wren IN "./Wren.ob07";
+	Files IN "./lib/Files.ob07",
+	Arena IN "./lib/Arena2.ob07",
+	Wren IN "./lib/Wren.ob07";
 
 
 CONST
 	NULL = 0;
-	MEM_SIZE = 100 * 1024 * 1024;
 
 
 PROCEDURE GetStringFromPtr(textPtr: Wren.CString; VAR text: ARRAY OF CHAR);
@@ -67,6 +66,7 @@ END ReallocateFn;
 PROCEDURE main(scriptName: ARRAY OF CHAR);
 CONST
 	FILE_SIZE = 4096;
+	MEM_SIZE = 650 * 1024 * 1024; // 650 Mb
 VAR
 	vm: Wren.VM;
 	config: Wren.Configuration;
@@ -83,7 +83,6 @@ BEGIN
 	config.errorFn := ErrorFn;
 	config.reallocateFn := ReallocateFn;
 	config.userdata := mem;
-	//config.initialHeapSize := 50 * 1024 * 1024;
 	
 	vm := Wren.NewVM(config);
 	ASSERT(vm # NULL);
@@ -98,11 +97,10 @@ BEGIN
 	IF result # Wren.RESULT_SUCCESS THEN RAISE(result); END;
 	Wren.FreeVM(vm);
 	
-	Out.String("total memory: "); Out.Int(mem.offset, 0); Out.Ln;
+	Out.String("Total used memory (bytes): "); Out.Int(mem.offset, 0); Out.Ln;
 END main;
 
 
 BEGIN
 	main("skynet.wren")
-
 END Skynet.

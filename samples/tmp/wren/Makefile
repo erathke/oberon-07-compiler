@@ -17,7 +17,7 @@ lib/%.o: lib/%.c
 lib/%.xo: %.ob07
 	$(OBC) $^ linux32o -out $@ $(DEF) $(OPTS)
 
-amiga: lib/glue.o lib/AmigaBall.xo
+amiga: lib/raylib_glue.o lib/AmigaBall.xo
 	@mkdir -p $(BINDIR)
 	$(CC) $(CFLAGS) -o $(BINDIR)/$@ $^ $(LIBS) -lm
 

@@ -1,8 +1,9 @@
 MODULE AmigaBall;
 IMPORT SYSTEM, 
-	Out := Out_sys, Args, Files,
-	RL IN "./Raylib.ob07", 
-	Wren IN "./Wren.ob07";
+	Out := Out_sys, 
+	Files IN "./lib/Files.ob07",
+	RL IN "./lib/Raylib.ob07", 
+	Wren IN "./lib/Wren.ob07";
 
 
 CONST
@@ -106,6 +107,7 @@ VAR
 	shadowColor: RL.Color;
 	shadowRadius: INTEGER;
 	shadowRect: RL.Rectangle;
+	
 	
 	PROCEDURE DrawBG();
 	VAR
@@ -309,7 +311,7 @@ BEGIN
 	ASSERT(viewHandle # NULL);
 	
 	// Raylib initialization
-	RL.IntToColor(RL.WHITE, fgColor);
+	fgColor := RL.WHITE;
 	RL.IntToColor(0AAAAAAFFH, bgColor);
 	fontSize := 16;
 	RL.SetTargetFPS(60);
@@ -342,5 +344,4 @@ END main;
 
 BEGIN
 	main("amiga.wren")
-
 END AmigaBall.
