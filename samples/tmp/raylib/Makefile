@@ -5,10 +5,10 @@ CFLAGS=-m32 -no-pie
 OBC=../../../compilerX
 DEF=-def API_sys
 OPTS=-entry _start -rtl RTL_sys
-SRCO=HelloGui.ob07
-OBJC=lib/raylib_glue.o lib/glue.o
-OBJO=lib/HelloGui.xo
-EXE=bin/HelloGui
+SRCO=HelloRaylib.ob07
+OBJC=lib/raylib_glue.o
+OBJO=lib/HelloRaylib.xo
+EXE=bin/HelloRaylib
 
 exe: $(OBJC) $(OBJO)
 	@mkdir -p bin
@@ -17,7 +17,7 @@ exe: $(OBJC) $(OBJO)
 lib/%.o: lib/%.c
 	$(CC) $(CFLAGS) -c $^ -o $@ -I$(INCLUDE)
 
-lib/HelloGui.xo: $(SRCO)
+lib/HelloRaylib.xo: $(SRCO)
 	$(OBC) $^ linux32o -out $@ $(DEF) $(OPTS)
 
 clean:

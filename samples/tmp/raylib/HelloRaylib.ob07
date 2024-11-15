@@ -1,0 +1,23 @@
+MODULE HelloRaylib;
+IMPORT RL IN "./lib/Raylib.ob07";
+
+
+PROCEDURE Loop();
+BEGIN
+	RL.SetTargetFPS(60);
+	RL.InitWindow(800, 600, "Hello - raylib");
+	
+	WHILE ~ RL.WindowShouldClose() DO
+		RL.BeginDrawing();
+			RL.ClearBackground(RL.WHITE);
+			RL.DrawRectangle(100, 100, 100, 100, RL.RED);
+		RL.EndDrawing();
+	END;
+	
+	RL.CloseWindow();
+END Loop;
+
+
+BEGIN
+	Loop()
+END HelloRaylib.
