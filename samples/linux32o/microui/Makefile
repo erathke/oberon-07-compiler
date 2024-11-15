@@ -8,9 +8,9 @@ OBC=../../../compilerX
 DEF=-def API_sys
 OPTS=-entry _start -rtl RTL_sys
 OBJC=lib/raylib_glue.o lib/glue.o
-OBJO=lib/HelloGui.xo
+OBJO=lib/HelloGUI.xo
 BINDIR=bin
-EXE=$(BINDIR)/HelloGui
+EXE=$(BINDIR)/HelloGUI
 MURL_DEP=./deps/microui-raylib
 MURL_SRC=$(MURL_DEP)/src/murl.c $(MURL_DEP)/vendor/microui.c
 

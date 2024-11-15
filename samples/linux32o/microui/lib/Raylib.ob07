@@ -1,12 +1,7 @@
 MODULE Raylib;
-IMPORT SYSTEM, Out := Out_sys;
+IMPORT SYSTEM;
 
 CONST
-	
-	WHITE* = 0FFFFFFFFH;
-	YELLOW* = 0FFFF00FFH;
-	BLUE* =   0000FFFFH;
-	RED* =   0FF0000FFH;
 	
 	MOUSE_BUTTON_LEFT* = 0;
 	MOUSE_BUTTON_RIGHT* = 1;
@@ -75,7 +70,10 @@ TYPE
 		frameCount: INTEGER    // Total number of frames (considering channels)
 	END;
 
-
+VAR
+	WHITE*, YELLOW*, BLUE*, RED*: Color;
+	
+  
 PROCEDURE [extern, "SetTargetFPS"] SetTargetFPS*(fps: INTEGER);
 PROCEDURE [extern, "CloseWindow"] CloseWindow*();
 PROCEDURE [extern, "WindowShouldClose"] WindowShouldClose*(): BOOLEAN;
@@ -150,4 +148,9 @@ BEGIN
 END LoadFontEx;
 
 
+BEGIN
+	IntToColor(0FFFFFFFFH, WHITE);
+	IntToColor(0FFFF00FFH, YELLOW);
+	IntToColor(00000FFFFH, BLUE);
+	IntToColor(0FF0000FFH, RED);
 END Raylib.
