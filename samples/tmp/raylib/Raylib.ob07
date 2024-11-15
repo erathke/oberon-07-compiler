@@ -1,5 +1,5 @@
 MODULE Raylib;
-IMPORT SYSTEM;
+IMPORT SYSTEM, Out := Out_sys;
 
 CONST
 	
@@ -15,6 +15,8 @@ CONST
 	NULL = 0;
 TYPE
 	
+	ADDRESS = INTEGER;
+	
 	Vector2* = RECORD
 		x*, y*: INTEGER
 	END;
@@ -23,9 +25,55 @@ TYPE
 		r*, g*, b*, a*: BYTE
 	END;
 
-	ADDRESS = INTEGER;
+	Image* = RECORD
+		data: ADDRESS;             // Image raw data
+		width: INTEGER;              // Image base width
+		height: INTEGER;             // Image base height
+		mipmaps: INTEGER;            // Mipmap levels, 1 by default
+		format: INTEGER             // Data format (PixelFormat type)
+	END;
 	
-	Font* = ADDRESS;
+	Texture2D* = RECORD
+		id: ADDRESS;
+		width*, height: INTEGER;
+		mipmaps: INTEGER;
+		format: INTEGER
+	END;
+	
+	Rectangle* = RECORD
+		x*, y*, width*, height*: INTEGER
+	END;
+	
+	GlyphInfo = RECORD
+		value: INTEGER;              // Character value (Unicode)
+		offsetX: INTEGER;            // Character offset X when drawing
+		offsetY: INTEGER;            // Character offset Y when drawing
+		advanceX: INTEGER;           // Character advance position X
+		image: Image            // Character image data
+	END;
+
+	Font* = RECORD
+		baseSize: INTEGER;           // Base size (default chars height)
+		glyphCount: INTEGER;         // Number of glyph characters
+		glyphPadding: INTEGER;       // Padding around the glyph characters
+		texture: Texture2D;      // Texture atlas containing the glyphs
+		recs: ADDRESS;        // Rectangles in texture for the glyphs
+		glyphs: ADDRESS      // Glyphs info data
+	END;
+	
+	AudioStream* = RECORD
+		buffer: ADDRESS;     // Pointer to internal data used by the audio system
+		processor: ADDRESS;  // Pointer to internal data processor, useful for audio effects
+		sampleRate: INTEGER; // Frequency (samples per second)
+		sampleSize: INTEGER; // Bit depth (bits per sample): 8, 16, 32 (24 not supported)
+		channels: INTEGER    // Number of channels (1-mono, 2-stereo, ...)
+	END;
+	
+	// Sound
+	Sound* = RECORD 
+		stream: AudioStream;   // Audio stream
+		frameCount: INTEGER    // Total number of frames (considering channels)
+	END;
 
 
 PROCEDURE [extern, "SetTargetFPS"] SetTargetFPS*(fps: INTEGER);
@@ -36,47 +84,34 @@ PROCEDURE [extern, "EndDrawing"] EndDrawing*();
 PROCEDURE [extern, "GetMouseX"] GetMouseX*(): INTEGER;
 PROCEDURE [extern, "GetMouseY"] GetMouseY*(): INTEGER;
 PROCEDURE [extern, "IsMouseButtonPressed"] IsMouseButtonPressed*(button: INTEGER): BOOLEAN;
-PROCEDURE [extern, "_CreateFont"] CreateFont*(): Font;
-PROCEDURE [extern, "_DestroyFont"] DestroyFont*(font: Font);
 
-PROCEDURE [extern, "InitWindow"] _InitWindow(w, h: INTEGER; title: ADDRESS);
-PROCEDURE [extern, "_ClearBackground"] _ClearBackground(color: ADDRESS);
-PROCEDURE [extern, "_DrawCircle"] _DrawCircle(cx, cy: INTEGER; r: REAL; color: ADDRESS);
-PROCEDURE [extern, "_DrawRectangle"] _DrawRectangle(x, y, w, h: INTEGER; color: ADDRESS);
-PROCEDURE [extern, "_DrawText"] _DrawText(str: ADDRESS; x, y, font: INTEGER; color: ADDRESS);
-PROCEDURE [extern, "_LoadFont"] _LoadFont(fileName: ADDRESS; font: Font);
-PROCEDURE [extern, "_LoadFontEx"] _LoadFontEx(fileName: ADDRESS; font: Font; 
+
+PROCEDURE [extern, "_InitWindow"] InitWindow*(w, h: INTEGER; title: ARRAY OF CHAR);
+PROCEDURE [extern, "_ClearBackground"] ClearBackground*(color: Color);
+PROCEDURE [extern, "_DrawCircle"] DrawCircle*(cx, cy: INTEGER; r: REAL; color: Color);
+PROCEDURE [extern, "_DrawRectangle"] DrawRectangle*(x, y, w, h: INTEGER; color: Color);
+PROCEDURE [extern, "_DrawRectangleLines"] DrawRectangleLines*(posX, posY, width, height: INTEGER; color: Color);
+PROCEDURE [extern, "_DrawLine"] DrawLine*(startPosX, startPosY, endPosX, endPosY: INTEGER; color: Color);
+PROCEDURE [extern, "_DrawText"] DrawText*(str: ARRAY OF CHAR; x, y, font: INTEGER; color: Color);
+PROCEDURE [extern, "_LoadFont"] LoadFont*(fileName: ARRAY OF CHAR; VAR font: Font);
+PROCEDURE [extern, "_LoadFontEx"] _LoadFontEx(fileName: ADDRESS; font: ADDRESS; 
 	fontSize: INTEGER; codepoints: ADDRESS; coudepointsCount: INTEGER);
+PROCEDURE [extern, "GetFrameTime"] GetFrameTime*(): REAL;
+PROCEDURE [extern, "_LoadTexture"] LoadTexture*(path: ARRAY OF CHAR; texture: Texture2D);
+PROCEDURE [extern, "_DrawTexture"] DrawTexture*(texture: Texture2D; x, y: INTEGER; color: Color);
+PROCEDURE [extern, "_DrawTextureRec"] DrawTextureRec*(texture: Texture2D; source: Rectangle; position: Vector2; color: Color);
 
+PROCEDURE [extern, "_LoadImage"] LoadImage*(fileName: ARRAY OF CHAR; VAR image: Image);
+PROCEDURE [extern, "_UnloadImage"] UnloadImage*(VAR image: Image);
+PROCEDURE [extern, "_SetWindowIcon"] SetWindowIcon*(image: Image);
 
-PROCEDURE InitWindow*(w, h: INTEGER; title: ARRAY OF CHAR);
-BEGIN 
-	_InitWindow(w, h, SYSTEM.ADR(title[0]));
-END;
-
-
-PROCEDURE ClearBackground*(color: Color);
-BEGIN 
-	_ClearBackground(SYSTEM.ADR(color));
-END;
-
-
-PROCEDURE DrawCircle*(cx, cy: INTEGER; r: REAL; color: Color);
-BEGIN 
-	_DrawCircle(cx, cy, r, SYSTEM.ADR(color));
-END;
-
-
-PROCEDURE DrawRectangle*(x, y, w, h: INTEGER; color: Color);
-BEGIN 
-	_DrawRectangle(x, y, w, h, SYSTEM.ADR(color));
-END;
-
-
-PROCEDURE DrawText*(str: ARRAY OF CHAR; x, y, font: INTEGER; color: Color);
-BEGIN
-	_DrawText(SYSTEM.ADR(str[0]), x, y, font, SYSTEM.ADR(color));
-END DrawText;
+// Audio
+PROCEDURE [extern, "InitAudioDevice"] InitAudioDevice*();
+PROCEDURE [extern, "CloseAudioDevice"] CloseAudioDevice*();
+PROCEDURE [extern, "_LoadSound"] LoadSound*(fileName: ARRAY OF CHAR; VAR sound: Sound);
+PROCEDURE [extern, "_PlaySound"] PlaySound*(sound: Sound);
+PROCEDURE [extern, "_StopSound"] StopSound*(sound: Sound);
+PROCEDURE [extern, "_IsSoundPlaying"] IsSoundPlaying*(sound: Sound): BOOLEAN;
 
 
 PROCEDURE GetMousePosition*(VAR pos: Vector2);
@@ -109,15 +144,10 @@ BEGIN
 END IntToColor;
 
 
-PROCEDURE LoadFont*(filename: ARRAY OF CHAR; font: Font);
+PROCEDURE LoadFontEx*(filename: ARRAY OF CHAR; VAR font: Font; fontSize: INTEGER);
 BEGIN
-	_LoadFont(SYSTEM.ADR(filename[0]), font);
-END LoadFont;
-
-
-PROCEDURE LoadFontEx*(filename: ARRAY OF CHAR; font: Font; fontSize: INTEGER);
-BEGIN
-	_LoadFontEx(SYSTEM.ADR(filename[0]), font, fontSize, NULL, 0);
+	_LoadFontEx(SYSTEM.ADR(filename[0]), SYSTEM.ADR(font), fontSize, NULL, 0);
 END LoadFontEx;
+
 
 END Raylib.

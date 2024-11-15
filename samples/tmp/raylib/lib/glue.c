@@ -5,29 +5,6 @@
 #define RAYLIB_NUKLEAR_INCLUDE_DEFAULT_FONT
 #include "raylib-nuklear.h"
 
-// Raylib
-void _DrawCircle(int x, int y, double r, Color* color) {
-	DrawCircle(x, y, r, *color);
-}
-
-void _DrawRectangle(int x, int y, int w, int h, Color* color) {
-	DrawRectangle(x, y, w, h, *color);
-}
-
-void _ClearBackground(Color* color) {
-	ClearBackground(*color);
-}
-
-void _DrawText(const char *text, int x, int y, int font, Color* color) {
-	DrawText(text, x, y, font, *color);
-}
-
-static Font font;
-Font* _LoadFont(const char *fileName) {
-	font = LoadFont(fileName);
-	return &font;
-}
-
 // Raylib-nuklear
 struct nk_context* _InitNuklearEx(const char *fileName, double fontSize) {
 	Font font = LoadFont(fileName);

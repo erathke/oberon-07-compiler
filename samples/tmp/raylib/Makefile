@@ -5,16 +5,16 @@ CFLAGS=-m32 -no-pie
 OBC=../../../compilerX
 DEF=-def API_sys
 OPTS=-entry _start -rtl RTL_sys
-SRCC=lib/glue.c
 SRCO=HelloGui.ob07
-OBJC=lib/glue.o
+OBJC=lib/raylib_glue.o lib/glue.o
 OBJO=lib/HelloGui.xo
-EXE=HelloGui
+EXE=bin/HelloGui
 
 exe: $(OBJC) $(OBJO)
+	@mkdir -p bin
 	$(CC) $(CFLAGS) -nostartfiles -o $(EXE) $^ $(LIBS) -lm
 
-lib/glue.o: $(SRCC)
+lib/%.o: lib/%.c
 	$(CC) $(CFLAGS) -c $^ -o $@ -I$(INCLUDE)
 
 lib/HelloGui.xo: $(SRCO)
