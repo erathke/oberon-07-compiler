@@ -10,8 +10,6 @@ TYPE
 		age, m1, m2: INTEGER
 	END;
 	
-	PersonArr = ARRAY 4 OF INTEGER;
-	
 	Person = POINTER TO PersonDesc;
 	
 
@@ -20,6 +18,15 @@ PROCEDURE [extern, "update4"] Update4(VAR person: PersonDesc);
 PROCEDURE [extern, "update5"] Update5(b: ARRAY OF BYTE);
 PROCEDURE [extern, "update7"] Update7(person: PersonDesc);
 PROCEDURE [extern, "updateName"] UpdateName(person: Person; name: ARRAY OF CHAR);
+
+
+PROCEDURE Update1(p: PersonDesc);
+VAR
+	p2: PersonDesc;
+BEGIN
+	p2 := p;
+	p2.name := "Paulo";
+END Update1;
 
 
 PROCEDURE Run();
@@ -55,6 +62,9 @@ BEGIN
 	Update7(p1);
 	Out.String("m2 after: "); Out.Int(p1.m2, 0); Out.Ln;
 	ASSERT(p1.m2 = 876);
+	
+	Update1(p1);
+	Out.String("p1 after: "); Out.String(p1.name); Out.Ln;
 	
 	SYSTEM.MOVE(SYSTEM.ADR(p1), SYSTEM.ADR(personB), size);
 	Update5(personB);
