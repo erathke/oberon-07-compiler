@@ -110,7 +110,7 @@ VAR
 	PROCEDURE DrawBG();
 	VAR
 		lineColor: RL.Color;
-		i, lineCount, colCount, lineDist: INTEGER;
+		i: INTEGER;
 		r1: RL.Rectangle;
 	BEGIN 
 		RL.IntToColor(0AA00AAFFH, lineColor);
