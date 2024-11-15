@@ -1,0 +1,58 @@
+MODULE Snowflake;
+IMPORT Math, RL IN "./lib/Raylib.ob07";
+
+
+PROCEDURE Loop();
+CONST
+	SCREEN_FACTOR = 75;
+	SCREEN_WIDTH = 16 * SCREEN_FACTOR;
+	SCREEN_HEIGHT = 9 * SCREEN_FACTOR;
+	BRANCH_COUNT = 7;
+	BRANCH_ANGLE = (2.0 * Math.pi) / FLT(BRANCH_COUNT);
+	BRANCH_LEN = FLT(SCREEN_FACTOR) * 2.0;
+VAR
+	center: RL.Vector2;
+	bgColor: RL.Color;
+	
+	PROCEDURE DrawFlake(center: RL.Vector2; branchLen: REAL; thick: REAL; hue: REAL; level: INTEGER);
+	VAR
+		branch: RL.Vector2;
+		branchX, branchY: REAL;
+		color: RL.Color;
+		i: INTEGER;
+	BEGIN
+		IF level > 0 THEN
+			RL.ColorFromHSV(hue, 1.0, 1.0, color);
+			FOR i := 0 TO BRANCH_COUNT - 1 DO
+				branchX := Math.cos(BRANCH_ANGLE * FLT(i)) * branchLen;
+				branchY := Math.sin(BRANCH_ANGLE * FLT(i)) * branchLen;
+				branch.x := center.x + branchX;
+				branch.y := center.y + branchY;
+				RL.DrawLineEx(center, branch, thick, color);
+				DrawFlake(branch, branchLen * 0.5, thick * 0.5, hue + 70.0, level - 1);
+			END;
+		END;
+	END DrawFlake;
+
+BEGIN	
+	RL.IntToColor(0181818FFH, bgColor);
+	center.x := FLT(SCREEN_WIDTH) * 0.5;
+	center.y := FLT(SCREEN_HEIGHT) * 0.5;
+	
+	RL.InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Snowflake - recursion test");
+
+	WHILE ~ RL.WindowShouldClose() DO
+		RL.BeginDrawing();
+			RL.ClearBackground(bgColor);
+			RL.DrawFPS(10, 10);
+			DrawFlake(center, BRANCH_LEN, 10.0, 0.0, 5);
+		RL.EndDrawing();
+	END;
+	
+	RL.CloseWindow();
+END Loop;
+
+
+BEGIN
+	Loop()
+END Snowflake.
