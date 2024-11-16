@@ -1,0 +1,48 @@
+MODULE String;
+IMPORT SYSTEM;
+
+
+PROCEDURE FromInt*(x: INTEGER; VAR str: ARRAY OF CHAR);
+VAR
+    i, a: INTEGER;
+BEGIN
+    i := 0;
+    a := x;
+    
+    IF x < 0 THEN
+		str[i] := "-";
+		a := -a;
+		x := -x;
+		INC(i);
+    END;
+    
+    REPEAT
+        INC(i);
+        a := a DIV 10
+    UNTIL a = 0;
+
+    str[i] := 0X;
+
+    REPEAT
+        DEC(i);
+        str[i] := CHR(x MOD 10 + ORD("0"));
+        x := x DIV 10
+    UNTIL x = 0
+END FromInt;
+
+
+PROCEDURE Append*(VAR dest: ARRAY OF CHAR; from: ARRAY OF CHAR);
+VAR
+    n1, n2: INTEGER;
+BEGIN
+    n1 := LENGTH(dest);
+    n2 := LENGTH(from);
+
+    ASSERT(n1 + n2 < LEN(dest));
+
+    SYSTEM.MOVE(SYSTEM.ADR(from[0]), SYSTEM.ADR(dest[n1]), n2);
+    dest[n1 + n2] := 0X
+END Append;
+
+
+END String.

@@ -1,0 +1,133 @@
+MODULE BlockEditor;
+IMPORT
+	ST IN "./lib/Storage.ob07",
+	RL IN "./lib/Raylib.ob07",
+	MUI IN "./lib/MicroUI.ob07",
+	MURL IN "./lib/MURL.ob07",
+	String IN "./lib/String.ob07",
+	Out := Out_sys;
+
+
+CONST
+	SCREEN_WIDTH = 800;
+	SCREEN_HEIGHT = 600;
+
+VAR
+	d0: ST.Disk;
+	d0blocks: INTEGER;
+	d0blocksStr: ARRAY 32 OF CHAR;
+	d0currentBlock: REAL;
+	currentBlock: ST.Block;
+
+
+PROCEDURE MainWindow(ctx: MUI.Context; offsY, height: INTEGER);
+VAR
+	wr1: MUI.Rect;
+	colWidths: ARRAY 3 OF INTEGER;
+	blockCountInfo: ARRAY 64 OF CHAR;
+BEGIN
+	wr1.x := 0; wr1.y := offsY; wr1.w := SCREEN_WIDTH; wr1.h := height;
+	colWidths[0] := 135;
+	colWidths[1] := 200;
+	colWidths[2] := -1;
+	blockCountInfo:= " of ";
+	String.Append(blockCountInfo, d0blocksStr);
+	
+	IF MUI.BeginWindowEx(ctx, "Blocks", wr1, MUI.OPT_NOINTERACT + MUI.OPT_NOCLOSE) THEN
+		MUI.LayoutRow(ctx, 3, colWidths, 0);
+		MUI.Label(ctx, "Select a block: ");
+		IF MUI.SliderEx(ctx, d0currentBlock, 1.0, FLT(d0blocks), 1.0, "%.0f", MUI.OPT_ALIGNCENTER) THEN
+			ST.ReadBlock(d0, FLOOR(d0currentBlock) - 1, currentBlock);
+		END;
+		MUI.Label(ctx, blockCountInfo);
+		MUI.EndWindow(ctx);
+	END;
+	
+END MainWindow;
+
+
+PROCEDURE BlockWindow(ctx: MUI.Context; offsY, height: INTEGER);
+VAR
+	wr1, txt1: MUI.Rect;
+	rowWidth1: ARRAY 2 OF INTEGER;
+	rowWidth2: ARRAY 1 OF INTEGER;
+	blockAliasInfo: ARRAY 64 OF CHAR;
+	status: SET;
+BEGIN
+	wr1.x := 0; wr1.y := offsY; wr1.w := SCREEN_WIDTH; wr1.h := height;
+	txt1.x := 0; txt1.y := offsY + 100; txt1.w := SCREEN_WIDTH; txt1.h := 100;
+	rowWidth1[0] := 135;
+	rowWidth1[1] := 200;
+	rowWidth2[0] := -1;
+	
+	IF currentBlock.alias = "" THEN
+		blockAliasInfo:= "Alias: empty";
+	ELSE
+		blockAliasInfo:= "Alias: ";
+		String.Append(blockAliasInfo, currentBlock.alias);
+	END;
+	
+	IF MUI.BeginWindowEx(ctx, "Block info", wr1, MUI.OPT_NOINTERACT + MUI.OPT_NOCLOSE) THEN
+		MUI.LayoutRow(ctx, 2, rowWidth1, 0);
+		MUI.Label(ctx, "Alias: ");
+		status := MUI.Textbox(ctx, currentBlock.alias, LEN(currentBlock.alias));
+		IF (status = MUI.RES_SUBMIT) THEN
+			ST.WriteBlock(d0, FLOOR(d0currentBlock) - 1, currentBlock);
+		END;
+		
+		MUI.LayoutRow(ctx, 1, rowWidth2, -1);
+		status := MUI.Textbox(ctx, currentBlock.data, LEN(currentBlock.data));
+		IF (status = MUI.RES_SUBMIT) THEN
+			ST.WriteBlock(d0, FLOOR(d0currentBlock) - 1, currentBlock);
+		END;
+		
+		MUI.EndWindow(ctx);
+	END;
+	
+END BlockWindow;
+
+
+PROCEDURE Loop();
+VAR
+	fontSize: INTEGER;
+	ctx: MUI.Context;
+	font: RL.Font;
+BEGIN
+
+	d0.name := "disk0.img";
+	d0blocks := ST.AttachDisk(d0);
+	d0currentBlock := 0.0;
+	String.FromInt(d0blocks, d0blocksStr);
+	
+	RL.SetTargetFPS(60);
+	RL.InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Block Editor");
+	
+	MUI.Init(ctx);
+	fontSize := 14;
+	RL.LoadFontEx("./assets/anonymous_pro_bold.ttf", font, fontSize);
+	MURL.SetupFontEx(ctx, font);
+	
+	WHILE ~ RL.WindowShouldClose() DO
+	
+		MURL.HandleInput(ctx);
+		MUI.Begin(ctx);
+			MainWindow(ctx, 0, 100);
+			BlockWindow(ctx, 100, SCREEN_HEIGHT - 100);
+		MUI.End(ctx);
+	
+		RL.BeginDrawing();
+			RL.ClearBackground(RL.WHITE);
+			MURL.Render(ctx);
+		RL.EndDrawing();
+	END;
+	
+	ST.DetachDisk(d0);
+	
+	MUI.Destroy(ctx);
+	RL.CloseWindow();
+END Loop;
+
+
+BEGIN
+	Loop()
+END BlockEditor.

@@ -1,0 +1,85 @@
+MODULE Storage;
+IMPORT 
+	SYSTEM,
+	Files IN "./Files.ob07";
+
+CONST
+	BLOCK_SIZE* = 4096;
+	BLOCKMETA_ALIAS = 32;
+
+TYPE 
+	ADDRESS = INTEGER;
+
+	Block* = RECORD
+		data*: ARRAY BLOCK_SIZE - BLOCKMETA_ALIAS OF CHAR;
+		alias*: ARRAY BLOCKMETA_ALIAS OF CHAR // 32
+	END;
+	
+	Disk* = RECORD 
+		name*: ARRAY 128 OF CHAR;
+		file: Files.File;
+		blocks: INTEGER
+	END;
+
+
+PROCEDURE AttachDisk*(VAR disk: Disk): INTEGER;
+CONST
+	NULL = 0;
+VAR
+	f: Files.File;
+	fsize, dblocks: INTEGER;
+BEGIN
+	f := Files.Open(disk.name, Files.OPEN_RW);
+	ASSERT(f # NULL);
+	fsize := Files.Seek(f, 0, Files.SEEK_END);
+	ASSERT(fsize > 0);
+	dblocks := fsize DIV BLOCK_SIZE;
+	ASSERT(dblocks > 0);
+	
+	disk.file := f;
+	disk.blocks := dblocks;
+	 
+	RETURN dblocks
+END AttachDisk;
+
+
+PROCEDURE DetachDisk*(VAR disk: Disk);
+BEGIN
+	Files.Close(disk.file);
+	disk.blocks := 0;
+END DetachDisk;
+
+
+PROCEDURE ReadBlock*(disk: Disk; nth: INTEGER; VAR block: Block);
+VAR
+	boffs, bsize: INTEGER;
+	baddr: ADDRESS;
+BEGIN
+	ASSERT(boffs <= disk.blocks);
+	
+	boffs := BLOCK_SIZE * nth;
+	baddr := SYSTEM.ADR(block);
+	bsize := Files.Seek(disk.file, boffs, Files.SEEK_BEG);
+	IF Files.ReadAddr(disk.file, baddr, BLOCK_SIZE) <= 0 THEN
+		RAISE(88);
+	END;
+END ReadBlock;
+
+
+PROCEDURE WriteBlock*(disk: Disk; nth: INTEGER; VAR block: Block);
+VAR
+	boffs, bsize: INTEGER;
+	baddr: ADDRESS;
+BEGIN
+	ASSERT(boffs <= disk.blocks);
+	
+	boffs := BLOCK_SIZE * nth;
+	baddr := SYSTEM.ADR(block);
+	bsize := Files.Seek(disk.file, boffs, Files.SEEK_BEG);
+	IF Files.WriteAddr(disk.file, baddr, BLOCK_SIZE) <= 0 THEN
+		RAISE(99);
+	END;
+END WriteBlock;
+
+
+END Storage.

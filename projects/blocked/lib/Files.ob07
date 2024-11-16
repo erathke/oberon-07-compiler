@@ -1,0 +1,83 @@
+﻿(*
+    BSD 2-Clause License
+
+    Copyright (c) 2020-2021, Anton Krotov
+    All rights reserved.
+*)
+
+MODULE Files;
+IMPORT SYSTEM;
+
+CONST
+    OPEN_R* = "rb";  OPEN_W* = "wb";  OPEN_RW* = "r+b";
+    SEEK_BEG* = 0;   SEEK_CUR* = 1;   SEEK_END* = 2;
+
+TYPE
+	File* = INTEGER;
+
+PROCEDURE [extern, "fwrite"] fwrite(buffer, bytes, blocks: INTEGER; file: File): INTEGER;
+PROCEDURE [extern, "fread"] fread(buffer, bytes, blocks, file: INTEGER): INTEGER;
+PROCEDURE [extern, "fseek"] fseek(file: File; offset, origin: INTEGER): INTEGER;
+PROCEDURE [extern, "ftell"] ftell(file: File): INTEGER;
+PROCEDURE [extern, "fopen"] fopen(fname, fmode: INTEGER): File;
+PROCEDURE [extern, "fclose"] fclose(file: File): INTEGER;
+PROCEDURE [extern, "remove"] remove(fname: INTEGER): INTEGER;
+
+
+PROCEDURE Delete* (FName: ARRAY OF CHAR): BOOLEAN;
+    RETURN remove(SYSTEM.ADR(FName[0])) = 0
+END Delete;
+
+
+PROCEDURE Close* (F: File);
+BEGIN
+    F := fclose(F)
+END Close;
+
+
+PROCEDURE Open* (FName, Mode: ARRAY OF CHAR): File;
+    RETURN fopen(SYSTEM.ADR(FName[0]), SYSTEM.ADR(Mode[0]))
+END Open;
+
+
+PROCEDURE Create* (FName: ARRAY OF CHAR): File;
+    RETURN Open(FName, OPEN_W)
+END Create;
+
+
+PROCEDURE Seek* (F: File; Offset, Origin: INTEGER): INTEGER;
+VAR
+    res: INTEGER;
+
+BEGIN
+    IF fseek(F, Offset, Origin) = 0 THEN
+        res := ftell(F)
+    ELSE
+        res := -1
+    END
+
+    RETURN res
+END Seek;
+
+
+PROCEDURE Write* (F: File; Buffer: ARRAY OF CHAR; Count: INTEGER): INTEGER;
+    RETURN fwrite(SYSTEM.ADR(Buffer[0]), 1, Count, F)
+END Write;
+
+
+PROCEDURE WriteAddr* (F: File; addr: INTEGER; Count: INTEGER): INTEGER;
+    RETURN fwrite(addr, 1, Count, F)
+END WriteAddr;
+
+
+PROCEDURE Read* (F: File; Buffer: ARRAY OF CHAR; Count: INTEGER): INTEGER;
+    RETURN fread(SYSTEM.ADR(Buffer[0]), 1, Count, F)
+END Read;
+
+
+PROCEDURE ReadAddr* (F: File; addr: INTEGER; Count: INTEGER): INTEGER;
+    RETURN fread(addr, 1, Count, F)
+END ReadAddr;
+
+
+END Files.
