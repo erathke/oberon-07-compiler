@@ -5,14 +5,21 @@ IMPORT
 
 CONST
 	BLOCK_SIZE* = 4096;
+	
+	BLOCKMETA_COUNT = 4;
 	BLOCKMETA_ALIAS = 32;
+	BLOCKMETA_SIZE = BLOCKMETA_COUNT + BLOCKMETA_ALIAS;
+	
+	ERR_READBLOCK = 1;
+	ERR_WRITEBLOCK = 2;
 
 TYPE 
 	ADDRESS = INTEGER;
 
-	Block* = RECORD
-		data*: ARRAY BLOCK_SIZE - BLOCKMETA_ALIAS OF CHAR;
-		alias*: ARRAY BLOCKMETA_ALIAS OF CHAR // 32
+	Block* = POINTER TO RECORD
+		count: INTEGER;
+		alias*: ARRAY BLOCKMETA_ALIAS OF CHAR;
+		data*: ARRAY BLOCK_SIZE - BLOCKMETA_SIZE OF CHAR
 	END;
 	
 	Disk* = RECORD 
@@ -56,12 +63,13 @@ VAR
 	baddr: ADDRESS;
 BEGIN
 	ASSERT(boffs <= disk.blocks);
+	ASSERT(block # NIL);
 	
 	boffs := BLOCK_SIZE * nth;
-	baddr := SYSTEM.ADR(block);
+	baddr := SYSTEM.VAL(block, ADDRESS);
 	bsize := Files.Seek(disk.file, boffs, Files.SEEK_BEG);
 	IF Files.ReadAddr(disk.file, baddr, BLOCK_SIZE) <= 0 THEN
-		RAISE(88);
+		RAISE(ERR_READBLOCK);
 	END;
 END ReadBlock;
 
@@ -72,12 +80,13 @@ VAR
 	baddr: ADDRESS;
 BEGIN
 	ASSERT(boffs <= disk.blocks);
+	ASSERT(block # NIL);
 	
 	boffs := BLOCK_SIZE * nth;
-	baddr := SYSTEM.ADR(block);
+	baddr := SYSTEM.VAL(block, ADDRESS);
 	bsize := Files.Seek(disk.file, boffs, Files.SEEK_BEG);
 	IF Files.WriteAddr(disk.file, baddr, BLOCK_SIZE) <= 0 THEN
-		RAISE(99);
+		RAISE(ERR_WRITEBLOCK);
 	END;
 END WriteBlock;
 

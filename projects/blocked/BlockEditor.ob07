@@ -98,6 +98,7 @@ BEGIN
 	d0blocks := ST.AttachDisk(d0);
 	d0currentBlock := 0.0;
 	String.FromInt(d0blocks, d0blocksStr);
+	NEW(currentBlock);
 	
 	RL.SetTargetFPS(60);
 	RL.InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Block Editor");
