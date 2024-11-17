@@ -19,13 +19,23 @@ VAR
 	currentBlock: ST.Block;
 	cursorPos: MUI.Vec2;
 
+
+PROCEDURE CalculateCursosPos(VAR block: ST.Block; VAR cursorPos: MUI.Vec2);
+VAR
+	dataLen: INTEGER;
+BEGIN
+	dataLen := LENGTH(block.data);
+	cursorPos.y := dataLen DIV block.columns;
+	cursorPos.x := dataLen - (cursorPos.y * block.columns);
+END CalculateCursosPos;
+
+
 PROCEDURE MainWindow(ctx: MUI.Context; offsY, height: INTEGER);
 VAR
 	wr1: MUI.Rect;
 	colWidths: ARRAY 3 OF INTEGER;
 	blockCountInfo: ARRAY 64 OF CHAR;
 	blockLabel: ARRAY 32 OF CHAR;
-	dataLen: INTEGER;
 BEGIN
 	wr1.x := 0; wr1.y := offsY; wr1.w := SCREEN_WIDTH; wr1.h := height;
 	blockLabel := "Select a block: ";
@@ -41,9 +51,12 @@ BEGIN
 		MUI.Label(ctx, blockLabel);
 		IF MUI.SliderEx(ctx, d0currentBlock, 1.0, FLT(d0blocks), 1.0, "%.0f", MUI.OPT_ALIGNCENTER) THEN
 			ST.ReadBlock(d0, FLOOR(d0currentBlock) - 1, currentBlock);
-			dataLen := LENGTH(currentBlock.data);
-			cursorPos.y := dataLen DIV ME_MAX_COLS;
-			cursorPos.x := dataLen - (cursorPos.y * ME_MAX_COLS);
+			IF currentBlock.columns > 0 THEN
+				CalculateCursosPos(currentBlock, cursorPos);
+			ELSE
+				cursorPos.x := 0;
+				cursorPos.y := 0;
+			END;
 		END;
 		MUI.Label(ctx, blockCountInfo);
 		MUI.EndWindow(ctx);
@@ -58,33 +71,61 @@ CONST
 	ROW_XGAP = 5;
 VAR
 	wr1, dataRect, textRect: MUI.Rect;
-	rowWidth1: ARRAY 2 OF INTEGER;
-	aliasLabel: ARRAY 32 OF CHAR;
+	rowWidth1: ARRAY 6 OF INTEGER;
+	aliasLabel, maxColsLabel: ARRAY 32 OF CHAR;
+	maxColsStr: ARRAY 4 OF CHAR;
 	status: SET;
 BEGIN
 	wr1.x := 0; wr1.y := offsY; wr1.w := SCREEN_WIDTH; wr1.h := height;
 	rowWidth1[1] := 200;
+	rowWidth1[2] := 200;
+	rowWidth1[4] := 20;
+	rowWidth1[5] := 20;
 	aliasLabel:= "Alias: ";
+	maxColsLabel:= " Columns: ";
 	rowWidth1[0] := MUI.TextWidth(ctx, aliasLabel);
+	rowWidth1[2] := MUI.TextWidth(ctx, maxColsLabel);
+	rowWidth1[3] := MUI.TextWidth(ctx, "9999");
+	String.FromInt(currentBlock.columns, maxColsStr);
 	
 	IF MUI.BeginWindowEx(ctx, "Block info", wr1, MUI.OPT_NOINTERACT + MUI.OPT_NOCLOSE) THEN
-		MUI.LayoutRow(ctx, 2, rowWidth1, 0);
+		MUI.LayoutRow(ctx, 6, rowWidth1, 0);
 		MUI.Label(ctx, aliasLabel);
 		status := MUI.Textbox(ctx, currentBlock.alias, LEN(currentBlock.alias));
 		IF status = MUI.RES_SUBMIT THEN
 			ST.WriteBlock(d0, FLOOR(d0currentBlock) - 1, currentBlock);
 		END;
+		MUI.Label(ctx, maxColsLabel);
 		
-		MUI.LayoutNext(ctx, dataRect);
-		textRect.x := ROW_XGAP;
-		textRect.y := dataRect.y + ROW_XGAP;
-		textRect.h := SCREEN_HEIGHT - textRect.y - ROW_XGAP;
-		textRect.w := SCREEN_WIDTH - (ROW_XGAP*2);
-		MUI.LayoutSetNext(ctx, textRect, FALSE);
+		MUI.Label(ctx, maxColsStr);
+		IF MUI.Button(ctx, "+") THEN
+			IF currentBlock.columns < ME_MAX_COLS THEN
+				INC(currentBlock.columns);
+				CalculateCursosPos(currentBlock, cursorPos);
+				ST.WriteBlock(d0, FLOOR(d0currentBlock) - 1, currentBlock);
+			END;
+		END;
+		IF MUI.Button(ctx, "-") THEN
+			IF currentBlock.columns > 0 THEN
+				DEC(currentBlock.columns);
+				CalculateCursosPos(currentBlock, cursorPos);
+				ST.WriteBlock(d0, FLOOR(d0currentBlock) - 1, currentBlock);
+			END;
+		END;
 		
-		status := MUI.MultiText(ctx, ME_MAX_COLS, currentBlock.data, cursorPos);
-		IF status = MUI.RES_SUBMIT THEN
-			ST.WriteBlock(d0, FLOOR(d0currentBlock) - 1, currentBlock);
+		IF currentBlock.columns > 0 THEN
+			// Block text area
+			MUI.LayoutNext(ctx, dataRect);
+			textRect.x := ROW_XGAP;
+			textRect.y := dataRect.y + ROW_XGAP;
+			textRect.h := SCREEN_HEIGHT - textRect.y - ROW_XGAP;
+			textRect.w := SCREEN_WIDTH - (ROW_XGAP*2);
+			MUI.LayoutSetNext(ctx, textRect, FALSE);
+			
+			status := MUI.MultiText(ctx, currentBlock.columns, currentBlock.data, cursorPos);
+			IF status = MUI.RES_SUBMIT THEN
+				ST.WriteBlock(d0, FLOOR(d0currentBlock) - 1, currentBlock);
+			END;
 		END;
 		
 		MUI.EndWindow(ctx);
@@ -105,7 +146,7 @@ BEGIN
 	d0currentBlock := 0.0;
 	String.FromInt(d0blocks, d0blocksStr);
 	NEW(currentBlock);
-	
+
 	RL.SetTargetFPS(60);
 	RL.InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Block Editor");
 	

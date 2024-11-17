@@ -35,7 +35,7 @@ int _mu_multitext(mu_Context *ctx, int maxCols, int textLen, char *text, int _, 
 	/* handle input */
 	int res = 0;
 	if (ctx->mouse_pressed == MU_MOUSE_LEFT && ctx->focus == id) {
-		res |= MU_RES_CHANGE;
+		res |= MU_RES_ACTIVE;
 	}
 	if (ctx->focus == id) {
 		// insert characters
