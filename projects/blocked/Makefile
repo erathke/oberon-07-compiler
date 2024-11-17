@@ -9,7 +9,7 @@ SRCO=BlockEditor.ob07
 OBJC=lib/raylib_glue.o lib/microui_glue.o
 OBJO=lib/BlockEditor.xo
 EXE=bin/BlockEditor
-FS_FILE=disk0.img
+FS_FILE=disk0.raw
 FS_BLOCKS?=10
 FS_BLOCK_SIZE?=4096
 
@@ -24,7 +24,6 @@ lib/%.xo: %.ob07
 	$(OBC) $^ linux32o -out $@ $(DEF) $(OPTS)
 
 fs:
-#	@mv $(FS_FILE) $(FS_FILE).bkp
 	dd if=/dev/zero of=$(FS_FILE) count=$(FS_BLOCKS) bs=$(FS_BLOCK_SIZE)
 
 clean:

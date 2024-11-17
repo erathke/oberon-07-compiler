@@ -4,14 +4,12 @@ IMPORT
 	RL IN "./lib/Raylib.ob07",
 	MUI IN "./lib/MicroUI.ob07",
 	MURL IN "./lib/MURL.ob07",
-	String IN "./lib/String.ob07",
-	Out := Out_sys;
-
+	String IN "./lib/String.ob07";
 
 CONST
 	SCREEN_WIDTH = 800;
 	SCREEN_HEIGHT = 600;
-	ME_MAX_COLS = 20;
+	ME_MAX_COLS = 80;
 
 VAR
 	d0: ST.Disk;
@@ -26,18 +24,21 @@ VAR
 	wr1: MUI.Rect;
 	colWidths: ARRAY 3 OF INTEGER;
 	blockCountInfo: ARRAY 64 OF CHAR;
+	blockLabel: ARRAY 32 OF CHAR;
 	dataLen: INTEGER;
 BEGIN
 	wr1.x := 0; wr1.y := offsY; wr1.w := SCREEN_WIDTH; wr1.h := height;
-	colWidths[0] := 135;
+	blockLabel := "Select a block: ";
+	colWidths[0] := MUI.TextWidth(ctx, blockLabel);
 	colWidths[1] := 200;
 	colWidths[2] := -1;
+	
 	blockCountInfo:= " of ";
 	String.Append(blockCountInfo, d0blocksStr);
 	
 	IF MUI.BeginWindowEx(ctx, "Blocks", wr1, MUI.OPT_NOINTERACT + MUI.OPT_NOCLOSE) THEN
 		MUI.LayoutRow(ctx, 3, colWidths, 0);
-		MUI.Label(ctx, "Select a block: ");
+		MUI.Label(ctx, blockLabel);
 		IF MUI.SliderEx(ctx, d0currentBlock, 1.0, FLT(d0blocks), 1.0, "%.0f", MUI.OPT_ALIGNCENTER) THEN
 			ST.ReadBlock(d0, FLOOR(d0currentBlock) - 1, currentBlock);
 			dataLen := LENGTH(currentBlock.data);
@@ -58,24 +59,17 @@ CONST
 VAR
 	wr1, dataRect, textRect: MUI.Rect;
 	rowWidth1: ARRAY 2 OF INTEGER;
-	blockAliasInfo: ARRAY 64 OF CHAR;
+	aliasLabel: ARRAY 32 OF CHAR;
 	status: SET;
-	
 BEGIN
 	wr1.x := 0; wr1.y := offsY; wr1.w := SCREEN_WIDTH; wr1.h := height;
-	rowWidth1[0] := 100;
 	rowWidth1[1] := 200;
-	
-	IF currentBlock.alias = "" THEN
-		blockAliasInfo:= "Alias: empty";
-	ELSE
-		blockAliasInfo:= "Alias: ";
-		String.Append(blockAliasInfo, currentBlock.alias);
-	END;
+	aliasLabel:= "Alias: ";
+	rowWidth1[0] := MUI.TextWidth(ctx, aliasLabel);
 	
 	IF MUI.BeginWindowEx(ctx, "Block info", wr1, MUI.OPT_NOINTERACT + MUI.OPT_NOCLOSE) THEN
 		MUI.LayoutRow(ctx, 2, rowWidth1, 0);
-		MUI.Label(ctx, "Alias: ");
+		MUI.Label(ctx, aliasLabel);
 		status := MUI.Textbox(ctx, currentBlock.alias, LEN(currentBlock.alias));
 		IF status = MUI.RES_SUBMIT THEN
 			ST.WriteBlock(d0, FLOOR(d0currentBlock) - 1, currentBlock);
@@ -106,7 +100,7 @@ VAR
 	font: RL.Font;
 BEGIN
 
-	d0.name := "disk0.img";
+	d0.name := "disk0.raw";
 	d0blocks := ST.AttachDisk(d0);
 	d0currentBlock := 0.0;
 	String.FromInt(d0blocks, d0blocksStr);
@@ -116,7 +110,7 @@ BEGIN
 	RL.InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Block Editor");
 	
 	MUI.Init(ctx);
-	fontSize := 14;
+	fontSize := 16;
 	RL.LoadFontEx("./assets/anonymous_pro_bold.ttf", font, fontSize);
 	MURL.SetupFontEx(ctx, font);
 	
