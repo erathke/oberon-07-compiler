@@ -18,13 +18,14 @@ VAR
 	d0blocksStr: ARRAY 32 OF CHAR;
 	d0currentBlock: REAL;
 	currentBlock: ST.Block;
-
+	cursorPos: MUI.Vec2;
 
 PROCEDURE MainWindow(ctx: MUI.Context; offsY, height: INTEGER);
 VAR
 	wr1: MUI.Rect;
 	colWidths: ARRAY 3 OF INTEGER;
 	blockCountInfo: ARRAY 64 OF CHAR;
+	dataLen: INTEGER;
 BEGIN
 	wr1.x := 0; wr1.y := offsY; wr1.w := SCREEN_WIDTH; wr1.h := height;
 	colWidths[0] := 135;
@@ -38,6 +39,9 @@ BEGIN
 		MUI.Label(ctx, "Select a block: ");
 		IF MUI.SliderEx(ctx, d0currentBlock, 1.0, FLT(d0blocks), 1.0, "%.0f", MUI.OPT_ALIGNCENTER) THEN
 			ST.ReadBlock(d0, FLOOR(d0currentBlock) - 1, currentBlock);
+			dataLen := LENGTH(currentBlock.data);
+			cursorPos.y := dataLen DIV 40;
+			cursorPos.x := dataLen - (cursorPos.y * 40);
 		END;
 		MUI.Label(ctx, blockCountInfo);
 		MUI.EndWindow(ctx);
@@ -47,18 +51,19 @@ END MainWindow;
 
 
 PROCEDURE BlockWindow(ctx: MUI.Context; offsY, height: INTEGER);
+CONST
+	ROW_YGAP = 5;
+	ROW_XGAP = 5;
 VAR
-	wr1, txt1: MUI.Rect;
+	wr1, dataRect, textRect: MUI.Rect;
 	rowWidth1: ARRAY 2 OF INTEGER;
-	rowWidth2: ARRAY 1 OF INTEGER;
 	blockAliasInfo: ARRAY 64 OF CHAR;
 	status: SET;
+	
 BEGIN
 	wr1.x := 0; wr1.y := offsY; wr1.w := SCREEN_WIDTH; wr1.h := height;
-	txt1.x := 0; txt1.y := offsY + 100; txt1.w := SCREEN_WIDTH; txt1.h := 100;
-	rowWidth1[0] := 135;
+	rowWidth1[0] := 100;
 	rowWidth1[1] := 200;
-	rowWidth2[0] := -1;
 	
 	IF currentBlock.alias = "" THEN
 		blockAliasInfo:= "Alias: empty";
@@ -71,13 +76,19 @@ BEGIN
 		MUI.LayoutRow(ctx, 2, rowWidth1, 0);
 		MUI.Label(ctx, "Alias: ");
 		status := MUI.Textbox(ctx, currentBlock.alias, LEN(currentBlock.alias));
-		IF (status = MUI.RES_SUBMIT) THEN
+		IF status = MUI.RES_SUBMIT THEN
 			ST.WriteBlock(d0, FLOOR(d0currentBlock) - 1, currentBlock);
 		END;
 		
-		MUI.LayoutRow(ctx, 1, rowWidth2, -1);
-		status := MUI.Textbox(ctx, currentBlock.data, LEN(currentBlock.data));
-		IF (status = MUI.RES_SUBMIT) THEN
+		MUI.LayoutNext(ctx, dataRect);
+		textRect.x := ROW_XGAP;
+		textRect.y := dataRect.y + ROW_XGAP;
+		textRect.h := SCREEN_HEIGHT - textRect.y - ROW_XGAP;
+		textRect.w := SCREEN_WIDTH - (ROW_XGAP*2);
+		MUI.LayoutSetNext(ctx, textRect, FALSE);
+		
+		status := MUI.MultiText(ctx, currentBlock.data, cursorPos);
+		IF status = MUI.RES_SUBMIT THEN
 			ST.WriteBlock(d0, FLOOR(d0currentBlock) - 1, currentBlock);
 		END;
 		
