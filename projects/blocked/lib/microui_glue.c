@@ -27,7 +27,7 @@ int _mu_layout_set_next(mu_Context* ctx, mu_Rect *rect, int relative) {
 	mu_layout_set_next(ctx, *rect, relative);
 }
 
-int _mu_multitext(mu_Context *ctx, int size, char *text, int _, mu_Vec2 *cursorPos) {
+int _mu_multitext(mu_Context *ctx, int maxCols, int textLen, char *text, int _, mu_Vec2 *cursorPos) {
 	mu_Id     id = mu_get_id(ctx, &text, sizeof(text));
 	mu_Rect rect = mu_layout_next(ctx);
 	mu_update_control(ctx, id, rect, MU_OPT_HOLDFOCUS);
@@ -37,7 +37,6 @@ int _mu_multitext(mu_Context *ctx, int size, char *text, int _, mu_Vec2 *cursorP
 	if (ctx->mouse_pressed == MU_MOUSE_LEFT && ctx->focus == id) {
 		res |= MU_RES_CHANGE;
 	}
-	const int maxCols = 40;
 	if (ctx->focus == id) {
 		int len = strlen(ctx->input_text);
 		if (len > 0) {
@@ -56,18 +55,22 @@ int _mu_multitext(mu_Context *ctx, int size, char *text, int _, mu_Vec2 *cursorP
 		}
 		
 		if (ctx->key_pressed & MU_KEY_BACKSPACE) {
-			if (cursorPos->x > 0) {
-				cursorPos->x--;
-				int tpos = cursorPos->x + (cursorPos->y * maxCols); 
-				text[tpos] = 0;
-				res |= MU_RES_CHANGE;
-				if (cursorPos->x == 0){
-					if (cursorPos->y > 0) {
-						cursorPos->y--;
-						cursorPos->x = maxCols;
-					}
-				} 
+			
+			cursorPos->x--;
+			
+			if (cursorPos->x <= 0){
+				if (cursorPos->y > 0) {
+					cursorPos->y--;
+					cursorPos->x = maxCols;
+				} else {
+					cursorPos->x = 0;
+					cursorPos->y = 0;
+				}
 			}
+			
+			int tpos = cursorPos->x + (cursorPos->y * maxCols); 
+			text[tpos] = 0;
+			res |= MU_RES_CHANGE;
 		}
 		
 		if (ctx->key_pressed & MU_KEY_RETURN) {
@@ -98,9 +101,12 @@ int _mu_multitext(mu_Context *ctx, int size, char *text, int _, mu_Vec2 *cursorP
 		int x = rect.x + (cursorPos->x * px) + 3;
 		int y = rect.y + (cursorPos->y * py) + 5;
 		mu_Rect cursorRect = {x, y, 2, py};
+		mu_Rect maxPosRect = {rect.x + (maxCols * px) + 6, rect.y + 1, 1, rect.h - 2};
 		
 		mu_draw_rect(ctx, cursorRect, cursorColor);
 		mu_draw_box(ctx, rect, textColor);
+		cursorColor.a = 100;
+		mu_draw_rect(ctx, maxPosRect, cursorColor);
 	} 
 
 	return res;

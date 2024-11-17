@@ -11,6 +11,7 @@ IMPORT
 CONST
 	SCREEN_WIDTH = 800;
 	SCREEN_HEIGHT = 600;
+	ME_MAX_COLS = 20;
 
 VAR
 	d0: ST.Disk;
@@ -40,8 +41,8 @@ BEGIN
 		IF MUI.SliderEx(ctx, d0currentBlock, 1.0, FLT(d0blocks), 1.0, "%.0f", MUI.OPT_ALIGNCENTER) THEN
 			ST.ReadBlock(d0, FLOOR(d0currentBlock) - 1, currentBlock);
 			dataLen := LENGTH(currentBlock.data);
-			cursorPos.y := dataLen DIV 40;
-			cursorPos.x := dataLen - (cursorPos.y * 40);
+			cursorPos.y := dataLen DIV ME_MAX_COLS;
+			cursorPos.x := dataLen - (cursorPos.y * ME_MAX_COLS);
 		END;
 		MUI.Label(ctx, blockCountInfo);
 		MUI.EndWindow(ctx);
@@ -87,7 +88,7 @@ BEGIN
 		textRect.w := SCREEN_WIDTH - (ROW_XGAP*2);
 		MUI.LayoutSetNext(ctx, textRect, FALSE);
 		
-		status := MUI.MultiText(ctx, currentBlock.data, cursorPos);
+		status := MUI.MultiText(ctx, ME_MAX_COLS, currentBlock.data, cursorPos);
 		IF status = MUI.RES_SUBMIT THEN
 			ST.WriteBlock(d0, FLOOR(d0currentBlock) - 1, currentBlock);
 		END;
