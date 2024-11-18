@@ -20,16 +20,6 @@ VAR
 	cursorPos: MUI.Vec2;
 
 
-PROCEDURE CalculateCursosPos(VAR block: ST.Block; VAR cursorPos: MUI.Vec2);
-VAR
-	dataLen: INTEGER;
-BEGIN
-	dataLen := LENGTH(block.data);
-	cursorPos.y := dataLen DIV block.columns;
-	cursorPos.x := dataLen - (cursorPos.y * block.columns);
-END CalculateCursosPos;
-
-
 PROCEDURE MainWindow(ctx: MUI.Context; offsY, height: INTEGER);
 VAR
 	wr1: MUI.Rect;
@@ -50,13 +40,9 @@ BEGIN
 		MUI.LayoutRow(ctx, 3, colWidths, 0);
 		MUI.Label(ctx, blockLabel);
 		IF MUI.SliderEx(ctx, d0currentBlock, 1.0, FLT(d0blocks), 1.0, "%.0f", MUI.OPT_ALIGNCENTER) THEN
-			ST.ReadBlock(d0, FLOOR(d0currentBlock) - 1, currentBlock);
-			IF currentBlock.columns > 0 THEN
-				CalculateCursosPos(currentBlock, cursorPos);
-			ELSE
-				cursorPos.x := 0;
-				cursorPos.y := 0;
-			END;
+			ST.ReadBlock(d0, FLOOR(d0currentBlock) - 1, currentBlock);			
+			cursorPos.x := 0;
+			cursorPos.y := 0;
 		END;
 		MUI.Label(ctx, blockCountInfo);
 		MUI.EndWindow(ctx);
@@ -109,14 +95,12 @@ BEGIN
 		IF MUI.Button(ctx, "+") THEN
 			IF currentBlock.columns < ME_MAX_COLS THEN
 				INC(currentBlock.columns);
-				CalculateCursosPos(currentBlock, cursorPos);
 				ST.WriteBlock(d0, FLOOR(d0currentBlock) - 1, currentBlock);
 			END;
 		END;
 		IF MUI.Button(ctx, "-") THEN
 			IF currentBlock.columns > 0 THEN
 				DEC(currentBlock.columns);
-				CalculateCursosPos(currentBlock, cursorPos);
 				ST.WriteBlock(d0, FLOOR(d0currentBlock) - 1, currentBlock);
 			END;
 		END;

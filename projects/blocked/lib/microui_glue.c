@@ -46,6 +46,34 @@ static void updateCursorPos(mu_Rect *rect, mu_Vec2 *mousePos,
 	cursorPos->y = MIN(ny / lineHeight, maxLines - 1);
 }
 
+static void moveCursorLeft(mu_Vec2 *cursorPos, int maxCols) {
+	cursorPos->x--;
+	if (cursorPos->x < 0){
+		if (cursorPos->y > 0) {
+			cursorPos->y--;
+			cursorPos->x = maxCols - 1;
+		} 
+		else {
+			cursorPos->x = 0;
+			cursorPos->y = 0;
+		}
+	}
+}
+
+static void moveCursorRight(mu_Vec2 *cursorPos, int maxCols, int maxLines) {
+	cursorPos->x++;
+	if (cursorPos->x >= maxCols){
+		if (cursorPos->y < maxLines - 1) {
+			cursorPos->y++;
+			cursorPos->x = 0;
+		} 
+		else {
+			cursorPos->x = maxCols - 1;
+			cursorPos->y = maxLines - 1;
+		}
+	}
+}
+
 int _mu_multitext(mu_Context *ctx, int maxCols, int textLen, char *text, int _, mu_Vec2 *cursorPos) {
 	mu_Id     id = mu_get_id(ctx, &text, sizeof(text));
 	mu_Rect rect = mu_layout_next(ctx);
@@ -55,6 +83,7 @@ int _mu_multitext(mu_Context *ctx, int maxCols, int textLen, char *text, int _, 
 	const int lineHeight = ctx->text_height(font) + 5;
 	const int colWidth = ctx->text_width(font, "#", 1) + 1;
 	const int maxVisibleLines = rect.h / lineHeight;
+	const int maxLines = maxVisibleLines; // TODO: calculate
 	
 	/* handle input */
 	int res = 0;
@@ -72,37 +101,43 @@ int _mu_multitext(mu_Context *ctx, int maxCols, int textLen, char *text, int _, 
 				text[tpos] = ctx->input_text[i];
 				res |= MU_RES_CHANGE;
 				i++;
-				cursorPos->x++;
-				if (cursorPos->x >= maxCols){
-					cursorPos->y++;
-					cursorPos->x = 0;
-				}
+				moveCursorRight(cursorPos, maxCols, maxLines);
 			}
 		}
 		// remove characters
 		if (ctx->key_pressed & MU_KEY_BACKSPACE) {
-			cursorPos->x--;
-			if (cursorPos->x < 0){
-				if (cursorPos->y > 0) {
-					cursorPos->y--;
-					cursorPos->x = maxCols - 1;
-				} else {
-					cursorPos->x = 0;
-					cursorPos->y = 0;
-				}
-			}
+			moveCursorLeft(cursorPos, maxCols);
 			int tpos = cursorPos->x + (cursorPos->y * maxCols); 
 			text[tpos] = 0;
 			res |= MU_RES_CHANGE;
 		}
 		
-		/*
-		if (ctx->key_pressed & KEY_DELETE) {
+		if (IsKeyPressed(KEY_DELETE)) {
 			int tpos = cursorPos->x + (cursorPos->y * maxCols); 
 			text[tpos] = 0;
 			res |= MU_RES_CHANGE;
 		}
-		*/
+		
+		// cursor movement
+		if (IsKeyPressed(KEY_LEFT) || IsKeyPressedRepeat(KEY_LEFT)) {
+			moveCursorLeft(cursorPos, maxCols);
+		}
+		
+		if (IsKeyPressed(KEY_RIGHT) || IsKeyPressedRepeat(KEY_RIGHT)) {
+			moveCursorRight(cursorPos, maxCols, maxLines);
+		}
+		
+		if (IsKeyPressed(KEY_UP) || IsKeyPressedRepeat(KEY_UP)) {
+			if (cursorPos->y > 0) {
+				cursorPos->y--;
+			}
+		}
+		
+		if (IsKeyPressed(KEY_DOWN) || IsKeyPressedRepeat(KEY_DOWN)) {
+			if (cursorPos->y < maxLines - 1) {
+				cursorPos->y++;
+			}
+		}
 		
 		// submit changes
 		if (ctx->key_pressed & MU_KEY_RETURN) {
