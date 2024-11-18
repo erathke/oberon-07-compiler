@@ -5,6 +5,14 @@
 #include "microui.h"
 #include "murl.h"
 
+#ifndef MAX
+	#define MAX(a,b) ((a) > (b) ? (a) : (b))
+#endif
+
+#ifndef MIN
+	#define MIN(a,b) ((a) < (b) ? (a) : (b))
+#endif
+
 // Microui
 
 mu_Context* _mu_create_ctx() {
@@ -27,15 +35,32 @@ int _mu_layout_set_next(mu_Context* ctx, mu_Rect *rect, int relative) {
 	mu_layout_set_next(ctx, *rect, relative);
 }
 
+static void updateCursorPos(mu_Rect *rect, mu_Vec2 *mousePos, 
+		mu_Vec2 *cursorPos, int lineHeight, int colWidth, int maxCols, int maxLines) {
+
+	int mx = mousePos->x - (mousePos->x % colWidth);
+	int my = mousePos->y - (mousePos->y % lineHeight);
+	int nx = mx - rect->x;
+	int ny = my - rect->y;
+	cursorPos->x = MIN(nx / colWidth, maxCols - 1);
+	cursorPos->y = MIN(ny / lineHeight, maxLines - 1);
+}
+
 int _mu_multitext(mu_Context *ctx, int maxCols, int textLen, char *text, int _, mu_Vec2 *cursorPos) {
 	mu_Id     id = mu_get_id(ctx, &text, sizeof(text));
 	mu_Rect rect = mu_layout_next(ctx);
 	mu_update_control(ctx, id, rect, MU_OPT_HOLDFOCUS);
-
+	
+	mu_Font font = ctx->style->font;
+	const int lineHeight = ctx->text_height(font) + 5;
+	const int colWidth = ctx->text_width(font, "#", 1) + 1;
+	const int maxVisibleLines = rect.h / lineHeight;
+	
 	/* handle input */
 	int res = 0;
 	if (ctx->mouse_pressed == MU_MOUSE_LEFT && ctx->focus == id) {
 		res |= MU_RES_ACTIVE;
+		updateCursorPos(&rect, &ctx->mouse_pos, cursorPos, lineHeight, colWidth, maxCols, maxVisibleLines);
 	}
 	if (ctx->focus == id) {
 		// insert characters
@@ -70,6 +95,15 @@ int _mu_multitext(mu_Context *ctx, int maxCols, int textLen, char *text, int _, 
 			text[tpos] = 0;
 			res |= MU_RES_CHANGE;
 		}
+		
+		/*
+		if (ctx->key_pressed & KEY_DELETE) {
+			int tpos = cursorPos->x + (cursorPos->y * maxCols); 
+			text[tpos] = 0;
+			res |= MU_RES_CHANGE;
+		}
+		*/
+		
 		// submit changes
 		if (ctx->key_pressed & MU_KEY_RETURN) {
 			mu_set_focus(ctx, 0);
@@ -78,34 +112,41 @@ int _mu_multitext(mu_Context *ctx, int maxCols, int textLen, char *text, int _, 
 	}
 	
 	/* draw */
-	mu_Font font = ctx->style->font;
 	mu_Color panelColor = {18, 18, 18, 255};
 	mu_Color textColor = {255, 0, 0, 255};
+	mu_Color textColor2 = {255, 0, 0, 40};
 	mu_Vec2 posText = {rect.x + 5, rect.y + 10};
-	const int lineHeight = ctx->text_height(font) + 5;
+	
 	mu_draw_rect(ctx, rect, panelColor);
 	
-	// Drawing text
-	for (int i = 0;  i <= cursorPos->y; i++) {
-		const char *colOffs = text + (i * maxCols); 
-		mu_draw_text(ctx, font, colOffs, maxCols, posText, textColor);
-		posText.y += lineHeight;
-	}
-	
-	if (ctx->focus == id)  {	
-		mu_Color cursorColor = {255, 255, 0, 255};
-		int px = ctx->text_width(font, "#", 1) + 1;
-		const int py = lineHeight;
-		int x = rect.x + (cursorPos->x * px) + 3;
-		int y = rect.y + (cursorPos->y * py) + 5;
-		mu_Rect cursorRect = {x, y + 2, 2, py};
-		mu_Rect maxPosRect = {rect.x + (maxCols * px) + 6, rect.y + 1, 1, rect.h - 2};
-		
-		mu_draw_box(ctx, rect, textColor);
+	// Drawing cursor
+	if (ctx->focus == id)  {
+		mu_Color cursorColor = {255, 255, 0, 220};
+		int x = rect.x + (cursorPos->x * colWidth) + 3;
+		int y = rect.y + (cursorPos->y * lineHeight) + 5;
+		mu_Rect cursorRect = {x + 1, y + 2, colWidth, lineHeight};
 		mu_draw_rect(ctx, cursorRect, cursorColor);
+		
+		mu_Rect maxPosRect = {rect.x + (maxCols * colWidth) + 6, rect.y + 1, 1, rect.h - 2};
 		cursorColor.a = 100;
 		mu_draw_rect(ctx, maxPosRect, cursorColor);
 	} 
+	
+	// Drawing text
+	const char *zeroChar = "0";
+	for (int y = 0; y < maxVisibleLines; y++) {
+		for (int x = 0; x < maxCols; x++) {
+			const char *colOffs = text + (y * maxCols) + x;
+			if (colOffs[0] != '\0') {
+				mu_draw_text(ctx, font, colOffs, 1, posText, textColor);
+			} else {
+				mu_draw_text(ctx, font, zeroChar, 1, posText, textColor2);
+			}
+			posText.x += colWidth;
+		}
+		posText.y += lineHeight;
+		posText.x = rect.x + 5;
+	}
 
 	return res;
 }
