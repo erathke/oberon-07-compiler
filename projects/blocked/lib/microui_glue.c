@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -14,6 +13,26 @@
 #endif
 
 // Microui
+
+static mu_Color colors[16] = {
+	{255, 255, 255, 15}, // white = comment
+	{255,   0,   0, 15}, // red = definition
+	{255, 255,   0, 15}, // yellow = integer
+	{0,   255, 255, 15}, // ... = real
+	{  0, 255,   0, 15}, // green = compile
+	{  0,   0, 255, 15}, // blue = string
+	{255, 255, 255, 15}, // unused
+	
+	{255, 255, 255, 15},
+	{255, 255, 255, 15},
+	{255, 255, 255, 15},
+	{255, 255, 255, 15},
+	{255, 255, 255, 15},
+	{255, 255, 255, 15},
+	{255, 255, 255, 15},
+	{255, 255, 255, 15},
+	{255, 255, 255, 15}
+};
 
 mu_Context* _mu_create_ctx() {
 	return malloc(sizeof(mu_Context));
@@ -105,7 +124,7 @@ int _mu_multitext(mu_Context *ctx, int maxCols, int textLen, char *text, int _, 
 			}
 		}
 		// remove characters
-		if (ctx->key_pressed & MU_KEY_BACKSPACE) {
+		if (IsKeyPressed(KEY_BACKSPACE) || IsKeyPressedRepeat(KEY_BACKSPACE)) {
 			moveCursorLeft(cursorPos, maxCols);
 			int tpos = cursorPos->x + (cursorPos->y * maxCols); 
 			text[tpos] = 0;
@@ -139,6 +158,22 @@ int _mu_multitext(mu_Context *ctx, int maxCols, int textLen, char *text, int _, 
 			}
 		}
 		
+		// tags
+		if (IsKeyPressed(KEY_PAGE_UP) || IsKeyPressedRepeat(KEY_PAGE_UP)) {
+			int tpos = cursorPos->x + (cursorPos->y * maxCols); 
+			text[tpos] = (text[tpos] + 1) % 16;
+			res |= MU_RES_CHANGE;
+		}
+		
+		if (IsKeyPressed(KEY_PAGE_DOWN) || IsKeyPressedRepeat(KEY_PAGE_DOWN)) {
+			int tpos = cursorPos->x + (cursorPos->y * maxCols); 
+			text[tpos] = (text[tpos] - 1) % 16;
+			if (text[tpos] < 0) {
+				text[tpos] = 15;
+			}
+			res |= MU_RES_CHANGE;
+		}
+		
 		// submit changes
 		if (ctx->key_pressed & MU_KEY_RETURN) {
 			mu_set_focus(ctx, 0);
@@ -148,34 +183,41 @@ int _mu_multitext(mu_Context *ctx, int maxCols, int textLen, char *text, int _, 
 	
 	/* draw */
 	mu_Color panelColor = {18, 18, 18, 255};
-	mu_Color textColor = {255, 0, 0, 255};
-	mu_Color textColor2 = {255, 0, 0, 40};
-	mu_Vec2 posText = {rect.x + 5, rect.y + 10};
-	
 	mu_draw_rect(ctx, rect, panelColor);
 	
 	// Drawing cursor
 	if (ctx->focus == id)  {
-		mu_Color cursorColor = {255, 255, 0, 220};
+		mu_Color cursorColor = {255, 0, 255, 255};
 		int x = rect.x + (cursorPos->x * colWidth) + 3;
 		int y = rect.y + (cursorPos->y * lineHeight) + 5;
-		mu_Rect cursorRect = {x + 1, y + 2, colWidth, lineHeight};
-		mu_draw_rect(ctx, cursorRect, cursorColor);
+		mu_Rect cursorRect = {x + 1, y + 2, colWidth + 1, lineHeight};
+		mu_draw_box(ctx, cursorRect, cursorColor);
 		
 		mu_Rect maxPosRect = {rect.x + (maxCols * colWidth) + 6, rect.y + 1, 1, rect.h - 2};
-		cursorColor.a = 100;
 		mu_draw_rect(ctx, maxPosRect, cursorColor);
 	} 
 	
 	// Drawing text
-	const char *zeroChar = "0";
+	mu_Color textColor = colors[0];
+	mu_Vec2 posText = {rect.x + 5, rect.y + 10};
+	//const char *hexChars = "0123456789abcdef";
+	const char *hexChars = ".:#$*\"...........";
+	mu_Color currentColor = textColor;
+	
 	for (int y = 0; y < maxVisibleLines; y++) {
 		for (int x = 0; x < maxCols; x++) {
 			const char *colOffs = text + (y * maxCols) + x;
-			if (colOffs[0] != '\0') {
-				mu_draw_text(ctx, font, colOffs, 1, posText, textColor);
+			char ch = colOffs[0];
+			if (ch > 16) {
+				currentColor.a = 255;
+				mu_draw_text(ctx, font, colOffs, 1, posText, currentColor);
 			} else {
-				mu_draw_text(ctx, font, zeroChar, 1, posText, textColor2);
+				currentColor = colors[ch];
+				
+				if (x == cursorPos->x && y == cursorPos->y) {
+					currentColor.a = 200;
+				}
+				mu_draw_text(ctx, font, hexChars + ch, 1, posText, currentColor);
 			}
 			posText.x += colWidth;
 		}

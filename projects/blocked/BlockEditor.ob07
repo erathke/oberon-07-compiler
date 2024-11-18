@@ -152,8 +152,8 @@ BEGIN
 	
 		MURL.HandleInput(ctx);
 		MUI.Begin(ctx);
-			MainWindow(ctx, 0, 100);
-			BlockWindow(ctx, 100, SCREEN_HEIGHT - 100);
+			MainWindow(ctx, 0, 60);
+			BlockWindow(ctx, 60, SCREEN_HEIGHT - 60);
 		MUI.End(ctx);
 	
 		RL.BeginDrawing();
