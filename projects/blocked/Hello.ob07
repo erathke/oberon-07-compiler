@@ -1,0 +1,1 @@
+MODULE Hello ; IMPORT RL IN "./lib/Raylib.ob07"; CONST SCREEN_WIDTH = 800 ; SCREEN_HEIGHT = 640 ; VAR cmd : ARRAY 32 OF CHAR ; PROCEDURE Init ( x , y : INTEGER ) ; BEGIN (* RL.InitWindow( SCREEN_WIDTH, SCREEN_HEIGHT, "Hello!") *) END ; BEGIN Init( 10 , 10 ) ; END Hello .

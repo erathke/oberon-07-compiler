@@ -1,0 +1,121 @@
+MODULE Parser;
+IMPORT 
+	Out := Out_sys,
+	String IN "./String.ob07",
+	ST IN "./Storage.ob07";
+
+
+CONST
+	KIND_MOD = 0;
+	KIND_CONST = 1;
+	KIND_VAR = 2;
+	KIND_PROC = 3;
+	KIND_SYMBOL = 4;
+
+	MARK_RES_W = 0;
+	MARK_IDENT = 1;
+	MARK_T_INT = 2;
+	MARK_T_REAL = 3;
+	MARK_I_REF = 4;
+	MARK_T_STR = 5;
+	
+	MARKS = 16;
+	
+TYPE
+	Word = ARRAY 32 OF CHAR;
+
+	Identifier = RECORD
+		name: Word;
+		mark, kind: INTEGER
+	END;
+
+	IdList = RECORD
+		count: INTEGER;
+		ids: ARRAY 128 OF Identifier
+	END;
+
+VAR
+	idList: IdList;
+
+PROCEDURE GenCode();
+VAR
+	i: INTEGER;
+	ident: Identifier;
+
+BEGIN
+	FOR i := 0 TO idList.count - 1 DO
+		ident := idList.ids[i];
+		
+		CASE ident.mark OF
+		| MARK_RES_W:
+			IF ident.name = "[" THEN
+				ident.name := "ARRAY";
+				Out.String(ident.name);
+			ELSIF ident.name = "]" THEN
+				ident.name := "OF";
+				Out.String(ident.name);
+			ELSE
+				String.Upper(ident.name, ident.name);
+				Out.String(ident.name);
+			END;
+			Out.String(" ");
+		| MARK_IDENT, MARK_T_INT:
+			Out.String(ident.name);
+			Out.String(" ");
+		| MARK_T_STR:
+			Out.String('"');
+			Out.String(ident.name);
+			Out.String('"');
+		ELSE
+			Out.String(ident.name);
+		END;
+	END;
+
+END GenCode;
+
+
+PROCEDURE Tokenize*(block: ST.Block);
+VAR
+	ident: Identifier;
+	token: CHAR;
+	word, empty: Word;
+	i, j, len, token_id: INTEGER;
+	mark: INTEGER;
+	
+	PROCEDURE AddIdent(word: Word; mark: INTEGER; VAR idList: IdList);
+	VAR
+		ident: Identifier;
+	BEGIN
+		COPY(word, ident.name);
+		ident.mark := mark;
+		idList.ids[idList.count] := ident;
+		INC(idList.count);
+	END AddIdent;
+	
+BEGIN
+	len := LEN(block.data);
+	mark := MARK_RES_W;
+	
+	FOR i := 0 TO len - 1 DO
+		token := block.data[i];
+		token_id := ORD(token);
+		IF token_id >= MARKS THEN
+			word[j] := token;
+			INC(j);
+		ELSE
+			IF LENGTH(word) > 0 THEN
+				AddIdent(word, mark, idList);
+				COPY(empty, word);
+			END;
+			j := 0;
+			mark := token_id;
+		END;
+	END;
+	
+	GenCode();
+	idList.count := 0;
+
+END Tokenize;
+
+
+END Parser.

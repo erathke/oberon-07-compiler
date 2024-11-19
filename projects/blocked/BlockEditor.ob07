@@ -4,7 +4,8 @@ IMPORT
 	RL IN "./lib/Raylib.ob07",
 	MUI IN "./lib/MicroUI.ob07",
 	MURL IN "./lib/MURL.ob07",
-	String IN "./lib/String.ob07";
+	String IN "./lib/String.ob07",
+	P IN "./lib/Parser.ob07";
 
 CONST
 	SCREEN_WIDTH = 800;
@@ -57,7 +58,7 @@ CONST
 	ROW_XGAP = 5;
 VAR
 	wr1, dataRect, textRect: MUI.Rect;
-	rowWidth1: ARRAY 7 OF INTEGER;
+	rowWidth1: ARRAY 8 OF INTEGER;
 	aliasLabel, maxColsLabel: ARRAY 32 OF CHAR;
 	maxColsStr, cursorXStr, cursorYStr: ARRAY 4 OF CHAR;
 	cursorInfo: ARRAY 32 OF CHAR;
@@ -68,7 +69,8 @@ BEGIN
 	rowWidth1[2] := 200;
 	rowWidth1[4] := 20;
 	rowWidth1[5] := 20;
-	rowWidth1[6] := -1;
+	rowWidth1[6] := 150;
+	rowWidth1[7] := 75;
 	aliasLabel:= "Alias: ";
 	maxColsLabel:= " Columns: ";
 	rowWidth1[0] := MUI.TextWidth(ctx, aliasLabel);
@@ -83,7 +85,7 @@ BEGIN
 	String.Append(cursorInfo, cursorYStr);
 	
 	IF MUI.BeginWindowEx(ctx, "Block info", wr1, MUI.OPT_NOINTERACT + MUI.OPT_NOCLOSE) THEN
-		MUI.LayoutRow(ctx, 7, rowWidth1, 0);
+		MUI.LayoutRow(ctx, 8, rowWidth1, 0);
 		MUI.Label(ctx, aliasLabel);
 		status := MUI.Textbox(ctx, currentBlock.alias, LEN(currentBlock.alias));
 		IF status = MUI.RES_SUBMIT THEN
@@ -105,6 +107,9 @@ BEGIN
 			END;
 		END;
 		MUI.Label(ctx, cursorInfo);
+		IF MUI.Button(ctx, "Compile") THEN
+			P.Tokenize(currentBlock);
+		END;
 		
 		IF currentBlock.columns > 0 THEN
 			// Block text area
@@ -136,10 +141,12 @@ BEGIN
 
 	d0.name := "disk0.raw";
 	d0blocks := ST.AttachDisk(d0);
-	d0currentBlock := 0.0;
 	String.FromInt(d0blocks, d0blocksStr);
 	NEW(currentBlock);
-
+	
+	d0currentBlock := 3.0; // test
+	ST.ReadBlock(d0, FLOOR(d0currentBlock) - 1, currentBlock);
+	
 	RL.SetTargetFPS(60);
 	RL.InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Block Editor");
 	
