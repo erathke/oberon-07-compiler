@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "microui.h"
 #include "murl.h"
@@ -65,6 +66,30 @@ static void updateCursorPos(mu_Rect *rect, mu_Vec2 *mousePos,
 	cursorPos->y = MIN(ny / lineHeight, maxLines - 1);
 }
 
+static bool moveDataLeft(mu_Vec2 *cursorPos, char *data, int maxCols) {
+	bool moved = false;
+	if (cursorPos->x > 0) {
+		int tpos = cursorPos->x + (cursorPos->y * maxCols);
+		int size = cursorPos->x;
+		memmove(data + (tpos - size), data + (tpos - size + 1), size);
+		data[tpos] = 0;
+		moved = true;
+	}
+	return moved;
+}
+
+static bool moveDataRight(mu_Vec2 *cursorPos, char *data, int maxCols) {
+	bool moved = false;
+	if (cursorPos->x < maxCols - 1) {
+		int tpos = cursorPos->x + (cursorPos->y * maxCols);
+		int size = (maxCols - cursorPos->x) - 1;
+		memmove(data + tpos + 1, data + tpos, size);
+		data[tpos] = 0;
+		moved = true;
+	}
+	return moved;
+}
+
 static void moveCursorLeft(mu_Vec2 *cursorPos, int maxCols) {
 	cursorPos->x--;
 	if (cursorPos->x < 0){
@@ -123,55 +148,75 @@ int _mu_multitext(mu_Context *ctx, int maxCols, int textLen, char *text, int _, 
 				moveCursorRight(cursorPos, maxCols, maxLines);
 			}
 		}
-		// remove characters
-		if (IsKeyPressed(KEY_BACKSPACE) || IsKeyPressedRepeat(KEY_BACKSPACE)) {
-			moveCursorLeft(cursorPos, maxCols);
-			int tpos = cursorPos->x + (cursorPos->y * maxCols); 
-			text[tpos] = 0;
-			res |= MU_RES_CHANGE;
-		}
-		
-		if (IsKeyPressed(KEY_DELETE)) {
-			int tpos = cursorPos->x + (cursorPos->y * maxCols); 
-			text[tpos] = 0;
-			res |= MU_RES_CHANGE;
-		}
-		
-		// cursor movement
-		if (IsKeyPressed(KEY_LEFT) || IsKeyPressedRepeat(KEY_LEFT)) {
-			moveCursorLeft(cursorPos, maxCols);
-		}
-		
-		if (IsKeyPressed(KEY_RIGHT) || IsKeyPressedRepeat(KEY_RIGHT)) {
-			moveCursorRight(cursorPos, maxCols, maxLines);
-		}
-		
-		if (IsKeyPressed(KEY_UP) || IsKeyPressedRepeat(KEY_UP)) {
-			if (cursorPos->y > 0) {
-				cursorPos->y--;
+		// moving data
+		if (IsKeyDown(KEY_LEFT_CONTROL)) {
+			
+			if (IsKeyPressed(KEY_LEFT) || IsKeyPressedRepeat(KEY_LEFT)) {
+				if (moveDataLeft(cursorPos, text, maxCols)) {
+					moveCursorLeft(cursorPos, maxCols);
+					res |= MU_RES_CHANGE;
+				}
+			}
+			
+			if (IsKeyPressed(KEY_RIGHT) || IsKeyPressedRepeat(KEY_RIGHT)) {
+				if (moveDataRight(cursorPos, text, maxCols)) {
+					moveCursorRight(cursorPos, maxCols, maxLines);
+					res |= MU_RES_CHANGE;
+				}
 			}
 		}
-		
-		if (IsKeyPressed(KEY_DOWN) || IsKeyPressedRepeat(KEY_DOWN)) {
-			if (cursorPos->y < maxLines - 1) {
-				cursorPos->y++;
+		else {
+			// remove characters
+			if (IsKeyPressed(KEY_BACKSPACE) || IsKeyPressedRepeat(KEY_BACKSPACE)) {
+				moveCursorLeft(cursorPos, maxCols);
+				int tpos = cursorPos->x + (cursorPos->y * maxCols); 
+				text[tpos] = 0;
+				res |= MU_RES_CHANGE;
 			}
-		}
-		
-		// tags
-		if (IsKeyPressed(KEY_PAGE_UP) || IsKeyPressedRepeat(KEY_PAGE_UP)) {
-			int tpos = cursorPos->x + (cursorPos->y * maxCols); 
-			text[tpos] = (text[tpos] + 1) % 16;
-			res |= MU_RES_CHANGE;
-		}
-		
-		if (IsKeyPressed(KEY_PAGE_DOWN) || IsKeyPressedRepeat(KEY_PAGE_DOWN)) {
-			int tpos = cursorPos->x + (cursorPos->y * maxCols); 
-			text[tpos] = (text[tpos] - 1) % 16;
-			if (text[tpos] < 0) {
-				text[tpos] = 15;
+			
+			if (IsKeyPressed(KEY_DELETE)) {
+				int tpos = cursorPos->x + (cursorPos->y * maxCols); 
+				text[tpos] = 0;
+				res |= MU_RES_CHANGE;
 			}
-			res |= MU_RES_CHANGE;
+			
+			// cursor movement
+			if (IsKeyPressed(KEY_LEFT) || IsKeyPressedRepeat(KEY_LEFT)) {
+				moveCursorLeft(cursorPos, maxCols);
+			}
+			
+			if (IsKeyPressed(KEY_RIGHT) || IsKeyPressedRepeat(KEY_RIGHT)) {
+				moveCursorRight(cursorPos, maxCols, maxLines);
+			}
+			
+			if (IsKeyPressed(KEY_UP) || IsKeyPressedRepeat(KEY_UP)) {
+				if (cursorPos->y > 0) {
+					cursorPos->y--;
+				}
+			}
+			
+			if (IsKeyPressed(KEY_DOWN) || IsKeyPressedRepeat(KEY_DOWN)) {
+				if (cursorPos->y < maxLines - 1) {
+					cursorPos->y++;
+				}
+			}
+			
+			// tags
+			if (IsKeyPressed(KEY_PAGE_UP) || IsKeyPressedRepeat(KEY_PAGE_UP)) {
+				int tpos = cursorPos->x + (cursorPos->y * maxCols); 
+				text[tpos] = (text[tpos] + 1) % 16;
+				res |= MU_RES_CHANGE;
+			}
+			
+			if (IsKeyPressed(KEY_PAGE_DOWN) || IsKeyPressedRepeat(KEY_PAGE_DOWN)) {
+				int tpos = cursorPos->x + (cursorPos->y * maxCols); 
+				text[tpos] = (text[tpos] - 1) % 16;
+				if (text[tpos] < 0) {
+					text[tpos] = 15;
+				}
+				res |= MU_RES_CHANGE;
+			}
+		
 		}
 		
 		// submit changes
@@ -191,7 +236,10 @@ int _mu_multitext(mu_Context *ctx, int maxCols, int textLen, char *text, int _, 
 		int x = rect.x + (cursorPos->x * colWidth) + 3;
 		int y = rect.y + (cursorPos->y * lineHeight) + 5;
 		mu_Rect cursorRect = {x + 1, y + 2, colWidth + 1, lineHeight};
-		mu_draw_box(ctx, cursorRect, cursorColor);
+		if (IsKeyDown(KEY_LEFT_CONTROL))
+			mu_draw_rect(ctx, cursorRect, cursorColor);
+		else
+			mu_draw_box(ctx, cursorRect, cursorColor);
 		
 		mu_Rect maxPosRect = {rect.x + (maxCols * colWidth) + 6, rect.y + 1, 1, rect.h - 2};
 		mu_draw_rect(ctx, maxPosRect, cursorColor);
