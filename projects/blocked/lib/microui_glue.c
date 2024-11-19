@@ -227,6 +227,23 @@ int _mu_multitext(mu_Context *ctx, int maxCols, int textLen, char *text, int _, 
 				}
 			}
 		}
+		else if (IsKeyDown(KEY_LEFT_CONTROL)) {
+			// tags
+			if (IsKeyPressed(KEY_UP) || IsKeyPressedRepeat(KEY_UP)) {
+				int tpos = cursorPos->x + (cursorPos->y * maxCols); 
+				text[tpos] = (text[tpos] + 1) % 16;
+				res |= MU_RES_CHANGE;
+			}
+			
+			if (IsKeyPressed(KEY_DOWN) || IsKeyPressedRepeat(KEY_DOWN)) {
+				int tpos = cursorPos->x + (cursorPos->y * maxCols); 
+				text[tpos] = (text[tpos] - 1) % 16;
+				if (text[tpos] < 0) {
+					text[tpos] = 15;
+				}
+				res |= MU_RES_CHANGE;
+			}
+		}
 		else {
 			// remove characters
 			if (IsKeyPressed(KEY_BACKSPACE) || IsKeyPressedRepeat(KEY_BACKSPACE)) {
@@ -258,22 +275,6 @@ int _mu_multitext(mu_Context *ctx, int maxCols, int textLen, char *text, int _, 
 			if (IsKeyPressed(KEY_DOWN) || IsKeyPressedRepeat(KEY_DOWN)) {
 				moveCursorDown(cursorPos, maxLines);
 			}
-			
-			// tags
-			if (IsKeyPressed(KEY_PAGE_UP) || IsKeyPressedRepeat(KEY_PAGE_UP)) {
-				int tpos = cursorPos->x + (cursorPos->y * maxCols); 
-				text[tpos] = (text[tpos] + 1) % 16;
-				res |= MU_RES_CHANGE;
-			}
-			
-			if (IsKeyPressed(KEY_PAGE_DOWN) || IsKeyPressedRepeat(KEY_PAGE_DOWN)) {
-				int tpos = cursorPos->x + (cursorPos->y * maxCols); 
-				text[tpos] = (text[tpos] - 1) % 16;
-				if (text[tpos] < 0) {
-					text[tpos] = 15;
-				}
-				res |= MU_RES_CHANGE;
-			}
 		
 			// submit changes
 			if (ctx->key_pressed & MU_KEY_RETURN) {
@@ -294,10 +295,18 @@ int _mu_multitext(mu_Context *ctx, int maxCols, int textLen, char *text, int _, 
 		int x = rect.x + (cursorPos->x * colWidth) + 3;
 		int y = rect.y + (cursorPos->y * lineHeight) + 5;
 		mu_Rect cursorRect = {x + 1, y + 2, colWidth + 1, lineHeight};
-		if (IsKeyDown(KEY_LEFT_SHIFT))
-			mu_draw_rect(ctx, cursorRect, cursorColor);
-		else
+		if (IsKeyDown(KEY_LEFT_SHIFT)) {
+			int width = (maxCols - cursorPos->x) * colWidth;
+			mu_Rect cursorRect = {x + 1, y + 2, width + 1, lineHeight};
 			mu_draw_box(ctx, cursorRect, cursorColor);
+		}
+		else if (IsKeyDown(KEY_LEFT_CONTROL)) {
+			mu_Color cursorColor = {0, 255, 255, 255};
+			mu_draw_box(ctx, cursorRect, cursorColor);
+		}
+		else {
+			mu_draw_box(ctx, cursorRect, cursorColor);
+		}
 		
 		mu_Rect maxPosRect = {rect.x + (maxCols * colWidth) + 6, rect.y + 1, 1, rect.h - 2};
 		mu_draw_rect(ctx, maxPosRect, cursorColor);
