@@ -76,7 +76,6 @@ END GenCode;
 
 PROCEDURE Tokenize*(block: ST.Block);
 VAR
-	ident: Identifier;
 	token: CHAR;
 	word, empty: Word;
 	i, j, len, token_id: INTEGER;

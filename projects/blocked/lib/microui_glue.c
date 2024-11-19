@@ -90,6 +90,35 @@ static bool shiftDataRight(mu_Vec2 *cursorPos, char *data, int maxCols) {
 	return moved;
 }
 
+static bool shiftDataUp(mu_Vec2 *cursorPos, int dataSize, char *data, int maxLines, int maxCols) {
+	bool moved = false;
+	if (cursorPos->y > 0) {
+		int tpos = cursorPos->y * maxCols;
+		int size = dataSize - tpos - maxCols;
+		memmove(data + tpos - maxCols, data + tpos, size);
+		// cleaning line
+		size = maxCols - 1;
+		tpos = dataSize - size;
+		memset(data + tpos, 0, size);
+		moved = true;
+	}
+	return moved;
+}
+
+static bool shiftDataDown(mu_Vec2 *cursorPos, int dataSize, char *data, int maxLines, int maxCols) {
+	bool moved = false;
+	if (cursorPos->y < maxLines - 1) {
+		int tpos = cursorPos->y * maxCols;
+		int size = dataSize - tpos - maxCols;
+		memmove(data + tpos + maxCols, data + tpos, size);
+		// cleaning line
+		size = maxCols - 1;
+		memset(data + tpos, 0, size);
+		moved = true;
+	}
+	return moved;
+}
+
 static void moveCursorLeft(mu_Vec2 *cursorPos, int maxCols) {
 	cursorPos->x--;
 	if (cursorPos->x < 0){
@@ -115,6 +144,18 @@ static void moveCursorRight(mu_Vec2 *cursorPos, int maxCols, int maxLines) {
 			cursorPos->x = maxCols - 1;
 			cursorPos->y = maxLines - 1;
 		}
+	}
+}
+
+static void moveCursorUp(mu_Vec2 *cursorPos) {
+	if (cursorPos->y > 0) {
+		cursorPos->y--;
+	}
+}
+
+static void moveCursorDown(mu_Vec2 *cursorPos, int maxLines) {
+	if (cursorPos->y < maxLines - 1) {
+		cursorPos->y++;
 	}
 }
 
@@ -163,6 +204,28 @@ int _mu_multitext(mu_Context *ctx, int maxCols, int textLen, char *text, int _, 
 					res |= MU_RES_CHANGE;
 				}
 			}
+			
+			if (IsKeyPressed(KEY_UP) || IsKeyPressedRepeat(KEY_UP)) {
+				if (shiftDataUp(cursorPos, textLen, text, maxLines, maxCols)) {
+					moveCursorUp(cursorPos);
+					res |= MU_RES_CHANGE;
+				}
+			}
+			
+			if (IsKeyPressed(KEY_DOWN) || IsKeyPressedRepeat(KEY_DOWN)) {
+				if (shiftDataDown(cursorPos, textLen, text, maxLines, maxCols)) {
+					moveCursorDown(cursorPos, maxLines);
+					res |= MU_RES_CHANGE;
+				}
+			}
+			
+			if (ctx->key_pressed & MU_KEY_RETURN) {
+				cursorPos->x = 0;
+				moveCursorDown(cursorPos, maxLines);
+				if (shiftDataDown(cursorPos, textLen, text, maxLines, maxCols)) {
+					res |= MU_RES_CHANGE;
+				}
+			}
 		}
 		else {
 			// remove characters
@@ -189,15 +252,11 @@ int _mu_multitext(mu_Context *ctx, int maxCols, int textLen, char *text, int _, 
 			}
 			
 			if (IsKeyPressed(KEY_UP) || IsKeyPressedRepeat(KEY_UP)) {
-				if (cursorPos->y > 0) {
-					cursorPos->y--;
-				}
+				moveCursorUp(cursorPos);
 			}
 			
 			if (IsKeyPressed(KEY_DOWN) || IsKeyPressedRepeat(KEY_DOWN)) {
-				if (cursorPos->y < maxLines - 1) {
-					cursorPos->y++;
-				}
+				moveCursorDown(cursorPos, maxLines);
 			}
 			
 			// tags
@@ -216,13 +275,13 @@ int _mu_multitext(mu_Context *ctx, int maxCols, int textLen, char *text, int _, 
 				res |= MU_RES_CHANGE;
 			}
 		
-		}
+			// submit changes
+			if (ctx->key_pressed & MU_KEY_RETURN) {
+				mu_set_focus(ctx, 0);
+				res |= MU_RES_SUBMIT;
+			}
+		}		
 		
-		// submit changes
-		if (ctx->key_pressed & MU_KEY_RETURN) {
-			mu_set_focus(ctx, 0);
-			res |= MU_RES_SUBMIT;
-		}
 	}
 	
 	/* draw */
@@ -247,7 +306,6 @@ int _mu_multitext(mu_Context *ctx, int maxCols, int textLen, char *text, int _, 
 	// Drawing text
 	mu_Color textColor = colors[0];
 	mu_Vec2 posText = {rect.x + 5, rect.y + 10};
-	//const char *hexChars = "0123456789abcdef";
 	const char *hexChars = ".:#$*\"...........";
 	mu_Color currentColor = textColor;
 	
