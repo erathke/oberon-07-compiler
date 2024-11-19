@@ -66,19 +66,19 @@ static void updateCursorPos(mu_Rect *rect, mu_Vec2 *mousePos,
 	cursorPos->y = MIN(ny / lineHeight, maxLines - 1);
 }
 
-static bool moveDataLeft(mu_Vec2 *cursorPos, char *data, int maxCols) {
+static bool shiftDataLeft(mu_Vec2 *cursorPos, char *data, int maxCols) {
 	bool moved = false;
 	if (cursorPos->x > 0) {
 		int tpos = cursorPos->x + (cursorPos->y * maxCols);
-		int size = cursorPos->x;
-		memmove(data + (tpos - size), data + (tpos - size + 1), size);
-		data[tpos] = 0;
+		int size = (maxCols - cursorPos->x) - 1;
+		memmove(data + tpos - 1, data + tpos, size);
+		data[tpos + size] = 0;
 		moved = true;
 	}
 	return moved;
 }
 
-static bool moveDataRight(mu_Vec2 *cursorPos, char *data, int maxCols) {
+static bool shiftDataRight(mu_Vec2 *cursorPos, char *data, int maxCols) {
 	bool moved = false;
 	if (cursorPos->x < maxCols - 1) {
 		int tpos = cursorPos->x + (cursorPos->y * maxCols);
@@ -149,17 +149,16 @@ int _mu_multitext(mu_Context *ctx, int maxCols, int textLen, char *text, int _, 
 			}
 		}
 		// moving data
-		if (IsKeyDown(KEY_LEFT_CONTROL)) {
+		if (IsKeyDown(KEY_LEFT_SHIFT)) {
 			
 			if (IsKeyPressed(KEY_LEFT) || IsKeyPressedRepeat(KEY_LEFT)) {
-				if (moveDataLeft(cursorPos, text, maxCols)) {
+				if (shiftDataLeft(cursorPos, text, maxCols)) {
 					moveCursorLeft(cursorPos, maxCols);
 					res |= MU_RES_CHANGE;
 				}
 			}
-			
 			if (IsKeyPressed(KEY_RIGHT) || IsKeyPressedRepeat(KEY_RIGHT)) {
-				if (moveDataRight(cursorPos, text, maxCols)) {
+				if (shiftDataRight(cursorPos, text, maxCols)) {
 					moveCursorRight(cursorPos, maxCols, maxLines);
 					res |= MU_RES_CHANGE;
 				}
@@ -236,7 +235,7 @@ int _mu_multitext(mu_Context *ctx, int maxCols, int textLen, char *text, int _, 
 		int x = rect.x + (cursorPos->x * colWidth) + 3;
 		int y = rect.y + (cursorPos->y * lineHeight) + 5;
 		mu_Rect cursorRect = {x + 1, y + 2, colWidth + 1, lineHeight};
-		if (IsKeyDown(KEY_LEFT_CONTROL))
+		if (IsKeyDown(KEY_LEFT_SHIFT))
 			mu_draw_rect(ctx, cursorRect, cursorColor);
 		else
 			mu_draw_box(ctx, cursorRect, cursorColor);
