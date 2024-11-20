@@ -73,8 +73,8 @@ static bool shiftDataRight(mu_Vec2 *cursor, char *data, int maxCols) {
 static bool shiftDataUp(mu_Vec2 *cursor, int dataSize, char *data, int maxCols) {
 	bool moved = false;
 	if (cursor->y > 0) {
-		int tpos = cursor->y * maxCols;
-		int size = dataSize - tpos - maxCols;
+		int tpos = cursor->x + (cursor->y * maxCols);
+		int size = dataSize - tpos - cursor->x;
 		memmove(data + tpos - maxCols, data + tpos, size);
 		// cleaning line
 		size = maxCols - 1;
