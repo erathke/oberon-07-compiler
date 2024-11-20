@@ -18,6 +18,7 @@ CONST
 	MARK_T_REAL = 3;
 	MARK_I_REF = 4;
 	MARK_T_STR = 5;
+	MARK_EOL = 15;
 	
 	MARKS = 16;
 	
@@ -78,8 +79,8 @@ PROCEDURE Tokenize*(block: ST.Block);
 VAR
 	token: CHAR;
 	word, empty: Word;
-	i, j, len, token_id: INTEGER;
-	mark: INTEGER;
+	i, j, len, cols: INTEGER;
+	token_id, mark: INTEGER;
 	
 	PROCEDURE AddIdent(word: Word; mark: INTEGER; VAR idList: IdList);
 	VAR
@@ -94,7 +95,7 @@ VAR
 BEGIN
 	len := LEN(block.data);
 	mark := MARK_RES_W;
-	
+	cols := block.columns;
 	FOR i := 0 TO len - 1 DO
 		token := block.data[i];
 		token_id := ORD(token);
@@ -106,6 +107,11 @@ BEGIN
 				AddIdent(word, mark, idList);
 				COPY(empty, word);
 			END;
+			
+			IF token_id = MARK_EOL THEN
+				AddIdent(0AX, MARK_EOL, idList);
+			END;
+
 			j := 0;
 			mark := token_id;
 		END;

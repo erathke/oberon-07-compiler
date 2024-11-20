@@ -16,12 +16,12 @@
 #define TAGS 16
 
 static mu_Color tag_colors[TAGS] = {
-	{255, 255, 255, 15}, // white = comment
-	{255,   0,   0, 15}, // red = definition
-	{255, 255,   0, 15}, // yellow = integer
-	{0,   255, 255, 15}, // ... = real
-	{  0, 255,   0, 15}, // green = compile
-	{  0,   0, 255, 15}, // blue = string
+	{255, 255, 255, 50}, // white = comment
+	{255,   0,   0, 50}, // red = definition
+	{255, 255,   0, 50}, // yellow = integer
+	{0,   255, 255, 50}, // ... = real
+	{  0, 255,   0, 50}, // green = compile
+	{  0,   0, 255, 50}, // blue = string
 	{255, 255, 255, 15}, // unused
 	
 	{255, 255, 255, 15},
@@ -32,7 +32,7 @@ static mu_Color tag_colors[TAGS] = {
 	{255, 255, 255, 15},
 	{255, 255, 255, 15},
 	{255, 255, 255, 15},
-	{255, 255, 255, 15}
+	{255,   0, 255, 50} // EOL
 };
 
 static void updateCursorPos(mu_Rect *rect, mu_Vec2 *mousePos, 
@@ -341,7 +341,7 @@ int _mu_multitext(mu_Context *ctx, int maxCols, int textLen, char *text, int _, 
 	// Drawing text
 	mu_Color textColor = tag_colors[0];
 	mu_Vec2 posText = {rect.x + 5, rect.y + 10};
-	const char *hexChars = ".:#$*\"...........";
+	const char hexChars[TAGS] = ".:#$*\".........\\";
 	mu_Color currentColor = textColor;
 	
 	for (int y = 0; y < visibleLines; y++) {
