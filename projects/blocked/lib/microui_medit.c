@@ -99,10 +99,14 @@ static bool shiftDataDown(mu_Vec2 *cursor, int dataSize, char *data, int visible
 	return moved;
 }
 
-static void moveCursorLeft(mu_Vec2 *cursor, int maxCols) {
+static void moveCursorLeft(mu_Vec2 *cursor, int *yOffs, int maxCols, int maxLines, int visibleLines) {
 	cursor->x--;
 	if (cursor->x < 0){
 		if (cursor->y > 0) {
+			//printf("y: %d, offs: %d\n", cursor->y, *yOffs);
+			if (cursor->y ==  *yOffs) {
+				--*yOffs;
+			}
 			cursor->y--;
 			cursor->x = maxCols - 1;
 		} 
@@ -113,34 +117,37 @@ static void moveCursorLeft(mu_Vec2 *cursor, int maxCols) {
 	}
 }
 
-static void moveCursorRight(mu_Vec2 *cursor, int maxCols, int visibleLines) {
+static void moveCursorRight(mu_Vec2 *cursor, int *yOffs, int maxCols, int maxLines, int visibleLines) {
 	cursor->x++;
 	if (cursor->x >= maxCols){
-		if (cursor->y < visibleLines - 1) {
+		if (cursor->y < maxLines - 1) {
 			cursor->y++;
 			cursor->x = 0;
+			if (cursor->y == (visibleLines + *yOffs)) {
+				++*yOffs;
+			}
 		} 
 		else {
 			cursor->x = maxCols - 1;
-			cursor->y = visibleLines - 1;
+			cursor->y = maxLines - 1;
 		}
 	}
 }
 
-static void moveCursorUp(mu_Vec2 *cursor, int *yOffs, int visibleLines) {
+static void moveCursorUp(mu_Vec2 *cursor, int n, int *yOffs, int visibleLines) {
 	if (cursor->y > 0) {
-		cursor->y--;
+		cursor->y -= n;
 		if (cursor->y < *yOffs) {
-			--*yOffs;
+			*yOffs = MAX(*yOffs - n, 0);
 		}
 	}
 }
 
-static void moveCursorDown(mu_Vec2 *cursor, int *yOffs, int maxLines, int visibleLines) {
+static void moveCursorDown(mu_Vec2 *cursor, int n, int *yOffs, int maxLines, int visibleLines) {
 	if (cursor->y < maxLines - 1) {
-		cursor->y++;
+		cursor->y += n;
 		if (cursor->y >= (*yOffs + visibleLines)) {
-			++*yOffs;
+			*yOffs = MIN(*yOffs + n, maxLines - visibleLines);
 		}
 	}
 }
@@ -155,13 +162,14 @@ int _mu_multitext(mu_Context *ctx, int maxCols, int textLen, char *text, int _, 
 	const int lineHeight = ctx->text_height(font) + 5;
 	const int colWidth = ctx->text_width(font, "#", 1) + 1;
 	const int visibleLines = rect.h / lineHeight;
-	const int maxLines = textLen / maxCols;
+	const int maxLines = (textLen / maxCols) - 1; // avoiding half line
 	
 	/* handle input */
 	int res = 0;
 	if (ctx->mouse_pressed == MU_MOUSE_LEFT && ctx->focus == id) {
 		res |= MU_RES_ACTIVE;
 		updateCursorPos(&rect, &ctx->mouse_pos, cursor, lineHeight, colWidth, maxCols, visibleLines);
+		cursor->y += *yOffs;
 	}
 	if (ctx->focus == id) {
 		// insert characters
@@ -171,7 +179,7 @@ int _mu_multitext(mu_Context *ctx, int maxCols, int textLen, char *text, int _, 
 			while (i < len) {
 				int tpos = cursor->x + (cursor->y * maxCols); 
 				text[tpos] = ctx->input_text[i];
-				moveCursorRight(cursor, maxCols, visibleLines);
+				moveCursorRight(cursor, yOffs, maxCols, maxLines, visibleLines);
 				i++;
 			}
 			res |= MU_RES_CHANGE;
@@ -181,35 +189,35 @@ int _mu_multitext(mu_Context *ctx, int maxCols, int textLen, char *text, int _, 
 			// shift data left from cursor x to end of line
 			if (IsKeyPressed(KEY_LEFT) || IsKeyPressedRepeat(KEY_LEFT)) {
 				if (shiftDataLeft(cursor, text, maxCols)) {
-					moveCursorLeft(cursor, maxCols);
+					moveCursorLeft(cursor, yOffs, maxCols, maxLines, visibleLines);
 					res |= MU_RES_CHANGE;
 				}
 			}
 			// shift data right from cursor x to end of line
 			if (IsKeyPressed(KEY_RIGHT) || IsKeyPressedRepeat(KEY_RIGHT)) {
 				if (shiftDataRight(cursor, text, maxCols)) {
-					moveCursorRight(cursor, maxCols, visibleLines);
+					moveCursorRight(cursor, yOffs, maxCols, maxLines, visibleLines);
 					res |= MU_RES_CHANGE;
 				}
 			}
 			// shift data up from current line
 			if (IsKeyPressed(KEY_UP) || IsKeyPressedRepeat(KEY_UP)) {
 				if (shiftDataUp(cursor, textLen, text, maxCols)) {
-					moveCursorUp(cursor, yOffs, visibleLines);
+					moveCursorUp(cursor, 1, yOffs, visibleLines);
 					res |= MU_RES_CHANGE;
 				}
 			}
 			// shift data down from current line
 			if (IsKeyPressed(KEY_DOWN) || IsKeyPressedRepeat(KEY_DOWN)) {
 				if (shiftDataDown(cursor, textLen, text, visibleLines, maxCols)) {
-					moveCursorDown(cursor, yOffs, maxLines, visibleLines);
+					moveCursorDown(cursor, 1, yOffs, maxLines, visibleLines);
 					res |= MU_RES_CHANGE;
 				}
 			}
 			// insert line after
 			if (ctx->key_pressed & MU_KEY_RETURN) {
 				cursor->x = 0;
-				moveCursorDown(cursor, yOffs, maxLines, visibleLines);
+				moveCursorDown(cursor, 1, yOffs, maxLines, visibleLines);
 				if (shiftDataDown(cursor, textLen, text, visibleLines, maxCols)) {
 					res |= MU_RES_CHANGE;
 				}
@@ -243,7 +251,7 @@ int _mu_multitext(mu_Context *ctx, int maxCols, int textLen, char *text, int _, 
 		else {
 			// remove character at left from current position
 			if (IsKeyPressed(KEY_BACKSPACE) || IsKeyPressedRepeat(KEY_BACKSPACE)) {
-				moveCursorLeft(cursor, maxCols);
+				moveCursorLeft(cursor, yOffs, maxCols, maxLines, visibleLines);
 				int tpos = cursor->x + (cursor->y * maxCols); 
 				text[tpos] = 0;
 				res |= MU_RES_CHANGE;
@@ -257,19 +265,43 @@ int _mu_multitext(mu_Context *ctx, int maxCols, int textLen, char *text, int _, 
 			// cursor movement
 			// move cursor left / wrap to upper line
 			if (IsKeyPressed(KEY_LEFT) || IsKeyPressedRepeat(KEY_LEFT)) {
-				moveCursorLeft(cursor, maxCols);
+				moveCursorLeft(cursor, yOffs, maxCols, maxLines, visibleLines);
 			}
 			// move cursor right / wrap to lower line
 			if (IsKeyPressed(KEY_RIGHT) || IsKeyPressedRepeat(KEY_RIGHT)) {
-				moveCursorRight(cursor, maxCols, visibleLines);
+				moveCursorRight(cursor, yOffs, maxCols, maxLines, visibleLines);
 			}
 			// move cursor up / stop at line 0
 			if (IsKeyPressed(KEY_UP) || IsKeyPressedRepeat(KEY_UP)) {
-				moveCursorUp(cursor, yOffs, visibleLines);
+				moveCursorUp(cursor, 1, yOffs, visibleLines);
 			}
-			// move cursor up / stop at max line
+			// move cursor down / stop at max line
 			if (IsKeyPressed(KEY_DOWN) || IsKeyPressedRepeat(KEY_DOWN)) {
-				moveCursorDown(cursor, yOffs, maxLines, visibleLines);
+				moveCursorDown(cursor, 1, yOffs, maxLines, visibleLines);
+			}
+			// move cursor up n positions
+			if (IsKeyPressed(KEY_PAGE_UP)) {
+				int n = cursor->y;
+				if (cursor->y >= visibleLines) {
+					n = visibleLines - 1;
+				}
+				moveCursorUp(cursor, n, yOffs, visibleLines);
+			}
+			// move cursor down n positions
+			if (IsKeyPressed(KEY_PAGE_DOWN)) {
+				int n = visibleLines - 1;
+				if ((cursor->y + visibleLines) >= maxLines) {
+					n = (maxLines - 1) - cursor->y;
+				}
+				moveCursorDown(cursor, n, yOffs, maxLines, visibleLines);
+			}
+			// move cursor to the beginning of the line
+			if (IsKeyPressed(KEY_HOME)) {
+				cursor->x = 0;
+			}
+			// move cursor to the end of the line
+			if (IsKeyPressed(KEY_END)) {
+				cursor->x = maxCols - 1;
 			}
 			// submit changes
 			if (ctx->key_pressed & MU_KEY_RETURN) {
