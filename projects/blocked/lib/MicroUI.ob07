@@ -57,7 +57,7 @@ PROCEDURE [extern, "mu_slider_ex"] _mu_slider_ex(ctx: Context; VAR value: REAL; 
 PROCEDURE [extern, "_mu_layout_next"] _mu_layout_next(ctx: Context; rect: ADDRESS);
 PROCEDURE [extern, "_mu_layout_set_next"] _mu_layout_set_next(ctx: Context; rect: ADDRESS; relative: INTEGER);
 
-PROCEDURE [extern, "_mu_multitext"] MultiText*(ctx: Context; maxCols: INTEGER; VAR data: ARRAY OF CHAR; VAR cursorPos: Vec2): SET;
+PROCEDURE [extern, "_mu_multitext"] MultiText*(ctx: Context; maxCols: INTEGER; VAR data: ARRAY OF CHAR; VAR cursorPos: Vec2; VAR yOffs: INTEGER): SET;
 PROCEDURE [extern, "_mu_textwidth"] TextWidth*(ctx: Context; text: ARRAY OF CHAR): INTEGER;
 PROCEDURE [extern, "_mu_textheight"] TextHeight*(ctx: Context): INTEGER;
 

@@ -19,7 +19,7 @@ VAR
 	d0currentBlock: REAL;
 	currentBlock: ST.Block;
 	cursorPos: MUI.Vec2;
-
+	yOffs: INTEGER;
 
 PROCEDURE MainWindow(ctx: MUI.Context; offsY, height: INTEGER);
 VAR
@@ -120,7 +120,7 @@ BEGIN
 			textRect.w := SCREEN_WIDTH - (ROW_XGAP*2);
 			MUI.LayoutSetNext(ctx, textRect, FALSE);
 			
-			status := MUI.MultiText(ctx, currentBlock.columns, currentBlock.data, cursorPos);
+			status := MUI.MultiText(ctx, currentBlock.columns, currentBlock.data, cursorPos, yOffs);
 			IF status = MUI.RES_SUBMIT THEN
 				ST.WriteBlock(d0, FLOOR(d0currentBlock) - 1, currentBlock);
 			END;
