@@ -50,9 +50,9 @@ static bool shiftDataLeft(mu_Vec2 *cursor, char *data, int maxCols) {
 	bool moved = false;
 	if (cursor->x > 0) {
 		int tpos = cursor->x + (cursor->y * maxCols);
-		int size = (maxCols - cursor->x) - 1;
+		int size = maxCols - cursor->x;
 		memmove(data + tpos - 1, data + tpos, size);
-		data[tpos + size] = 0;
+		data[tpos + size - 1] = 0;
 		moved = true;
 	}
 	return moved;
@@ -70,16 +70,16 @@ static bool shiftDataRight(mu_Vec2 *cursor, char *data, int maxCols) {
 	return moved;
 }
 
-static bool shiftDataUp(mu_Vec2 *cursor, int dataSize, char *data, int maxCols) {
+static bool shiftDataUp(mu_Vec2 *cursor, int dataSize, char *data, int maxLines, int maxCols) {
 	bool moved = false;
 	if (cursor->y > 0) {
 		int tpos = cursor->x + (cursor->y * maxCols);
 		int size = dataSize - tpos - cursor->x;
 		memmove(data + tpos - maxCols, data + tpos, size);
 		// cleaning line
-		size = maxCols - 1;
-		tpos = dataSize - size;
-		memset(data + tpos, 0, size);
+		tpos = (maxLines - 1) * maxCols;
+		//printf("lines: %d, cols: %d, pos: %d\n", maxLines, maxCols, tpos);
+		memset(data + tpos, 0, maxCols);
 		moved = true;
 	}
 	return moved;
@@ -88,12 +88,11 @@ static bool shiftDataUp(mu_Vec2 *cursor, int dataSize, char *data, int maxCols) 
 static bool shiftDataDown(mu_Vec2 *cursor, int dataSize, char *data, int visibleLines, int maxCols) {
 	bool moved = false;
 	if (cursor->y < visibleLines - 1) {
-		int tpos = cursor->y * maxCols;
-		int size = dataSize - tpos - maxCols;
+		int tpos = cursor->x + (cursor->y * maxCols);
+		int size = dataSize - tpos - cursor->x;
 		memmove(data + tpos + maxCols, data + tpos, size);
 		// cleaning line
-		size = maxCols - 1;
-		memset(data + tpos, 0, size);
+		memset(data + tpos, 0, maxCols);
 		moved = true;
 	}
 	return moved;
@@ -202,7 +201,7 @@ int _mu_multitext(mu_Context *ctx, int maxCols, int textLen, char *text, int _, 
 			}
 			// shift data up from current line
 			if (IsKeyPressed(KEY_UP) || IsKeyPressedRepeat(KEY_UP)) {
-				if (shiftDataUp(cursor, textLen, text, maxCols)) {
+				if (shiftDataUp(cursor, textLen, text, maxLines, maxCols)) {
 					moveCursorUp(cursor, 1, yOffs, visibleLines);
 					res |= MU_RES_CHANGE;
 				}
