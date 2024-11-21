@@ -62,16 +62,17 @@ VAR
 	rowWidth1: ARRAY 8 OF INTEGER;
 	aliasLabel, maxColsLabel: ARRAY 32 OF CHAR;
 	maxColsStr, cursorXStr, cursorYStr: ARRAY 4 OF CHAR;
+	cursorOffsStr: ARRAY 8 OF CHAR;
 	cursorInfo: ARRAY 32 OF CHAR;
 	status: SET;
-	entry: INTEGER;
+	entry, errorAt: INTEGER;
 BEGIN
 	wr1.x := 0; wr1.y := offsY; wr1.w := SCREEN_WIDTH; wr1.h := height;
 	rowWidth1[1] := 200;
 	rowWidth1[2] := 200;
 	rowWidth1[4] := 20;
 	rowWidth1[5] := 20;
-	rowWidth1[6] := 150;
+	rowWidth1[6] := 210;
 	rowWidth1[7] := 75;
 	aliasLabel:= "Alias: ";
 	maxColsLabel:= " Columns: ";
@@ -81,10 +82,14 @@ BEGIN
 	String.FromInt(currentBlock.columns, maxColsStr);
 	String.FromInt(cursorPos.x, cursorXStr);
 	String.FromInt(cursorPos.y, cursorYStr);
+	String.FromInt(cursorPos.x + (cursorPos.y * currentBlock.columns), cursorOffsStr);
 	cursorInfo := " Cursor: ";
 	String.Append(cursorInfo, cursorXStr);
 	String.Append(cursorInfo, ", ");
 	String.Append(cursorInfo, cursorYStr);
+	String.Append(cursorInfo, " [");
+	String.Append(cursorInfo, cursorOffsStr);
+	String.Append(cursorInfo, "]");
 	
 	IF MUI.BeginWindowEx(ctx, "Block info", wr1, MUI.OPT_NOINTERACT + MUI.OPT_NOCLOSE) THEN
 		MUI.LayoutRow(ctx, 8, rowWidth1, 0);
@@ -117,7 +122,12 @@ BEGIN
 		ELSIF String.EndsWith(".vm", currentBlock.alias) THEN
 			IF MUI.Button(ctx, "Execute") THEN
 				entry := cursorPos.x + (cursorPos.y * currentBlock.columns);
-				VM.Run(currentBlock, entry);
+				errorAt := -1;
+				VM.Run(currentBlock, entry, errorAt);
+				IF errorAt >= 0 THEN // positioning cursor at error
+					cursorPos.x := errorAt MOD currentBlock.columns;
+					cursorPos.y := errorAt DIV currentBlock.columns;
+				END;
 			END;
 		ELSE
 			MUI.Label(ctx, "-------");

@@ -29,6 +29,9 @@ CONST
 	
 	MAX_INSTRUCTIONS = 1024;
 	
+	ERR_UNKNOWN_REF = 1;
+	ERR_UNKNOWN_MACRO = 2;
+	
 TYPE
 	Stack = RECORD 
 		sp: INTEGER;
@@ -45,28 +48,25 @@ TYPE
 	Dictionary = ARRAY 32 OF Word;
 
 	Instruction = RECORD
-		code: INTEGER;
-		value: INTEGER
+		code, value, address: INTEGER
 	END;
 
 	Machine = RECORD
 		pc, ic: INTEGER;
 		ws, rs: Stack;
 		code: ARRAY MAX_INSTRUCTIONS OF Instruction;
-		dict: Dictionary
+		dict: Dictionary;
+		wordCount: INTEGER
 	END;
 
-VAR
-	m: Machine;
-	wordCount, wordEndCount, currentWord: INTEGER;
 
-
-PROCEDURE AddInstruction(address, code, value: INTEGER);
+PROCEDURE AddInstruction(VAR m: Machine; code, value, address: INTEGER);
 VAR
 	instr: Instruction;
 BEGIN 
 	instr.code := code;
 	instr.value := value;
+	instr.address := address;
 	m.code[address] := instr;
 	INC(m.ic);
 END;
@@ -104,7 +104,7 @@ BEGIN
 END Pop;
 
 
-PROCEDURE Parse(block: ST.Block; len: INTEGER; VAR start: INTEGER; VAR mode: INTEGER);
+PROCEDURE Parse(VAR m: Machine; block: ST.Block; len: INTEGER; VAR start: INTEGER; VAR mode: INTEGER);
 VAR
 	token: CHAR;
 	i, j: INTEGER;
@@ -141,32 +141,30 @@ BEGIN
 		CASE token_id OF
 		| MARK_END:
 		| MARK_ID_DEF:
-			INC(wordCount);
-			INC(currentWord);
-			m.dict[currentWord].address := i;
-			i := i + ReadIdent(block, i + 1, len, m.dict[currentWord].name);
+			m.dict[m.wordCount].address := i;
+			i := i + ReadIdent(block, i + 1, len, m.dict[m.wordCount].name);
+			INC(m.wordCount);
 		| MARK_ID_END:
-			AddInstruction(i, INST_RET, i);
-			INC(wordEndCount);
+			AddInstruction(m, INST_RET, i, i);
 		| MARK_ID_REF:
 			i := i + ReadIdent(block, i + 1, len, ref);
 			ref_addr := -1;
 			
-			FOR j := 0 TO wordCount - 1 DO
+			FOR j := 0 TO m.wordCount DO
 				IF ref = m.dict[j].name THEN
 					ref_addr := m.dict[j].address;
 				END;
 			END;
 			
-			IF ref_addr = -1 THEN // error: not found
-				AddInstruction(i, INST_ERR, i);
+			IF ref_addr = -1 THEN // error: not found	
+				AddInstruction(m, INST_ERR, ERR_UNKNOWN_REF, i);
 			ELSE
-				AddInstruction(i, INST_CALL,  ref_addr);
+				AddInstruction(m, INST_CALL, ref_addr, i);
 			END;
 		| MARK_ID_MACRO:
 			i := i + ReadIdent(block, i + 1, len, ref);
 			IF ref = "+" THEN
-				AddInstruction(i, INST_ADD_I, i);
+				AddInstruction(m, INST_ADD_I, i, i);
 			ELSE
 				Out.String("unknown macro"); Out.Ln;
 			END;
@@ -174,9 +172,9 @@ BEGIN
 		| MARK_TP_INT:
 			i := i + ReadIdent(block, i + 1, len, ref);
 			IF String.ToInt(ref, i_val) THEN
-				AddInstruction(i, INST_PUSH_I, i_val);
+				AddInstruction(m, INST_PUSH_I, i_val, i);
 			ELSE // error: invalid number
-				AddInstruction(i, INST_ERR, i);
+				AddInstruction(m, INST_ERR, ERR_UNKNOWN_MACRO, i);
 			END;
 		ELSE
 			// comment
@@ -186,7 +184,7 @@ BEGIN
 END Parse;
 
 
-PROCEDURE LogInstructions();
+PROCEDURE LogInstructions(VAR m: Machine);
 VAR
 	i, len: INTEGER;
 	instr: Instruction;
@@ -203,17 +201,18 @@ BEGIN
 	END;
 END LogInstructions;
 
-PROCEDURE Execute(block: ST.Block; entry: INTEGER);
+
+PROCEDURE Execute(VAR m: Machine; block: ST.Block; entry: INTEGER; VAR errorAt: INTEGER);
 VAR
-	i, len: INTEGER;
+	i, len, cols: INTEGER;
 	instr: Instruction;
 	ret: INTEGER;
 	i_val1, i_val2: INTEGER;
 BEGIN
-	
-	len := entry + (80 - (entry MOD 80));
-	//Out.String("entry: "); Out.Int(entry, 0); Out.Ln;
-	//Out.String("len: "); Out.Int(len, 0); Out.Ln;
+	cols := block.columns;
+	len := entry + (cols - (entry MOD cols));
+	Out.String("entry: "); Out.Int(entry, 0); Out.Ln;
+	Out.String("len: "); Out.Int(len, 0); Out.Ln;
 	
 	i := entry;
 	
@@ -241,6 +240,12 @@ BEGIN
 						Out.String("add: "); Out.Int(i_val1 + i_val2, 0); Out.Ln;
 					END;
 				END;
+			| INST_ERR: 
+				Out.String("error: "); Out.Int(instr.value, 0);
+				Out.String(" at: "); Out.Int(instr.address, 0);
+				Out.Ln;
+				errorAt := instr.address;
+				i := len; // stop execution
 			ELSE
 			END;
 		END;
@@ -249,36 +254,33 @@ BEGIN
 END Execute;
 
 
-PROCEDURE ResetMachine();
+PROCEDURE ResetMachine(VAR m: Machine);
 BEGIN
 	m.pc := 0;
 	m.ic := 0;
 	m.ws.sp := 0;
 	m.rs.sp := 0;
+	m.wordCount := 0;
 END ResetMachine;
 
 
-PROCEDURE Run*(block: ST.Block; entry: INTEGER);
+PROCEDURE Run*(block: ST.Block; entry: INTEGER; VAR errorAt: INTEGER);
 VAR
 	mode, start, len: INTEGER;
+	m: Machine;
 BEGIN
 	mode := MODE_PARSE;
 	start := 0;
 	len := LEN(block.data);
-	wordCount := 0;
-	wordEndCount := 0;
-	currentWord := -1;
-	Parse(block, len, start, mode);
-	IF wordEndCount = wordCount THEN
-		Out.Ln;
-		Out.String("--------------------------"); Out.Ln;
-		ResetMachine();
-		Execute(block, entry);
-		Out.String("end of execution"); Out.Ln;
-		Out.String("--------------------------"); Out.Ln;
-	ELSE
-		Out.String("parsing error!"); Out.Ln;
-	END;
+	Parse(m, block, len, start, mode);
+	
+	Out.Ln;
+	Out.String("--------------------------"); Out.Ln;
+	ResetMachine(m);
+	Execute(m, block, entry, errorAt);
+	Out.String("end of execution"); Out.Ln;
+	Out.String("--------------------------"); Out.Ln;
+	
 END Run;
 
 END VM.
