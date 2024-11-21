@@ -10,7 +10,7 @@ CONST
 	MARK_END = 0; // .
 	MARK_ID_DEF = 1; // red
 	MARK_TP_INT = 2; // yellow
-	MARK_TP_REAL = 3; // cyan
+	MARK_ID_MACRO = 3; // cyan
 	MARK_ID_REF = 4; // green
 	MARK_TP_STR = 5; // blue
 	MARK_ID_END = 15; // \
@@ -25,6 +25,9 @@ CONST
 	INST_CALL = 1;
 	INST_RET = 2;
 	INST_PUSH_I = 3;
+	INST_ADD_I = 4;
+	
+	MAX_INSTRUCTIONS = 1024;
 	
 TYPE
 	Stack = RECORD 
@@ -49,7 +52,7 @@ TYPE
 	Machine = RECORD
 		pc, ic: INTEGER;
 		ws, rs: Stack;
-		code: ARRAY 1024 OF Instruction;
+		code: ARRAY MAX_INSTRUCTIONS OF Instruction;
 		dict: Dictionary
 	END;
 
@@ -69,20 +72,35 @@ BEGIN
 END;
 
 
-PROCEDURE Push(VAR stack: Stack; value: INTEGER);
+PROCEDURE Push(VAR stack: Stack; value: INTEGER): BOOLEAN;
+VAR
+	success: BOOLEAN;
 BEGIN
-	stack.data[stack.sp] := value;
-	INC(stack.sp);
+	IF stack.sp < MAX_INSTRUCTIONS - 1 THEN
+		stack.data[stack.sp] := value;
+		INC(stack.sp);
+		success := TRUE;
+	ELSE
+		Out.String("stack overflow"); Out.Ln;
+		success := FALSE;
+	END;
+	RETURN success
 END Push;
 
 
-PROCEDURE Pop(VAR stack: Stack): INTEGER;
+PROCEDURE Pop(VAR stack: Stack; VAR value: INTEGER): BOOLEAN;
 VAR
-	value: INTEGER;
+	success: BOOLEAN;
 BEGIN
-	DEC(stack.sp);
-	value := stack.data[stack.sp];
-	RETURN value
+	IF stack.sp > 0 THEN
+		DEC(stack.sp);
+		value := stack.data[stack.sp];
+		success := TRUE;
+	ELSE
+		Out.String("stack underflow"); Out.Ln;
+		success := FALSE;
+	END;
+	RETURN success
 END Pop;
 
 
@@ -94,7 +112,6 @@ VAR
 	ref: Identifier;
 	ref_addr: INTEGER;
 	i_val: INTEGER;
-	
 	
 	PROCEDURE ReadIdent(block: ST.Block; offs, len: INTEGER; VAR ident: Identifier): INTEGER;
 	VAR
@@ -118,6 +135,8 @@ BEGIN
 	FOR i := start TO len - 1 DO
 		token := block.data[i];
 		token_id := ORD(token);
+		String.Clear(ref);
+		i_val := 0;
 		
 		CASE token_id OF
 		| MARK_END:
@@ -126,11 +145,7 @@ BEGIN
 			INC(currentWord);
 			m.dict[currentWord].address := i;
 			i := i + ReadIdent(block, i + 1, len, m.dict[currentWord].name);
-			//Out.String("word: "); Out.String(m.dict[currentWord].name); 
-			//Out.String(", at: "); Out.Int(m.dict[currentWord].address, 0); Out.Ln;
 		| MARK_ID_END:
-			//Out.String("word '"); Out.String(m.dict[currentWord].name); 
-			//Out.String("' to dict."); Out.Ln;
 			AddInstruction(i, INST_RET, i);
 			INC(wordEndCount);
 		| MARK_ID_REF:
@@ -148,14 +163,16 @@ BEGIN
 			ELSE
 				AddInstruction(i, INST_CALL,  ref_addr);
 			END;
+		| MARK_ID_MACRO:
+			i := i + ReadIdent(block, i + 1, len, ref);
+			IF ref = "+" THEN
+				AddInstruction(i, INST_ADD_I, i);
+			ELSE
+				Out.String("unknown macro"); Out.Ln;
+			END;
 			
 		| MARK_TP_INT:
 			i := i + ReadIdent(block, i + 1, len, ref);
-			
-			(*
-			Out.String("ref '"); Out.String(ref); 
-					Out.String("' found."); Out.Ln;
-			*)
 			IF String.ToInt(ref, i_val) THEN
 				AddInstruction(i, INST_PUSH_I, i_val);
 			ELSE // error: invalid number
@@ -169,17 +186,12 @@ BEGIN
 END Parse;
 
 
-PROCEDURE Execute(block: ST.Block; entry: INTEGER);
+PROCEDURE LogInstructions();
 VAR
 	i, len: INTEGER;
 	instr: Instruction;
-	ret: INTEGER;
-BEGIN
+BEGIN 
 	len := LEN(m.code);
-	
-	Out.String("entry: "); Out.Int(entry, 0); Out.Ln;
-	
-	(*
 	FOR i := 0 TO len - 1 DO
 		instr := m.code[i];
 		IF instr.code # INST_NOP THEN
@@ -189,33 +201,61 @@ BEGIN
 			Out.Ln;
 		END;
 	END;
-	*)
+END LogInstructions;
+
+PROCEDURE Execute(block: ST.Block; entry: INTEGER);
+VAR
+	i, len: INTEGER;
+	instr: Instruction;
+	ret: INTEGER;
+	i_val1, i_val2: INTEGER;
+BEGIN
 	
+	len := entry + (80 - (entry MOD 80));
+	//Out.String("entry: "); Out.Int(entry, 0); Out.Ln;
+	//Out.String("len: "); Out.Int(len, 0); Out.Ln;
 	
-	FOR i := entry TO entry + 79 DO
+	i := entry;
+	
+	WHILE i < len DO
 		instr := m.code[i];
 		IF instr.code # INST_NOP THEN
-		
 			CASE instr.code OF
 			| INST_CALL:
 				Out.String("call: "); Out.Int(i, 0); Out.Ln;
-				Push(m.rs, i);
-				Execute(block, instr.value); // jump to
+				IF Push(m.rs, i) THEN
+					i := instr.value;
+				END;
 			| INST_RET:
-				ret := Pop(m.rs);
-				Out.String("ret: "); Out.Int(ret, 0); Out.Ln;
-				//Execute(block, ret); // jump to
+				IF Pop(m.rs, ret) THEN
+					Out.String("ret: "); Out.Int(ret, 0); Out.Ln;
+					i := ret;
+				END;
 			| INST_PUSH_I:
-				Out.String("push_i: "); Out.Int(instr.value, 0); Out.Ln;
-				Push(m.ws, instr.value);
+				IF Push(m.ws, instr.value) THEN
+					Out.String("push_i: "); Out.Int(instr.value, 0); Out.Ln;
+				END;
+			| INST_ADD_I:
+				IF Pop(m.ws, i_val1) & Pop(m.ws, i_val2) THEN
+					IF Push(m.ws, i_val1 + i_val2) THEN
+						Out.String("add: "); Out.Int(i_val1 + i_val2, 0); Out.Ln;
+					END;
+				END;
 			ELSE
 			END;
 		END;
+		INC(i);
 	END;
-	
-	
-	
 END Execute;
+
+
+PROCEDURE ResetMachine();
+BEGIN
+	m.pc := 0;
+	m.ic := 0;
+	m.ws.sp := 0;
+	m.rs.sp := 0;
+END ResetMachine;
 
 
 PROCEDURE Run*(block: ST.Block; entry: INTEGER);
@@ -232,6 +272,7 @@ BEGIN
 	IF wordEndCount = wordCount THEN
 		Out.Ln;
 		Out.String("--------------------------"); Out.Ln;
+		ResetMachine();
 		Execute(block, entry);
 		Out.String("end of execution"); Out.Ln;
 		Out.String("--------------------------"); Out.Ln;
