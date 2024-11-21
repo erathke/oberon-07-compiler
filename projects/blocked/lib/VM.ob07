@@ -1,6 +1,7 @@
 MODULE VM;
 IMPORT 
-	Out := Out_sys,
+	//Out := Out_sys,
+	SYSTEM,
 	ST IN "./Storage.ob07",
 	String IN "./String.ob07";
 
@@ -29,8 +30,12 @@ CONST
 	
 	MAX_INSTRUCTIONS = 1024;
 	
+	ERR_NONE* = 0;
 	ERR_UNKNOWN_REF = 1;
 	ERR_UNKNOWN_MACRO = 2;
+	ERR_T_INT_CONV = 3;
+	ERR_ST_UNDERFLOW = 10;
+	ERR_ST_OVERFLOW = 11;
 	
 TYPE
 	Stack* = RECORD 
@@ -48,7 +53,12 @@ TYPE
 	Dictionary = ARRAY 32 OF Word;
 
 	Instruction = RECORD
-		code, value, address: INTEGER
+		code, value, address*: INTEGER
+	END;
+	
+	Error* = RECORD
+		code*, pos*: INTEGER;
+		msg*: ARRAY 32 OF CHAR
 	END;
 
 	Machine* = RECORD
@@ -72,23 +82,39 @@ BEGIN
 END;
 
 
-PROCEDURE Push(VAR stack: Stack; value: INTEGER): BOOLEAN;
+PROCEDURE PushError(address: INTEGER; VAR error: Error);
+BEGIN
+	error.code := ERR_ST_OVERFLOW;
+	error.pos := address;
+	error.msg := "Stack overflow";
+END PushError;
+
+
+PROCEDURE PopError(address: INTEGER; VAR error: Error);
+BEGIN
+	error.code := ERR_ST_UNDERFLOW;
+	error.pos := address;
+	error.msg := "Stack underflow";
+END PopError;
+
+
+PROCEDURE [oberon-] Push(VAR stack: Stack; value: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
 VAR
 	success: BOOLEAN;
 BEGIN
-	IF stack.sp < MAX_INSTRUCTIONS - 1 THEN
+	IF stack.sp < STACK_SIZE - 1 THEN
 		stack.data[stack.sp] := value;
 		INC(stack.sp);
 		success := TRUE;
 	ELSE
-		Out.String("stack overflow"); Out.Ln;
+		PushError(address, error);
 		success := FALSE;
 	END;
 	RETURN success
 END Push;
 
 
-PROCEDURE Pop(VAR stack: Stack; VAR value: INTEGER): BOOLEAN;
+PROCEDURE [oberon-] Pop(VAR stack: Stack; VAR value: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
 VAR
 	success: BOOLEAN;
 BEGIN
@@ -97,7 +123,7 @@ BEGIN
 		value := stack.data[stack.sp];
 		success := TRUE;
 	ELSE
-		Out.String("stack underflow"); Out.Ln;
+		PopError(address, error);
 		success := FALSE;
 	END;
 	RETURN success
@@ -166,7 +192,8 @@ BEGIN
 			IF ref = "+" THEN
 				AddInstruction(m, INST_ADD_I, i, i);
 			ELSE
-				Out.String("unknown macro"); Out.Ln;
+				//Out.String("unknown macro"); Out.Ln;
+				AddInstruction(m, INST_ERR, ERR_UNKNOWN_MACRO, i);
 			END;
 			
 		| MARK_TP_INT:
@@ -174,35 +201,26 @@ BEGIN
 			IF String.ToInt(ref, i_val) THEN
 				AddInstruction(m, INST_PUSH_I, i_val, i);
 			ELSE // error: invalid number
-				AddInstruction(m, INST_ERR, ERR_UNKNOWN_MACRO, i);
+				AddInstruction(m, INST_ERR, ERR_T_INT_CONV, i);
 			END;
 		ELSE
 			// comment
 		END;
 	END;
-	//ASSERT(currentWord = -1);
 END Parse;
 
 
-PROCEDURE LogInstructions(VAR m: Machine);
-VAR
-	i, len: INTEGER;
-	instr: Instruction;
-BEGIN 
-	len := LEN(m.code);
-	FOR i := 0 TO len - 1 DO
-		instr := m.code[i];
-		IF instr.code # INST_NOP THEN
-			Out.String("instr: at "); Out.Int(i, 0);
-			Out.String(", "); Out.Int(instr.code, 0);
-			Out.String(", "); Out.Int(instr.value, 0);
-			Out.Ln;
-		END;
+PROCEDURE GetErrorMessage(code: INTEGER; VAR error: Error);
+BEGIN
+	CASE code OF
+	| ERR_UNKNOWN_REF:   error.msg := "Unknown reference";
+	| ERR_UNKNOWN_MACRO: error.msg := "Unknown macro";
+	| ERR_T_INT_CONV:    error.msg := "Cannot convert value to integer";
 	END;
-END LogInstructions;
+END GetErrorMessage;
 
 
-PROCEDURE Execute(VAR m: Machine; block: ST.Block; entry: INTEGER; VAR errorAt: INTEGER);
+PROCEDURE Execute(VAR m: Machine; block: ST.Block; entry: INTEGER; VAR error: Error);
 VAR
 	i, len, cols: INTEGER;
 	instr: Instruction;
@@ -211,42 +229,34 @@ VAR
 BEGIN
 	cols := block.columns;
 	len := entry + (cols - (entry MOD cols));
-	Out.String("entry: "); Out.Int(entry, 0); Out.Ln;
-	Out.String("len: "); Out.Int(len, 0); Out.Ln;
-	
 	i := entry;
+	error.code := ERR_NONE;
 	
-	WHILE i < len DO
+	WHILE (i < len) & (error.code = ERR_NONE) DO
 		instr := m.code[i];
+		
 		IF instr.code # INST_NOP THEN
+			m.pc := i;
 			CASE instr.code OF
 			| INST_CALL:
-				Out.String("call: "); Out.Int(i, 0); Out.Ln;
-				IF Push(m.rs, i) THEN
+				IF Push(m.rs, i, error, i) THEN
 					i := instr.value;
 				END;
 			| INST_RET:
-				IF Pop(m.rs, ret) THEN
-					Out.String("ret: "); Out.Int(ret, 0); Out.Ln;
+				IF Pop(m.rs, ret, error, i) THEN
 					i := ret;
 				END;
 			| INST_PUSH_I:
-				IF Push(m.ws, instr.value) THEN
-					Out.String("push_i: "); Out.Int(instr.value, 0); Out.Ln;
-				END;
+				Push(m.ws, instr.value, error, i);
+				
 			| INST_ADD_I:
-				IF Pop(m.ws, i_val1) & Pop(m.ws, i_val2) THEN
-					IF Push(m.ws, i_val1 + i_val2) THEN
-						Out.String("add: "); Out.Int(i_val1 + i_val2, 0); Out.Ln;
-					END;
+				IF Pop(m.ws, i_val1, error, i) & Pop(m.ws, i_val2, error, i) THEN
+					Push(m.ws, i_val1 + i_val2, error, i);
 				END;
-			| INST_ERR: 
-				Out.String("error: "); Out.Int(instr.value, 0);
-				Out.String(" at: "); Out.Int(instr.address, 0);
-				Out.Ln;
-				errorAt := instr.address;
-				i := len; // stop execution
-			ELSE
+			| INST_ERR:
+				error.code := instr.value;
+				error.pos := instr.address;
+				GetErrorMessage(instr.value, error);
 			END;
 		END;
 		INC(i);
@@ -264,20 +274,15 @@ BEGIN
 END ResetMachine;
 
 
-PROCEDURE Run*(VAR m: Machine; block: ST.Block; entry: INTEGER; VAR errorAt: INTEGER);
+PROCEDURE Run*(VAR m: Machine; block: ST.Block; entry: INTEGER; VAR error: Error);
 VAR
 	len: INTEGER;
 BEGIN
 	len := LEN(block.data);
 	Parse(m, block, len);
-	
-	Out.Ln;
-	Out.String("--------------------------"); Out.Ln;
 	ResetMachine(m);
-	Execute(m, block, entry, errorAt);
-	Out.String("end of execution"); Out.Ln;
-	Out.String("--------------------------"); Out.Ln;
-	
+	Execute(m, block, entry, error);
 END Run;
+
 
 END VM.
