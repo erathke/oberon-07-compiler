@@ -336,7 +336,12 @@ int _mu_multitext(mu_Context *ctx, int maxCols, int textLen, char *text, int _, 
 		
 		mu_Rect maxPosRect = {rect.x + (maxCols * colWidth) + 6, rect.y + 1, 1, rect.h - 2};
 		mu_draw_rect(ctx, maxPosRect, cursorColor);
-	} 
+	}
+	else {
+		mu_Rect maxPosRect = {rect.x + (maxCols * colWidth) + 6, rect.y + 1, 1, rect.h - 2};
+		mu_Color maxPosColor = {255, 0, 255, 50};
+		mu_draw_rect(ctx, maxPosRect, maxPosColor);
+	}
 	
 	// Drawing text
 	mu_Color textColor = tag_colors[0];
@@ -350,15 +355,21 @@ int _mu_multitext(mu_Context *ctx, int maxCols, int textLen, char *text, int _, 
 			const char *colOffs = text + (totalYOffs * maxCols) + x;
 			char ch = colOffs[0];
 			if (ch > TAGS) {
-				currentColor.a = 255;
-				mu_draw_text(ctx, font, colOffs, 1, posText, currentColor);
+				if (ch != ' ') {
+					currentColor.a = 255;
+				} 
+				else { // space char
+					ch = '_';
+					currentColor.a = 50;
+				}
+				mu_draw_text(ctx, font, &ch, 1, posText, currentColor);
 			} else {
 				currentColor = tag_colors[ch];
-				
 				if (x == cursor->x && totalYOffs == cursor->y) {
 					currentColor.a = 200;
 				}
-				mu_draw_text(ctx, font, hexChars + ch, 1, posText, currentColor);
+				if (ch != 0)
+					mu_draw_text(ctx, font, hexChars + ch, 1, posText, currentColor);
 			}
 			posText.x += colWidth;
 		}
