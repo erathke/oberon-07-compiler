@@ -21,6 +21,7 @@ VAR
 	currentBlock: ST.Block;
 	cursorPos: MUI.Vec2;
 	yOffs: INTEGER;
+	vmm: VM.Machine;
 
 PROCEDURE MainWindow(ctx: MUI.Context; offsY, height: INTEGER);
 VAR
@@ -51,6 +52,35 @@ BEGIN
 	END;
 	
 END MainWindow;
+
+
+PROCEDURE LogPanel(ctx: MUI.Context; x, y, height: INTEGER);
+VAR
+	wr1: MUI.Rect;
+	i, sval: INTEGER;
+	stackValStr: ARRAY 32 OF CHAR;
+	rowWidth1: ARRAY 1 OF INTEGER;
+BEGIN
+	wr1.x := x; wr1.y := y; wr1.w := SCREEN_WIDTH - x - 5; wr1.h := height;
+	rowWidth1[0] := -1;
+	
+	MUI.LayoutSetNext(ctx, wr1, FALSE);
+	MUI.BeginPanelEx(ctx, "Log", MUI.OPT_NONE);
+	
+	MUI.LayoutRow(ctx, 1, rowWidth1, 0);
+	MUI.Label(ctx, "Working stack: ");
+	IF vmm.ws.sp > 0 THEN
+		FOR i := vmm.ws.sp - 1 TO 0 BY -1 DO
+			sval := vmm.ws.data[i];
+			String.FromInt(sval, stackValStr);
+			MUI.Label(ctx, stackValStr);
+		END;
+	ELSE
+		MUI.Label(ctx, "<empty>");
+	END;
+	
+	MUI.EndPanel(ctx);
+END LogPanel;
 
 
 PROCEDURE BlockWindow(ctx: MUI.Context; offsY, height: INTEGER);
@@ -125,12 +155,13 @@ BEGIN
 			IF MUI.Button(ctx, "Execute") THEN
 				entry := cursorPos.x + (cursorPos.y * currentBlock.columns);
 				errorAt := -1;
-				VM.Run(currentBlock, entry, errorAt);
+				VM.Run(vmm, currentBlock, entry, errorAt);
 				IF errorAt >= 0 THEN // positioning cursor at error
 					cursorPos.x := errorAt MOD currentBlock.columns;
 					cursorPos.y := errorAt DIV currentBlock.columns;
 				END;
 			END;
+			
 		ELSE
 			MUI.Label(ctx, "-------");
 		END;
@@ -148,8 +179,9 @@ BEGIN
 			IF status = MUI.RES_SUBMIT THEN
 				ST.WriteBlock(d0, FLOOR(d0currentBlock) - 1, currentBlock);
 			END;
+			
+			LogPanel(ctx, dataRect.x + textRect.w + 2, textRect.y + 1, textRect.h - 2);
 		END;
-		
 		MUI.EndWindow(ctx);
 	END;
 	

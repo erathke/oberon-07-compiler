@@ -33,9 +33,9 @@ CONST
 	ERR_UNKNOWN_MACRO = 2;
 	
 TYPE
-	Stack = RECORD 
-		sp: INTEGER;
-		data: ARRAY STACK_SIZE OF INTEGER
+	Stack* = RECORD 
+		sp*: INTEGER;
+		data*: ARRAY STACK_SIZE OF INTEGER
 	END;
 		
 	Identifier = ARRAY 32 OF CHAR;
@@ -51,9 +51,9 @@ TYPE
 		code, value, address: INTEGER
 	END;
 
-	Machine = RECORD
+	Machine* = RECORD
 		pc, ic: INTEGER;
-		ws, rs: Stack;
+		ws*, rs: Stack;
 		code: ARRAY MAX_INSTRUCTIONS OF Instruction;
 		dict: Dictionary;
 		wordCount: INTEGER
@@ -104,7 +104,7 @@ BEGIN
 END Pop;
 
 
-PROCEDURE Parse(VAR m: Machine; block: ST.Block; len: INTEGER; VAR start: INTEGER; VAR mode: INTEGER);
+PROCEDURE Parse(VAR m: Machine; block: ST.Block; len: INTEGER);
 VAR
 	token: CHAR;
 	i, j: INTEGER;
@@ -132,7 +132,7 @@ VAR
 	END ReadIdent;
 	
 BEGIN
-	FOR i := start TO len - 1 DO
+	FOR i := 0 TO len - 1 DO
 		token := block.data[i];
 		token_id := ORD(token);
 		String.Clear(ref);
@@ -264,15 +264,12 @@ BEGIN
 END ResetMachine;
 
 
-PROCEDURE Run*(block: ST.Block; entry: INTEGER; VAR errorAt: INTEGER);
+PROCEDURE Run*(VAR m: Machine; block: ST.Block; entry: INTEGER; VAR errorAt: INTEGER);
 VAR
-	mode, start, len: INTEGER;
-	m: Machine;
+	len: INTEGER;
 BEGIN
-	mode := MODE_PARSE;
-	start := 0;
 	len := LEN(block.data);
-	Parse(m, block, len, start, mode);
+	Parse(m, block, len);
 	
 	Out.Ln;
 	Out.String("--------------------------"); Out.Ln;

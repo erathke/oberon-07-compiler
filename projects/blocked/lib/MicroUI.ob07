@@ -45,6 +45,8 @@ PROCEDURE [extern, "mu_end_popup"] EndPopup*(ctx: Context);
 PROCEDURE [extern, "_mu_create_ctx"] _mu_create_ctx(): Context;
 PROCEDURE [extern, "mu_init"] _mu_init(ctx: Context);
 PROCEDURE [extern, "_mu_begin_window_ex"] _mu_begin_window_ex(ctx: Context; title: ADDRESS; rect: ADDRESS; opt: INTEGER): INTEGER;
+PROCEDURE [extern, "mu_begin_panel_ex"] _mu_begin_panel_ex(ctx: Context; title: ADDRESS; opt: INTEGER);
+PROCEDURE [extern, "mu_end_panel"] EndPanel*(ctx: Context);
 PROCEDURE [extern, "mu_button_ex"] _mu_button_ex(ctx: Context; title: ADDRESS; icon, opt: INTEGER): INTEGER;
 PROCEDURE [extern, "mu_label"] _mu_label(ctx: Context; text: ADDRESS);
 PROCEDURE [extern, "mu_text"] _mu_text(ctx: Context; text: ADDRESS);
@@ -78,6 +80,12 @@ PROCEDURE BeginWindow*(ctx: Context; title: ARRAY OF CHAR; VAR rect: Rect): BOOL
 BEGIN
 	RETURN _mu_begin_window_ex(ctx, SYSTEM.ADR(title[0]), SYSTEM.ADR(rect), 0) > 0
 END BeginWindow;
+
+
+PROCEDURE BeginPanelEx*(ctx: Context; title: ARRAY OF CHAR; opt: SET);
+BEGIN
+	_mu_begin_panel_ex(ctx, SYSTEM.ADR(title[0]), ORD(opt));
+END BeginPanelEx;
 
 
 PROCEDURE ButtonEx*(ctx: Context; title: ARRAY OF CHAR; icon: INTEGER; opt: SET): BOOLEAN; 
