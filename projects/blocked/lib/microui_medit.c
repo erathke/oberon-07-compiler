@@ -311,8 +311,15 @@ int _mu_multitext(mu_Context *ctx, int maxCols, int textLen, char *text, int _, 
 	}
 	
 	/* draw */
+	
 	mu_Color panelColor = {18, 18, 18, 255};
-	mu_draw_rect(ctx, rect, panelColor);
+	if (ctx->focus == id)  {
+		mu_draw_rect(ctx, rect, panelColor);
+	}
+	else {
+		panelColor.a = 150;
+		mu_draw_rect(ctx, rect, panelColor);
+	}
 	
 	// Drawing cursor
 	if (ctx->focus == id)  {
@@ -333,14 +340,6 @@ int _mu_multitext(mu_Context *ctx, int maxCols, int textLen, char *text, int _, 
 		else {
 			mu_draw_box(ctx, cursorRect, cursorColor);
 		}
-		
-		mu_Rect maxPosRect = {rect.x + (maxCols * colWidth) + 6, rect.y + 1, 1, rect.h - 2};
-		mu_draw_rect(ctx, maxPosRect, cursorColor);
-	}
-	else {
-		mu_Rect maxPosRect = {rect.x + (maxCols * colWidth) + 6, rect.y + 1, 1, rect.h - 2};
-		mu_Color maxPosColor = {255, 0, 255, 50};
-		mu_draw_rect(ctx, maxPosRect, maxPosColor);
 	}
 	
 	// Drawing text

@@ -60,6 +60,7 @@ CONST
 VAR
 	wr1, dataRect, textRect: MUI.Rect;
 	rowWidth1: ARRAY 8 OF INTEGER;
+	colTextWidth: INTEGER;
 	aliasLabel, maxColsLabel: ARRAY 32 OF CHAR;
 	maxColsStr, cursorXStr, cursorYStr: ARRAY 4 OF CHAR;
 	cursorOffsStr: ARRAY 8 OF CHAR;
@@ -68,6 +69,7 @@ VAR
 	entry, errorAt: INTEGER;
 BEGIN
 	wr1.x := 0; wr1.y := offsY; wr1.w := SCREEN_WIDTH; wr1.h := height;
+	colTextWidth := MUI.TextWidth(ctx, "#");
 	rowWidth1[1] := 200;
 	rowWidth1[2] := 200;
 	rowWidth1[4] := 20;
@@ -137,9 +139,9 @@ BEGIN
 			// Block text area
 			MUI.LayoutNext(ctx, dataRect);
 			textRect.x := ROW_XGAP;
-			textRect.y := dataRect.y + ROW_XGAP;
-			textRect.h := SCREEN_HEIGHT - textRect.y - ROW_XGAP;
-			textRect.w := SCREEN_WIDTH - (ROW_XGAP*2);
+			textRect.y := dataRect.y + ROW_YGAP;
+			textRect.h := SCREEN_HEIGHT - textRect.y - ROW_YGAP;
+			textRect.w := ((colTextWidth + 1) * currentBlock.columns) + (ROW_XGAP*2)-1;
 			MUI.LayoutSetNext(ctx, textRect, FALSE);
 			
 			status := MUI.MultiText(ctx, currentBlock.columns, currentBlock.data, cursorPos, yOffs);
