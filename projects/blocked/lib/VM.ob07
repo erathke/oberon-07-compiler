@@ -1,0 +1,243 @@
+MODULE VM;
+IMPORT 
+	Out := Out_sys,
+	ST IN "./Storage.ob07",
+	String IN "./String.ob07";
+
+CONST
+	STACK_SIZE = 256;
+	
+	MARK_END = 0; // .
+	MARK_ID_DEF = 1; // red
+	MARK_TP_INT = 2; // yellow
+	MARK_TP_REAL = 3; // cyan
+	MARK_ID_REF = 4; // green
+	MARK_TP_STR = 5; // blue
+	MARK_ID_END = 15; // \
+	
+	MARKS = 16;
+	
+	MODE_PARSE = 0;
+	MODE_EXEC = 1;
+	
+	INST_ERR = -1;
+	INST_NOP = 0;
+	INST_CALL = 1;
+	INST_RET = 2;
+	INST_PUSH_I = 3;
+	
+TYPE
+	Stack = RECORD 
+		sp: INTEGER;
+		data: ARRAY STACK_SIZE OF INTEGER
+	END;
+		
+	Identifier = ARRAY 32 OF CHAR;
+	
+	Word = RECORD
+		name: Identifier;
+		address: INTEGER
+	END;
+	
+	Dictionary = ARRAY 32 OF Word;
+
+	Instruction = RECORD
+		code: INTEGER;
+		value: INTEGER
+	END;
+
+	Machine = RECORD
+		pc, ic: INTEGER;
+		ws, rs: Stack;
+		code: ARRAY 1024 OF Instruction;
+		dict: Dictionary
+	END;
+
+VAR
+	m: Machine;
+	wordCount, wordEndCount, currentWord: INTEGER;
+
+
+PROCEDURE AddInstruction(address, code, value: INTEGER);
+VAR
+	instr: Instruction;
+BEGIN 
+	instr.code := code;
+	instr.value := value;
+	m.code[address] := instr;
+	INC(m.ic);
+END;
+
+
+PROCEDURE Push(VAR stack: Stack; value: INTEGER);
+BEGIN
+	stack.data[stack.sp] := value;
+	INC(stack.sp);
+END Push;
+
+
+PROCEDURE Pop(VAR stack: Stack): INTEGER;
+VAR
+	value: INTEGER;
+BEGIN
+	DEC(stack.sp);
+	value := stack.data[stack.sp];
+	RETURN value
+END Pop;
+
+
+PROCEDURE Parse(block: ST.Block; len: INTEGER; VAR start: INTEGER; VAR mode: INTEGER);
+VAR
+	token: CHAR;
+	i, j: INTEGER;
+	token_id: INTEGER;
+	ref: Identifier;
+	ref_addr: INTEGER;
+	i_val: INTEGER;
+	
+	
+	PROCEDURE ReadIdent(block: ST.Block; offs, len: INTEGER; VAR ident: Identifier): INTEGER;
+	VAR
+		j: INTEGER;
+		token_id: INTEGER;
+		token: CHAR;
+	BEGIN 
+		j := 0;
+		String.Clear(ident);
+		REPEAT
+			token := block.data[offs + j];
+			ident[j] := token;
+			token_id := ORD(token);
+			INC(j);
+		UNTIL (token_id < MARKS) OR ((offs + j) = len);
+		
+		RETURN j
+	END ReadIdent;
+	
+BEGIN
+	FOR i := start TO len - 1 DO
+		token := block.data[i];
+		token_id := ORD(token);
+		
+		CASE token_id OF
+		| MARK_END:
+		| MARK_ID_DEF:
+			INC(wordCount);
+			INC(currentWord);
+			m.dict[currentWord].address := i;
+			i := i + ReadIdent(block, i + 1, len, m.dict[currentWord].name);
+			//Out.String("word: "); Out.String(m.dict[currentWord].name); 
+			//Out.String(", at: "); Out.Int(m.dict[currentWord].address, 0); Out.Ln;
+		| MARK_ID_END:
+			//Out.String("word '"); Out.String(m.dict[currentWord].name); 
+			//Out.String("' to dict."); Out.Ln;
+			AddInstruction(i, INST_RET, i);
+			INC(wordEndCount);
+		| MARK_ID_REF:
+			i := i + ReadIdent(block, i + 1, len, ref);
+			ref_addr := -1;
+			
+			FOR j := 0 TO wordCount - 1 DO
+				IF ref = m.dict[j].name THEN
+					ref_addr := m.dict[j].address;
+				END;
+			END;
+			
+			IF ref_addr = -1 THEN // error: not found
+				AddInstruction(i, INST_ERR, i);
+			ELSE
+				AddInstruction(i, INST_CALL,  ref_addr);
+			END;
+			
+		| MARK_TP_INT:
+			i := i + ReadIdent(block, i + 1, len, ref);
+			
+			(*
+			Out.String("ref '"); Out.String(ref); 
+					Out.String("' found."); Out.Ln;
+			*)
+			IF String.ToInt(ref, i_val) THEN
+				AddInstruction(i, INST_PUSH_I, i_val);
+			ELSE // error: invalid number
+				AddInstruction(i, INST_ERR, i);
+			END;
+		ELSE
+			// comment
+		END;
+	END;
+	//ASSERT(currentWord = -1);
+END Parse;
+
+
+PROCEDURE Execute(block: ST.Block; entry: INTEGER);
+VAR
+	i, len: INTEGER;
+	instr: Instruction;
+	ret: INTEGER;
+BEGIN
+	len := LEN(m.code);
+	
+	Out.String("entry: "); Out.Int(entry, 0); Out.Ln;
+	
+	(*
+	FOR i := 0 TO len - 1 DO
+		instr := m.code[i];
+		IF instr.code # INST_NOP THEN
+			Out.String("instr: at "); Out.Int(i, 0);
+			Out.String(", "); Out.Int(instr.code, 0);
+			Out.String(", "); Out.Int(instr.value, 0);
+			Out.Ln;
+		END;
+	END;
+	*)
+	
+	
+	FOR i := entry TO entry + 79 DO
+		instr := m.code[i];
+		IF instr.code # INST_NOP THEN
+		
+			CASE instr.code OF
+			| INST_CALL:
+				Out.String("call: "); Out.Int(i, 0); Out.Ln;
+				Push(m.rs, i);
+				Execute(block, instr.value); // jump to
+			| INST_RET:
+				ret := Pop(m.rs);
+				Out.String("ret: "); Out.Int(ret, 0); Out.Ln;
+				//Execute(block, ret); // jump to
+			| INST_PUSH_I:
+				Out.String("push_i: "); Out.Int(instr.value, 0); Out.Ln;
+				Push(m.ws, instr.value);
+			ELSE
+			END;
+		END;
+	END;
+	
+	
+	
+END Execute;
+
+
+PROCEDURE Run*(block: ST.Block; entry: INTEGER);
+VAR
+	mode, start, len: INTEGER;
+BEGIN
+	mode := MODE_PARSE;
+	start := 0;
+	len := LEN(block.data);
+	wordCount := 0;
+	wordEndCount := 0;
+	currentWord := -1;
+	Parse(block, len, start, mode);
+	IF wordEndCount = wordCount THEN
+		Out.Ln;
+		Out.String("--------------------------"); Out.Ln;
+		Execute(block, entry);
+		Out.String("end of execution"); Out.Ln;
+		Out.String("--------------------------"); Out.Ln;
+	ELSE
+		Out.String("parsing error!"); Out.Ln;
+	END;
+END Run;
+
+END VM.

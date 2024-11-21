@@ -5,7 +5,8 @@ IMPORT
 	MUI IN "./lib/MicroUI.ob07",
 	MURL IN "./lib/MURL.ob07",
 	String IN "./lib/String.ob07",
-	P IN "./lib/Parser.ob07";
+	P IN "./lib/Parser.ob07",
+	VM IN "./lib/VM.ob07";
 
 CONST
 	SCREEN_WIDTH = 800;
@@ -63,6 +64,7 @@ VAR
 	maxColsStr, cursorXStr, cursorYStr: ARRAY 4 OF CHAR;
 	cursorInfo: ARRAY 32 OF CHAR;
 	status: SET;
+	entry: INTEGER;
 BEGIN
 	wr1.x := 0; wr1.y := offsY; wr1.w := SCREEN_WIDTH; wr1.h := height;
 	rowWidth1[1] := 200;
@@ -107,8 +109,18 @@ BEGIN
 			END;
 		END;
 		MUI.Label(ctx, cursorInfo);
-		IF MUI.Button(ctx, "Compile") THEN
-			P.Tokenize(currentBlock);
+		
+		IF String.EndsWith(".ob07", currentBlock.alias) THEN
+			IF MUI.Button(ctx, "Compile") THEN
+				P.Tokenize(currentBlock);
+			END;
+		ELSIF String.EndsWith(".vm", currentBlock.alias) THEN
+			IF MUI.Button(ctx, "Execute") THEN
+				entry := cursorPos.x + (cursorPos.y * currentBlock.columns);
+				VM.Run(currentBlock, entry);
+			END;
+		ELSE
+			MUI.Label(ctx, "-------");
 		END;
 		
 		IF currentBlock.columns > 0 THEN
@@ -144,7 +156,7 @@ BEGIN
 	String.FromInt(d0blocks, d0blocksStr);
 	NEW(currentBlock);
 	
-	d0currentBlock := 3.0; // test
+	d0currentBlock := 2.0; // test
 	ST.ReadBlock(d0, FLOOR(d0currentBlock) - 1, currentBlock);
 	
 	RL.SetTargetFPS(60);

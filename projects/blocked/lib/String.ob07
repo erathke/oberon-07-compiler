@@ -68,4 +68,76 @@ BEGIN
 END Upper;
 
 
+PROCEDURE EndsWith*(suffix: ARRAY OF CHAR; str: ARRAY OF CHAR): BOOLEAN;
+VAR
+    n1, n2: INTEGER;
+    match, stop: BOOLEAN;
+BEGIN
+	n1 := LENGTH(suffix);
+    n2 := LENGTH(str);
+    
+    IF n1 <= n2 THEN
+		WHILE (n1 > 0) & (~ stop) DO
+			match := suffix[n1 - 1] = str[n2 - 1];
+			stop := ~ match;
+			DEC(n1); DEC(n2);
+		END;
+    END;
+    RETURN match
+END EndsWith;
+
+
+PROCEDURE ToInt*(str: ARRAY OF CHAR; VAR value: INTEGER): BOOLEAN;
+CONST
+	ZERO = 48;
+	NINE = 57;
+VAR
+    n1, start, ich: INTEGER;
+    invalid: BOOLEAN;
+    base, mult: INTEGER;
+    ch: CHAR;
+BEGIN
+	n1 := LENGTH(str);
+	
+	IF n1 > 0 THEN	
+		IF str[0] = '-' THEN
+			base := -1;
+			start := 1;
+		ELSE
+			base := 1;
+			start := 0;
+		END;
+	END;
+
+    IF n1 > start THEN
+		mult := 1;
+		WHILE (n1 > start) & (~ invalid) DO
+			ch := str[n1 - 1];
+			ich := ORD(ch);
+			IF (ich >= ZERO) & (ich <= NINE) THEN
+				value := value + (mult * (ich - ZERO));
+			ELSE
+				invalid := TRUE;
+			END;
+			DEC(n1);
+			mult := mult * 10;
+		END;
+		value := value * base;
+    END;
+    
+    RETURN ~ invalid
+END ToInt;
+
+
+PROCEDURE Clear*(VAR str: ARRAY OF CHAR);
+VAR
+    n1, i: INTEGER;
+BEGIN
+	n1 := LEN(str);
+	FOR i := 0 TO n1 - 1 DO
+		str[i] := 0X;
+	END;
+END Clear;
+
+
 END String.
