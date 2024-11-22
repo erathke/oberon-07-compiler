@@ -70,7 +70,16 @@ BEGIN
 	MUI.LayoutSetNext(ctx, wr1, FALSE);
 	MUI.BeginPanelEx(ctx, "Log", MUI.OPT_NONE);
 	
+	
 	MUI.LayoutRow(ctx, 1, rowWidth1, 0);
+	IF error.code # VM.ERR_NONE THEN
+		MUI.Label(ctx, "Error: ");
+		String.FromInt(error.code, errStr);
+		String.Append(errStr, ": ");
+		String.Append(errStr, error.msg);
+		MUI.Label(ctx, errStr);
+	END;
+	
 	MUI.Label(ctx, "Working stack: ");
 	IF vmm.ws.sp > 0 THEN
 		FOR i := vmm.ws.sp - 1 TO 0 BY -1 DO
@@ -82,12 +91,15 @@ BEGIN
 		MUI.Label(ctx, "<empty>");
 	END;
 	
-	IF error.code # VM.ERR_NONE THEN
-		MUI.Label(ctx, "Error: ");
-		String.FromInt(error.code, errStr);
-		String.Append(errStr, ": ");
-		String.Append(errStr, error.msg);
-		MUI.Label(ctx, errStr);
+	MUI.Label(ctx, "Return stack: ");
+	IF vmm.ws.sp > 0 THEN
+		FOR i := vmm.rs.sp - 1 TO 0 BY -1 DO
+			sval := vmm.rs.data[i];
+			String.FromInt(sval, stackValStr);
+			MUI.Label(ctx, stackValStr);
+		END;
+	ELSE
+		MUI.Label(ctx, "<empty>");
 	END;
 	
 	MUI.EndPanel(ctx);
@@ -166,7 +178,7 @@ BEGIN
 			IF MUI.Button(ctx, "Execute") THEN
 				entry := cursorPos.x + (cursorPos.y * currentBlock.columns);
 				VM.Run(vmm, currentBlock, entry, error);
-				IF error.code >= 0 THEN // positioning cursor at error
+				IF error.code # VM.ERR_NONE THEN // positioning cursor at error
 					cursorPos.x := error.pos MOD currentBlock.columns;
 					cursorPos.y := error.pos DIV currentBlock.columns;
 				END;

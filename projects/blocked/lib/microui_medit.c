@@ -21,7 +21,7 @@ static mu_Color tag_colors[TAGS] = {
 	{255, 255,   0, 50}, // yellow = integer
 	{0,   255, 255, 50}, // ... = real
 	{  0, 255,   0, 50}, // green = compile
-	{  0,   0, 255, 50}, // blue = string
+	{ 50,  50, 220, 50}, // blue = string
 	{255, 255, 255, 15}, // unused
 	
 	{255, 255, 255, 15},

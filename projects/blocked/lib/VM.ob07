@@ -1,19 +1,20 @@
 MODULE VM;
 IMPORT 
-	//Out := Out_sys,
+	Out := Out_sys,
 	SYSTEM,
 	ST IN "./Storage.ob07",
 	String IN "./String.ob07";
 
 CONST
 	STACK_SIZE = 256;
+	DICT_SIZE = 128;
 	
 	MARK_END = 0; // .
 	MARK_ID_DEF = 1; // red
 	MARK_TP_INT = 2; // yellow
 	MARK_ID_MACRO = 3; // cyan
 	MARK_ID_REF = 4; // green
-	MARK_TP_STR = 5; // blue
+	MARK_TP_ADDR = 5; // blue
 	MARK_ID_END = 15; // \
 	
 	MARKS = 16;
@@ -27,8 +28,11 @@ CONST
 	INST_RET = 2;
 	INST_PUSH_I = 3;
 	INST_ADD_I = 4;
+	INST_JUMP = 5;
+	INST_JUMP_ZERO = 6;
+	INST_JUMP_ONE = 7;
 	
-	MAX_INSTRUCTIONS = 1024;
+	MAX_INSTRUCTIONS = 4000; // TODO: dynamic instruction array
 	
 	ERR_NONE* = 0;
 	ERR_UNKNOWN_REF = 1;
@@ -36,6 +40,7 @@ CONST
 	ERR_T_INT_CONV = 3;
 	ERR_ST_UNDERFLOW = 10;
 	ERR_ST_OVERFLOW = 11;
+	ERR_ST_INDEX = 11;
 	
 TYPE
 	Stack* = RECORD 
@@ -50,7 +55,7 @@ TYPE
 		address: INTEGER
 	END;
 	
-	Dictionary = ARRAY 32 OF Word;
+	Dictionary = ARRAY DICT_SIZE OF Word;
 
 	Instruction = RECORD
 		code, value, address*: INTEGER
@@ -63,7 +68,8 @@ TYPE
 
 	Machine* = RECORD
 		pc, ic: INTEGER;
-		ws*, rs: Stack;
+		ws*, rs*: Stack;
+		R, S: INTEGER; // registers
 		code: ARRAY MAX_INSTRUCTIONS OF Instruction;
 		dict: Dictionary;
 		wordCount: INTEGER
@@ -98,6 +104,14 @@ BEGIN
 END PopError;
 
 
+PROCEDURE PeekError(address: INTEGER; VAR error: Error);
+BEGIN
+	error.code := ERR_ST_INDEX;
+	error.pos := address;
+	error.msg := "Invalid stack index";
+END PeekError;
+
+
 PROCEDURE [oberon-] Push(VAR stack: Stack; value: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
 VAR
 	success: BOOLEAN;
@@ -130,6 +144,34 @@ BEGIN
 END Pop;
 
 
+PROCEDURE [oberon-] Peek(VAR stack: Stack; VAR value: INTEGER; ridx: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
+VAR
+	success: BOOLEAN;
+	idx: INTEGER;
+BEGIN
+	IF ridx < 0 THEN
+		idx := stack.sp + ridx;
+		IF idx >= 0 THEN
+			value := stack.data[idx];
+			success := TRUE;
+		ELSE
+			PeekError(address, error);
+			success := FALSE;
+		END;
+	ELSE
+		idx := ridx;
+		IF (idx >= 0) & (idx < stack.sp) THEN
+			value := stack.data[idx];
+			success := TRUE;
+		ELSE
+			PeekError(address, error);
+			success := FALSE;
+		END;
+	END;
+	RETURN success
+END Peek;
+
+
 PROCEDURE Parse(VAR m: Machine; block: ST.Block; len: INTEGER);
 VAR
 	token: CHAR;
@@ -156,6 +198,18 @@ VAR
 		RETURN j
 	END ReadIdent;
 	
+	PROCEDURE SearchIdent(m: Machine; ref: Identifier; VAR ref_addr: INTEGER);
+	VAR 
+		j: INTEGER;
+	BEGIN
+		// Up to word count allows redeclaration
+		FOR j := 0 TO m.wordCount DO
+			IF ref = m.dict[j].name THEN
+				ref_addr := m.dict[j].address;
+			END;
+		END;
+	END SearchIdent;
+	
 BEGIN
 	FOR i := 0 TO len - 1 DO
 		token := block.data[i];
@@ -174,12 +228,7 @@ BEGIN
 		| MARK_ID_REF:
 			i := i + ReadIdent(block, i + 1, len, ref);
 			ref_addr := -1;
-			
-			FOR j := 0 TO m.wordCount DO
-				IF ref = m.dict[j].name THEN
-					ref_addr := m.dict[j].address;
-				END;
-			END;
+			SearchIdent(m, ref, ref_addr);
 			
 			IF ref_addr = -1 THEN // error: not found	
 				AddInstruction(m, INST_ERR, ERR_UNKNOWN_REF, i);
@@ -190,16 +239,31 @@ BEGIN
 			i := i + ReadIdent(block, i + 1, len, ref);
 			IF ref = "+" THEN
 				AddInstruction(m, INST_ADD_I, i, i);
+			ELSIF ref = "$" THEN
+				AddInstruction(m, INST_JUMP, i, i);
+			ELSIF ref = "$0" THEN
+				AddInstruction(m, INST_JUMP_ZERO, i, i);
+			ELSIF ref = "$1" THEN
+				AddInstruction(m, INST_JUMP_ONE, i, i);
 			ELSE
 				AddInstruction(m, INST_ERR, ERR_UNKNOWN_MACRO, i);
-			END;
-			
+			END;	
 		| MARK_TP_INT:
 			i := i + ReadIdent(block, i + 1, len, ref);
 			IF String.ToInt(ref, i_val) THEN
 				AddInstruction(m, INST_PUSH_I, i_val, i);
 			ELSE // error: invalid number
 				AddInstruction(m, INST_ERR, ERR_T_INT_CONV, i);
+			END;
+		| MARK_TP_ADDR: 
+			i := i + ReadIdent(block, i + 1, len, ref);
+			ref_addr := -1;
+			SearchIdent(m, ref, ref_addr);
+			
+			IF ref_addr = -1 THEN // error: not found	
+				AddInstruction(m, INST_ERR, ERR_UNKNOWN_REF, i);
+			ELSE
+				AddInstruction(m, INST_PUSH_I, ref_addr, i);
 			END;
 		ELSE
 			// comment
@@ -213,7 +277,7 @@ BEGIN
 	CASE code OF
 	| ERR_UNKNOWN_REF:   error.msg := "Unknown reference";
 	| ERR_UNKNOWN_MACRO: error.msg := "Unknown macro";
-	| ERR_T_INT_CONV:    error.msg := "Cannot convert value to integer";
+	| ERR_T_INT_CONV:    error.msg := "Invalid integer";
 	END;
 END GetErrorMessage;
 
@@ -222,7 +286,6 @@ PROCEDURE Execute(VAR m: Machine; block: ST.Block; entry: INTEGER; VAR error: Er
 VAR
 	i, len, cols: INTEGER;
 	instr: Instruction;
-	ret: INTEGER;
 	i_val1, i_val2: INTEGER;
 BEGIN
 	cols := block.columns;
@@ -241,8 +304,8 @@ BEGIN
 					i := instr.value;
 				END;
 			| INST_RET:
-				IF Pop(m.rs, ret, error, i) THEN
-					i := ret;
+				IF Pop(m.rs, m.R, error, i) THEN
+					i := m.R;
 				END;
 			| INST_PUSH_I:
 				Push(m.ws, instr.value, error, i);
@@ -250,6 +313,30 @@ BEGIN
 			| INST_ADD_I:
 				IF Pop(m.ws, i_val1, error, i) & Pop(m.ws, i_val2, error, i) THEN
 					Push(m.ws, i_val1 + i_val2, error, i);
+				END;
+			| INST_JUMP:
+				IF Pop(m.ws, m.R, error, i) THEN
+					i := m.R;
+				END;
+			| INST_JUMP_ZERO:
+				IF Peek(m.ws, m.R, -1, error, i) THEN
+					IF m.R = 0 THEN
+						IF Peek(m.ws, m.S, -2, error, i) THEN
+							i := m.S;
+							Pop(m.ws, m.R, error, i);
+							Pop(m.ws, m.S, error, i);
+						END;
+					END;
+				END;
+			| INST_JUMP_ONE:
+				IF Peek(m.ws, m.R, -1, error, i) THEN
+					IF m.R = 1 THEN
+						IF Peek(m.ws, m.S, -2, error, i) THEN
+							i := m.S;
+							Pop(m.ws, m.R, error, i);
+							Pop(m.ws, m.S, error, i);
+						END;
+					END;
 				END;
 			| INST_ERR:
 				error.code := instr.value;
@@ -271,8 +358,14 @@ BEGIN
 	m.ws.sp := 0;
 	m.rs.sp := 0;
 	m.wordCount := 0;
+	
 	FOR i := 0 TO MAX_INSTRUCTIONS - 1 DO
 		m.code[i].code := INST_NOP;
+	END;
+	
+	FOR i := 0 TO DICT_SIZE - 1 DO
+		m.dict[i].address := 0;
+		String.Clear(m.dict[i].name);
 	END;
 END ResetMachine;
 
