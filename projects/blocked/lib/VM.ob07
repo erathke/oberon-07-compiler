@@ -12,9 +12,10 @@ CONST
 	MARK_END = 0; // .
 	MARK_ID_DEF = 1; // red
 	MARK_TP_INT = 2; // yellow
-	MARK_ID_MACRO = 3; // cyan
+	MARK_TP_REAL = 3; // cyan
 	MARK_ID_REF = 4; // green
 	MARK_TP_ADDR = 5; // blue
+	MARK_ID_MACRO = 6; // gray
 	MARK_ID_END = 15; // \
 	
 	MARKS = 16;
