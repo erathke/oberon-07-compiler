@@ -345,13 +345,13 @@ BEGIN
 				AddInstruction(m, INST_JUMP_ZERO, i, i);
 			ELSIF ref = "$1" THEN
 				AddInstruction(m, INST_JUMP_ONE, i, i);
-			ELSIF ref = "R<" THEN
-				AddInstruction(m, INST_PUSH_R, i, i);
 			ELSIF ref = "R>" THEN
+				AddInstruction(m, INST_PUSH_R, i, i);
+			ELSIF ref = "R<" THEN
 				AddInstruction(m, INST_POP_R, i, i);
-			ELSIF ref = "S<" THEN
-				AddInstruction(m, INST_PUSH_S, i, i);
 			ELSIF ref = "S>" THEN
+				AddInstruction(m, INST_PUSH_S, i, i);
+			ELSIF ref = "S<" THEN
 				AddInstruction(m, INST_POP_S, i, i);
 			ELSIF ref = "RS+" THEN
 				AddInstruction(m, INST_ADD_RS, i, i);
@@ -359,13 +359,13 @@ BEGIN
 				AddInstruction(m, INST_DIV_RS, i, i);
 			ELSIF ref = "RS*" THEN
 				AddInstruction(m, INST_MULT_RS, i, i);
-			ELSIF ref = "U<" THEN
-				AddInstruction(m, INST_PUSH_U, i, i);
 			ELSIF ref = "U>" THEN
+				AddInstruction(m, INST_PUSH_U, i, i);
+			ELSIF ref = "U<" THEN
 				AddInstruction(m, INST_POP_U, i, i);
-			ELSIF ref = "V<" THEN
-				AddInstruction(m, INST_PUSH_V, i, i);
 			ELSIF ref = "V>" THEN
+				AddInstruction(m, INST_PUSH_V, i, i);
+			ELSIF ref = "V<" THEN
 				AddInstruction(m, INST_POP_V, i, i);
 			ELSE
 				AddInstruction(m, INST_ERR, ERR_UNKNOWN_MACRO, i);

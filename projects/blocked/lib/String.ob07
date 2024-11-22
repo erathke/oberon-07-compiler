@@ -191,6 +191,7 @@ BEGIN
 		lp := FLT(iv);
 		rlen := LENGTH(right);
 		IF (rlen > 0) THEN
+			iv := 0;
 			success := ToInt(right, iv);
 			IF success THEN
 				CalcDivisor(rlen, divisor);
@@ -200,7 +201,7 @@ BEGIN
 		IF lp >= 0.0 THEN
 			value := lp + rp;
 		ELSE
-			value := lp + (-1.0 * rp);
+			value := lp - rp;
 		END;
 	END;
 	
