@@ -27,10 +27,17 @@ CONST
 	INST_CALL = 1;
 	INST_RET = 2;
 	INST_PUSH_I = 3;
-	INST_ADD_I = 4;
+	INST_ADD_I = 4; // TODO: replace with RS+?
 	INST_JUMP = 5;
 	INST_JUMP_ZERO = 6;
 	INST_JUMP_ONE = 7;
+	INST_PUSH_R = 10;
+	INST_POP_R = 11;
+	INST_PUSH_S = 12;
+	INST_POP_S = 13;
+	INST_ADD_RS = 14;
+	INST_DIV_RS = 15;
+	INST_MULT_RS = 16;
 	
 	MAX_INSTRUCTIONS = 4000; // TODO: dynamic instruction array
 	
@@ -71,6 +78,7 @@ TYPE
 		ws*, rs*: Stack;
 		R, S: INTEGER; // registers
 		code: ARRAY MAX_INSTRUCTIONS OF Instruction;
+		// TODO: refactor dictionary
 		dict: Dictionary;
 		wordCount: INTEGER
 	END;
@@ -175,7 +183,7 @@ END Peek;
 PROCEDURE Parse(VAR m: Machine; block: ST.Block; len: INTEGER);
 VAR
 	token: CHAR;
-	i, j: INTEGER;
+	i: INTEGER;
 	token_id: INTEGER;
 	ref: Identifier;
 	ref_addr: INTEGER;
@@ -245,6 +253,20 @@ BEGIN
 				AddInstruction(m, INST_JUMP_ZERO, i, i);
 			ELSIF ref = "$1" THEN
 				AddInstruction(m, INST_JUMP_ONE, i, i);
+			ELSIF ref = "R<" THEN
+				AddInstruction(m, INST_PUSH_R, i, i);
+			ELSIF ref = "R>" THEN
+				AddInstruction(m, INST_POP_R, i, i);
+			ELSIF ref = "S<" THEN
+				AddInstruction(m, INST_PUSH_S, i, i);
+			ELSIF ref = "S>" THEN
+				AddInstruction(m, INST_POP_S, i, i);
+			ELSIF ref = "RS+" THEN
+				AddInstruction(m, INST_ADD_RS, i, i);
+			ELSIF ref = "RS/" THEN
+				AddInstruction(m, INST_DIV_RS, i, i);
+			ELSIF ref = "RS*" THEN
+				AddInstruction(m, INST_MULT_RS, i, i);
 			ELSE
 				AddInstruction(m, INST_ERR, ERR_UNKNOWN_MACRO, i);
 			END;	
@@ -286,7 +308,6 @@ PROCEDURE Execute(VAR m: Machine; block: ST.Block; entry: INTEGER; VAR error: Er
 VAR
 	i, len, cols: INTEGER;
 	instr: Instruction;
-	i_val1, i_val2: INTEGER;
 BEGIN
 	cols := block.columns;
 	len := entry + (cols - (entry MOD cols));
@@ -309,10 +330,14 @@ BEGIN
 				END;
 			| INST_PUSH_I:
 				Push(m.ws, instr.value, error, i);
-				
+			
+			| INST_ADD_RS: m.R := m.R + m.S;
+			| INST_DIV_RS: m.R := m.R DIV m.S;
+			| INST_MULT_RS: m.R := m.R * m.S;
+			
 			| INST_ADD_I:
-				IF Pop(m.ws, i_val1, error, i) & Pop(m.ws, i_val2, error, i) THEN
-					Push(m.ws, i_val1 + i_val2, error, i);
+				IF Pop(m.ws, m.R, error, i) & Pop(m.ws, m.S, error, i) THEN
+					Push(m.ws, m.R + m.S, error, i);
 				END;
 			| INST_JUMP:
 				IF Pop(m.ws, m.R, error, i) THEN
@@ -338,6 +363,11 @@ BEGIN
 						END;
 					END;
 				END;
+			| INST_PUSH_R: Push(m.ws, m.R, error, i);
+			| INST_POP_R: Pop(m.ws, m.R, error, i);
+			| INST_PUSH_S: Push(m.ws, m.S, error, i);
+			| INST_POP_S: Pop(m.ws, m.S, error, i);
+			
 			| INST_ERR:
 				error.code := instr.value;
 				error.pos := instr.address;
