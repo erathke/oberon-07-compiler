@@ -83,7 +83,7 @@ BEGIN
 	MUI.Label(ctx, "Working stack: ");
 	IF vmm.ws.sp > 0 THEN
 		FOR i := vmm.ws.sp - 1 TO 0 BY -1 DO
-			sval := vmm.ws.data[i];
+			sval := vmm.ws.data[i].h;
 			String.FromInt(sval, stackValStr);
 			MUI.Label(ctx, stackValStr);
 		END;
@@ -94,7 +94,7 @@ BEGIN
 	MUI.Label(ctx, "Return stack: ");
 	IF vmm.ws.sp > 0 THEN
 		FOR i := vmm.rs.sp - 1 TO 0 BY -1 DO
-			sval := vmm.rs.data[i];
+			sval := vmm.rs.data[i].h;
 			String.FromInt(sval, stackValStr);
 			MUI.Label(ctx, stackValStr);
 		END;

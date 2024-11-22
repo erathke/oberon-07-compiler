@@ -50,9 +50,14 @@ CONST
 	ERR_ST_INDEX = 11;
 	
 TYPE
+
+	Value* = RECORD
+		h*, l*: INTEGER
+	END;
+
 	Stack* = RECORD 
 		sp*: INTEGER;
-		data*: ARRAY STACK_SIZE OF INTEGER
+		data*: ARRAY STACK_SIZE OF Value
 	END;
 		
 	Identifier = ARRAY 32 OF CHAR;
@@ -125,7 +130,7 @@ VAR
 	success: BOOLEAN;
 BEGIN
 	IF stack.sp < STACK_SIZE - 1 THEN
-		stack.data[stack.sp] := value;
+		stack.data[stack.sp].h := value;
 		INC(stack.sp);
 		success := TRUE;
 	ELSE
@@ -136,13 +141,29 @@ BEGIN
 END Push;
 
 
+PROCEDURE [oberon-] PushR(VAR stack: Stack; rvalue: REAL; VAR error: Error; address: INTEGER): BOOLEAN;
+VAR
+	success: BOOLEAN;
+BEGIN
+	IF stack.sp < STACK_SIZE - 1 THEN
+		SYSTEM.MOVE(SYSTEM.ADR(stack.data[stack.sp]), SYSTEM.ADR(rvalue), 8);
+		INC(stack.sp);
+		success := TRUE;
+	ELSE
+		PushError(address, error);
+		success := FALSE;
+	END;
+	RETURN success
+END PushR;
+
+
 PROCEDURE [oberon-] Pop(VAR stack: Stack; VAR value: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
 VAR
 	success: BOOLEAN;
 BEGIN
 	IF stack.sp > 0 THEN
 		DEC(stack.sp);
-		value := stack.data[stack.sp];
+		value := stack.data[stack.sp].h;
 		success := TRUE;
 	ELSE
 		PopError(address, error);
@@ -150,6 +171,22 @@ BEGIN
 	END;
 	RETURN success
 END Pop;
+
+
+PROCEDURE [oberon-] PopR(VAR stack: Stack; VAR rvalue: REAL; VAR error: Error; address: INTEGER): BOOLEAN;
+VAR
+	success: BOOLEAN;
+BEGIN
+	IF stack.sp > 0 THEN
+		DEC(stack.sp);
+		rvalue := SYSTEM.VAL(stack.data[stack.sp], REAL);
+		success := TRUE;
+	ELSE
+		PopError(address, error);
+		success := FALSE;
+	END;
+	RETURN success
+END PopR;
 
 
 PROCEDURE [oberon-] Peek(VAR stack: Stack; VAR value: INTEGER; ridx: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
@@ -160,7 +197,7 @@ BEGIN
 	IF ridx < 0 THEN
 		idx := stack.sp + ridx;
 		IF idx >= 0 THEN
-			value := stack.data[idx];
+			value := stack.data[idx].h;
 			success := TRUE;
 		ELSE
 			PeekError(address, error);
@@ -169,7 +206,7 @@ BEGIN
 	ELSE
 		idx := ridx;
 		IF (idx >= 0) & (idx < stack.sp) THEN
-			value := stack.data[idx];
+			value := stack.data[idx].h;
 			success := TRUE;
 		ELSE
 			PeekError(address, error);
@@ -178,6 +215,34 @@ BEGIN
 	END;
 	RETURN success
 END Peek;
+
+
+PROCEDURE [oberon-] PeekR(VAR stack: Stack; VAR rvalue: REAL; ridx: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
+VAR
+	success: BOOLEAN;
+	idx: INTEGER;
+BEGIN
+	IF ridx < 0 THEN
+		idx := stack.sp + ridx;
+		IF idx >= 0 THEN
+			rvalue := SYSTEM.VAL(stack.data[idx], REAL);
+			success := TRUE;
+		ELSE
+			PeekError(address, error);
+			success := FALSE;
+		END;
+	ELSE
+		idx := ridx;
+		IF (idx >= 0) & (idx < stack.sp) THEN
+			rvalue := SYSTEM.VAL(stack.data[idx], REAL);
+			success := TRUE;
+		ELSE
+			PeekError(address, error);
+			success := FALSE;
+		END;
+	END;
+	RETURN success
+END PeekR;
 
 
 PROCEDURE Parse(VAR m: Machine; block: ST.Block; len: INTEGER);
