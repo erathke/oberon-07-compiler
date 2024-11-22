@@ -85,9 +85,9 @@ static bool shiftDataUp(mu_Vec2 *cursor, int dataSize, char *data, int maxLines,
 	return moved;
 }
 
-static bool shiftDataDown(mu_Vec2 *cursor, int dataSize, char *data, int visibleLines, int maxCols) {
+static bool shiftDataDown(mu_Vec2 *cursor, int dataSize, char *data, int *yOffs, int visibleLines, int maxCols) {
 	bool moved = false;
-	if (cursor->y < visibleLines - 1) {
+	if (cursor->y < *yOffs + visibleLines - 1) {
 		int tpos = cursor->x + (cursor->y * maxCols);
 		int size = dataSize - tpos - cursor->x;
 		memmove(data + tpos + maxCols, data + tpos, size);
@@ -208,7 +208,7 @@ int _mu_multitext(mu_Context *ctx, int maxCols, int textLen, char *text, int _, 
 			}
 			// shift data down from current line
 			if (IsKeyPressed(KEY_DOWN) || IsKeyPressedRepeat(KEY_DOWN)) {
-				if (shiftDataDown(cursor, textLen, text, visibleLines, maxCols)) {
+				if (shiftDataDown(cursor, textLen, text, yOffs, visibleLines, maxCols)) {
 					moveCursorDown(cursor, 1, yOffs, maxLines, visibleLines);
 					res |= MU_RES_CHANGE;
 				}
@@ -217,7 +217,7 @@ int _mu_multitext(mu_Context *ctx, int maxCols, int textLen, char *text, int _, 
 			if (ctx->key_pressed & MU_KEY_RETURN) {
 				cursor->x = 0;
 				moveCursorDown(cursor, 1, yOffs, maxLines, visibleLines);
-				if (shiftDataDown(cursor, textLen, text, visibleLines, maxCols)) {
+				if (shiftDataDown(cursor, textLen, text, yOffs, visibleLines, maxCols)) {
 					res |= MU_RES_CHANGE;
 				}
 			}
