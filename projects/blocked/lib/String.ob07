@@ -214,7 +214,7 @@ VAR
 	h, l: INTEGER;
 BEGIN
 	h := FLOOR(r);
-	l := FLOOR(r - FLT(h));
+	l := FLOOR(FLT(h) - r);
 	
 	Out.String("h: "); Out.Int(h, 0); Out.Ln;
 	Out.String("l: "); Out.Int(l, 0); Out.Ln;
