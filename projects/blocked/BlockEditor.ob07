@@ -25,6 +25,7 @@ VAR
 	vmm: VM.Machine;
 	error: VM.Error;
 
+
 PROCEDURE MainWindow(ctx: MUI.Context; offsY, height: INTEGER);
 VAR
 	wr1: MUI.Rect;
@@ -60,6 +61,7 @@ PROCEDURE LogPanel(ctx: MUI.Context; VAR error: VM.Error; x, y, height: INTEGER)
 VAR
 	wr1: MUI.Rect;
 	i, sval: INTEGER;
+	hValStr, lValStr: ARRAY 12 OF CHAR;
 	stackValStr: ARRAY 32 OF CHAR;
 	errStr: ARRAY 64 OF CHAR;
 	rowWidth1: ARRAY 1 OF INTEGER;
@@ -84,8 +86,16 @@ BEGIN
 	IF vmm.ws.sp > 0 THEN
 		FOR i := vmm.ws.sp - 1 TO 0 BY -1 DO
 			sval := vmm.ws.data[i].h;
-			String.FromInt(sval, stackValStr);
+			String.FromInt(sval, hValStr);
+			sval := vmm.ws.data[i].l;
+			IF sval > 0 THEN
+				String.FromInt(sval, lValStr);
+				String.Append(stackValStr, lValStr);
+				String.Append(stackValStr, "|");
+			END;
+			String.Append(stackValStr, hValStr);
 			MUI.Label(ctx, stackValStr);
+			String.Clear(stackValStr);
 		END;
 	ELSE
 		MUI.Label(ctx, "<empty>");

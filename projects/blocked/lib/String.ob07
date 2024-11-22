@@ -1,5 +1,5 @@
 MODULE String;
-IMPORT SYSTEM;
+IMPORT SYSTEM; //, Out := Out_sys;
 
 
 PROCEDURE FromInt*(x: INTEGER; VAR str: ARRAY OF CHAR);
@@ -127,6 +127,85 @@ BEGIN
     
     RETURN ~ invalid
 END ToInt;
+
+
+PROCEDURE Split(str: ARRAY OF CHAR; sep: CHAR; VAR left, right: ARRAY OF CHAR);
+VAR
+	n1, n2, n3: INTEGER;
+	sidx: INTEGER;
+	i, j: INTEGER;
+	ch: CHAR;
+BEGIN
+	n1 := LEN(str);
+	n2 := LEN(left);
+	ASSERT(n2 >= n1);
+	n3 := LEN(right);
+	ASSERT(n3 >= n1);
+	sidx := -1;
+	j := 0;
+	FOR i := 0 TO n1 - 1 DO
+		ch := str[i];
+		IF ch = sep THEN
+			sidx := i;
+			i := n1;
+		ELSE
+			left[j] := ch;
+			INC(j);
+		END;
+	END;
+	
+	IF sidx >= 0 THEN
+		j := 0;
+		FOR i := sidx + 1 TO n1 - 1 DO
+			right[j] := str[i];
+			INC(j);
+		END;
+	END;
+END;
+
+
+PROCEDURE ToReal*(str: ARRAY OF CHAR; VAR value: REAL): BOOLEAN;
+VAR
+	lp, rp: REAL;
+	iv: INTEGER;
+	left, right: ARRAY 32 OF CHAR;
+	rlen: INTEGER;
+	success: BOOLEAN;
+	divisor: REAL;
+	
+	
+	PROCEDURE CalcDivisor(len: INTEGER; VAR divisor: REAL);
+	BEGIN
+		divisor := 1.0;
+		WHILE len > 0 DO
+			divisor := divisor * 10.0;
+			DEC(len);
+		END;
+		
+	END CalcDivisor;
+	
+BEGIN
+	Split(str, '.', left, right);
+	success := ToInt(left, iv);
+	IF success THEN
+		lp := FLT(iv);
+		rlen := LENGTH(right);
+		IF (rlen > 0) THEN
+			success := ToInt(right, iv);
+			IF success THEN
+				CalcDivisor(rlen, divisor);
+				rp := FLT(iv) / divisor;
+			END;			
+		END;
+		IF lp >= 0.0 THEN
+			value := lp + rp;
+		ELSE
+			value := lp + (-1.0 * rp);
+		END;
+	END;
+	
+	RETURN success
+END ToReal;
 
 
 PROCEDURE Clear*(VAR str: ARRAY OF CHAR);

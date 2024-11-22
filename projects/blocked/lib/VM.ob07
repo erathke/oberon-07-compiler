@@ -27,8 +27,8 @@ CONST
 	INST_NOP = 0;
 	INST_CALL = 1;
 	INST_RET = 2;
-	INST_PUSH_I = 3;
-	INST_ADD_I = 4; // TODO: replace with RS+?
+	INST_PUSH_INT = 3;
+	INST_ADD_INT = 4; // TODO: replace with RS+?
 	INST_JUMP = 5;
 	INST_JUMP_ZERO = 6;
 	INST_JUMP_ONE = 7;
@@ -39,6 +39,11 @@ CONST
 	INST_ADD_RS = 14;
 	INST_DIV_RS = 15;
 	INST_MULT_RS = 16;
+	INST_PUSH_REAL = 17;
+	INST_PUSH_U = 20;
+	INST_POP_U = 21;
+	INST_PUSH_V = 22;
+	INST_POP_V = 23;
 	
 	MAX_INSTRUCTIONS = 4000; // TODO: dynamic instruction array
 	
@@ -71,7 +76,8 @@ TYPE
 	Dictionary = ARRAY DICT_SIZE OF Word;
 
 	Instruction = RECORD
-		code, value, address*: INTEGER
+		code, value, address*: INTEGER;
+		rvalue: REAL
 	END;
 	
 	Error* = RECORD
@@ -82,12 +88,19 @@ TYPE
 	Machine* = RECORD
 		pc, ic: INTEGER;
 		ws*, rs*: Stack;
-		R, S: INTEGER; // registers
+		// registers
+		R, S: INTEGER;
+		U, V: REAL;
+		//
 		code: ARRAY MAX_INSTRUCTIONS OF Instruction;
 		// TODO: refactor dictionary
 		dict: Dictionary;
 		wordCount: INTEGER
 	END;
+
+
+PROCEDURE [extern, "printf"] printReal(fmt: INTEGER; value: REAL);
+PROCEDURE [extern, "printf"] printInt(fmt: INTEGER; value: INTEGER);
 
 
 PROCEDURE AddInstruction(VAR m: Machine; code, value, address: INTEGER);
@@ -96,6 +109,18 @@ VAR
 BEGIN 
 	instr.code := code;
 	instr.value := value;
+	instr.address := address;
+	m.code[address] := instr;
+	INC(m.ic);
+END;
+
+
+PROCEDURE AddInstructionR(VAR m: Machine; code: INTEGER; rvalue: REAL; address: INTEGER);
+VAR
+	instr: Instruction;
+BEGIN 
+	instr.code := code;
+	instr.rvalue := rvalue;
 	instr.address := address;
 	m.code[address] := instr;
 	INC(m.ic);
@@ -147,7 +172,7 @@ VAR
 	success: BOOLEAN;
 BEGIN
 	IF stack.sp < STACK_SIZE - 1 THEN
-		SYSTEM.MOVE(SYSTEM.ADR(stack.data[stack.sp]), SYSTEM.ADR(rvalue), 8);
+		SYSTEM.MOVE(SYSTEM.ADR(rvalue), SYSTEM.ADR(stack.data[stack.sp]), 8);
 		INC(stack.sp);
 		success := TRUE;
 	ELSE
@@ -254,6 +279,7 @@ VAR
 	ref: Identifier;
 	ref_addr: INTEGER;
 	i_val: INTEGER;
+	r_val: REAL;
 	
 	PROCEDURE ReadIdent(block: ST.Block; offs, len: INTEGER; VAR ident: Identifier): INTEGER;
 	VAR
@@ -312,7 +338,7 @@ BEGIN
 		| MARK_ID_MACRO:
 			i := i + ReadIdent(block, i + 1, len, ref);
 			IF ref = "+" THEN
-				AddInstruction(m, INST_ADD_I, i, i);
+				AddInstruction(m, INST_ADD_INT, i, i);
 			ELSIF ref = "$" THEN
 				AddInstruction(m, INST_JUMP, i, i);
 			ELSIF ref = "$0" THEN
@@ -333,13 +359,28 @@ BEGIN
 				AddInstruction(m, INST_DIV_RS, i, i);
 			ELSIF ref = "RS*" THEN
 				AddInstruction(m, INST_MULT_RS, i, i);
+			ELSIF ref = "U<" THEN
+				AddInstruction(m, INST_PUSH_U, i, i);
+			ELSIF ref = "U>" THEN
+				AddInstruction(m, INST_POP_U, i, i);
+			ELSIF ref = "V<" THEN
+				AddInstruction(m, INST_PUSH_V, i, i);
+			ELSIF ref = "V>" THEN
+				AddInstruction(m, INST_POP_V, i, i);
 			ELSE
 				AddInstruction(m, INST_ERR, ERR_UNKNOWN_MACRO, i);
 			END;	
 		| MARK_TP_INT:
 			i := i + ReadIdent(block, i + 1, len, ref);
 			IF String.ToInt(ref, i_val) THEN
-				AddInstruction(m, INST_PUSH_I, i_val, i);
+				AddInstruction(m, INST_PUSH_INT, i_val, i);
+			ELSE // error: invalid number
+				AddInstruction(m, INST_ERR, ERR_T_INT_CONV, i);
+			END;
+		| MARK_TP_REAL:
+			i := i + ReadIdent(block, i + 1, len, ref);
+			IF String.ToReal(ref, r_val) THEN
+				AddInstructionR(m, INST_PUSH_REAL, r_val, i);
 			ELSE // error: invalid number
 				AddInstruction(m, INST_ERR, ERR_T_INT_CONV, i);
 			END;
@@ -351,7 +392,7 @@ BEGIN
 			IF ref_addr = -1 THEN // error: not found	
 				AddInstruction(m, INST_ERR, ERR_UNKNOWN_REF, i);
 			ELSE
-				AddInstruction(m, INST_PUSH_I, ref_addr, i);
+				AddInstruction(m, INST_PUSH_INT, ref_addr, i);
 			END;
 		ELSE
 			// comment
@@ -394,14 +435,17 @@ BEGIN
 				IF Pop(m.rs, m.R, error, i) THEN
 					i := m.R;
 				END;
-			| INST_PUSH_I:
+			| INST_PUSH_INT:
 				Push(m.ws, instr.value, error, i);
+			
+			| INST_PUSH_REAL:
+				PushR(m.ws, instr.rvalue, error, i);
 			
 			| INST_ADD_RS: m.R := m.R + m.S;
 			| INST_DIV_RS: m.R := m.R DIV m.S;
 			| INST_MULT_RS: m.R := m.R * m.S;
 			
-			| INST_ADD_I:
+			| INST_ADD_INT:
 				IF Pop(m.ws, m.R, error, i) & Pop(m.ws, m.S, error, i) THEN
 					Push(m.ws, m.R + m.S, error, i);
 				END;
@@ -433,6 +477,13 @@ BEGIN
 			| INST_POP_R: Pop(m.ws, m.R, error, i);
 			| INST_PUSH_S: Push(m.ws, m.S, error, i);
 			| INST_POP_S: Pop(m.ws, m.S, error, i);
+			| INST_PUSH_U: PushR(m.ws, m.U, error, i);
+			| INST_POP_U: PopR(m.ws, m.U, error, i);
+			| INST_PUSH_V: PushR(m.ws, m.V, error, i);
+			| INST_POP_V: 
+				PopR(m.ws, m.V, error, i);
+				Out.String("V: "); printReal(SYSTEM.SADR("%f"), m.V);
+				printInt(SYSTEM.SADR("%s"), SYSTEM.SADR(0AX))
 			
 			| INST_ERR:
 				error.code := instr.value;
