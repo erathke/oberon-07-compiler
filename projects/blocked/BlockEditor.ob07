@@ -1,5 +1,6 @@
 MODULE BlockEditor;
 IMPORT
+	SYSTEM,
 	ST IN "./lib/Storage.ob07",
 	RL IN "./lib/Raylib.ob07",
 	MUI IN "./lib/MicroUI.ob07",
@@ -61,6 +62,7 @@ PROCEDURE LogPanel(ctx: MUI.Context; VAR error: VM.Error; x, y, height: INTEGER)
 VAR
 	wr1: MUI.Rect;
 	i, sval: INTEGER;
+	rval: REAL;
 	hValStr, lValStr: ARRAY 12 OF CHAR;
 	stackValStr: ARRAY 32 OF CHAR;
 	errStr: ARRAY 64 OF CHAR;
@@ -89,7 +91,8 @@ BEGIN
 			String.FromInt(sval, hValStr);
 			sval := vmm.ws.data[i].l;
 			IF sval > 0 THEN
-				String.FromInt(sval, lValStr);
+				rval := SYSTEM.VAL(vmm.ws.data[i], REAL);
+				String.FromReal(rval, lValStr);
 				String.Append(stackValStr, lValStr);
 				String.Append(stackValStr, "|");
 			END;

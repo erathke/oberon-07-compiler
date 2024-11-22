@@ -1,5 +1,5 @@
 MODULE String;
-IMPORT SYSTEM; //, Out := Out_sys;
+IMPORT SYSTEM , Out := Out_sys;
 
 
 PROCEDURE FromInt*(x: INTEGER; VAR str: ARRAY OF CHAR);
@@ -207,6 +207,19 @@ BEGIN
 	
 	RETURN success
 END ToReal;
+
+
+PROCEDURE FromReal*(r: REAL; VAR str: ARRAY OF CHAR);
+VAR
+	h, l: INTEGER;
+BEGIN
+	h := FLOOR(r);
+	l := FLOOR(r - FLT(h));
+	
+	Out.String("h: "); Out.Int(h, 0); Out.Ln;
+	Out.String("l: "); Out.Int(l, 0); Out.Ln;
+	
+END FromReal;
 
 
 PROCEDURE Clear*(VAR str: ARRAY OF CHAR);
