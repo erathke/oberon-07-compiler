@@ -153,7 +153,6 @@ VAR
 			token_id := ORD(token);
 			INC(j);
 		UNTIL (token_id < MARKS) OR ((offs + j) = len);
-		
 		RETURN j
 	END ReadIdent;
 	
@@ -192,7 +191,6 @@ BEGIN
 			IF ref = "+" THEN
 				AddInstruction(m, INST_ADD_I, i, i);
 			ELSE
-				//Out.String("unknown macro"); Out.Ln;
 				AddInstruction(m, INST_ERR, ERR_UNKNOWN_MACRO, i);
 			END;
 			
@@ -265,12 +263,17 @@ END Execute;
 
 
 PROCEDURE ResetMachine(VAR m: Machine);
+VAR
+	i: INTEGER;
 BEGIN
 	m.pc := 0;
 	m.ic := 0;
 	m.ws.sp := 0;
 	m.rs.sp := 0;
 	m.wordCount := 0;
+	FOR i := 0 TO MAX_INSTRUCTIONS - 1 DO
+		m.code[i].code := INST_NOP;
+	END;
 END ResetMachine;
 
 
@@ -278,9 +281,9 @@ PROCEDURE Run*(VAR m: Machine; block: ST.Block; entry: INTEGER; VAR error: Error
 VAR
 	len: INTEGER;
 BEGIN
+	ResetMachine(m);
 	len := LEN(block.data);
 	Parse(m, block, len);
-	ResetMachine(m);
 	Execute(m, block, entry, error);
 END Run;
 
