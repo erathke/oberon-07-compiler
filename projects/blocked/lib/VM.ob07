@@ -619,7 +619,7 @@ END Run;
 PROCEDURE Debug*(VAR m: Machine; block: ST.Block; entry: INTEGER; VAR error: Error; VAR break: BOOLEAN);
 VAR
 	len: INTEGER;
-	instr: Instruction;
+	//instr: Instruction;
 BEGIN
 	ResetMachine(m);
 	error.code := ERR_NONE;
