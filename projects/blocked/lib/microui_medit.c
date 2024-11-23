@@ -22,17 +22,16 @@ static mu_Color tag_colors[TAGS] = {
 	{0,   255, 255, 50}, // cyan = real
 	{  0, 255,   0, 50}, // green = compile
 	{ 50,  50, 220, 50}, // blue = string
-	{200, 200, 200, 15}, // gray = macro
-	
+	{180, 180, 180, 15}, // gray = macro
 	{255, 255, 255, 15},
 	{255, 255, 255, 15},
 	{255, 255, 255, 15},
 	{255, 255, 255, 15},
 	{255, 255, 255, 15},
 	{255, 255, 255, 15},
-	{255, 255, 255, 15},
-	{255, 255, 255, 15},
-	{255,   0, 255, 50} // EOL
+	{191, 255,   0, 150}, // lime = brk
+	{255, 102,   0, 50}, // orange = at
+	{255,   0, 255, 50} // ret
 };
 
 static void updateCursorPos(mu_Rect *rect, mu_Vec2 *mousePos, 
@@ -317,7 +316,7 @@ int _mu_multitext(mu_Context *ctx, int maxCols, int textLen, char *text, int _, 
 		mu_draw_rect(ctx, rect, panelColor);
 	}
 	else {
-		panelColor.a = 150;
+		panelColor.a = 210;
 		mu_draw_rect(ctx, rect, panelColor);
 	}
 	
@@ -345,7 +344,7 @@ int _mu_multitext(mu_Context *ctx, int maxCols, int textLen, char *text, int _, 
 	// Drawing text
 	mu_Color textColor = tag_colors[0];
 	mu_Vec2 posText = {rect.x + 5, rect.y + 10};
-	const char hexChars[TAGS] = ".:#$*\"%........\\";
+	const char hexChars[TAGS] = ".:#$*\"%......|@\\";
 	mu_Color currentColor = textColor;
 	
 	for (int y = 0; y < visibleLines; y++) {

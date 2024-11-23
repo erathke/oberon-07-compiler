@@ -16,7 +16,9 @@ CONST
 	MARK_ID_REF = 4; // green
 	MARK_TP_ADDR = 5; // blue
 	MARK_ID_MACRO = 6; // gray
-	MARK_ID_END = 15; // \
+	MARK_ID_BRK = 13; //  = BREAK
+	MARK_ID_AT = 14; // orange = AT
+	MARK_ID_END = 15; // RET
 	
 	MARKS = 16;
 	
@@ -53,6 +55,9 @@ CONST
 	INST_PUSH_X = 30;
 	INST_POP_X = 31;
 	INST_MOV_XS = 32;
+	INST_MOV_SX = 33;
+	INST_AT = 34;
+	INST_BRK = 35;
 	
 	MAX_INSTRUCTIONS = 4000; // TODO: dynamic instruction array
 	
@@ -332,6 +337,10 @@ BEGIN
 			INC(m.wordCount);
 		| MARK_ID_END:
 			AddInstruction(m, INST_RET, i, i);
+		| MARK_ID_AT:
+			AddInstruction(m, INST_AT, i, i);
+		| MARK_ID_BRK:
+			AddInstruction(m, INST_BRK, i, i);
 		| MARK_ID_REF:
 			i := i + ReadIdent(block, i + 1, len, ref);
 			ref_addr := -1;
@@ -392,6 +401,8 @@ BEGIN
 				AddInstruction(m, INST_POP_X, i, i);
 			ELSIF ref = "X<S" THEN
 				AddInstruction(m, INST_MOV_XS, i, i);
+			ELSIF ref = "X>S" THEN
+				AddInstruction(m, INST_MOV_SX, i, i);
 			ELSE
 				AddInstruction(m, INST_ERR, ERR_UNKNOWN_MACRO, i);
 			END;	
@@ -441,13 +452,14 @@ PROCEDURE Execute(VAR m: Machine; block: ST.Block; entry: INTEGER; VAR error: Er
 VAR
 	i, len, cols: INTEGER;
 	instr: Instruction;
+	break: BOOLEAN;
 BEGIN
 	cols := block.columns;
 	len := entry + (cols - (entry MOD cols));
 	i := entry;
 	error.code := ERR_NONE;
 	
-	WHILE (i < len) & (error.code = ERR_NONE) DO
+	WHILE (i < len) & (error.code = ERR_NONE) & (~ break)DO
 		instr := m.code[i];
 		
 		IF instr.code # INST_NOP THEN
@@ -461,6 +473,9 @@ BEGIN
 				IF Pop(m.rs, m.R, error, i) THEN
 					i := m.R;
 				END;
+			| INST_AT:
+				Push(m.rs, instr.value, error, i);
+
 			| INST_PUSH_INT:
 				Push(m.ws, instr.value, error, i);
 			
@@ -514,10 +529,11 @@ BEGIN
 			| INST_POP_U: PopR(m.ws, m.U, error, i);
 			| INST_PUSH_V: PushR(m.ws, m.V, error, i);
 			| INST_POP_V:  PopR(m.ws, m.V, error, i);
-			| INST_PUSH_X: Out.Ln; Push(m.rs, m.X, error, i);
+			| INST_PUSH_X: Push(m.rs, m.X, error, i);
 			| INST_POP_X: Pop(m.rs, m.X, error, i);
 			| INST_MOV_XS: m.X := m.S;
-			
+			| INST_MOV_SX: m.S := m.X;
+			| INST_BRK: break := TRUE;
 			| INST_ERR:
 				error.code := instr.value;
 				error.pos := instr.address;
