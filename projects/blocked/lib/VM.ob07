@@ -514,7 +514,7 @@ BEGIN
 			| INST_POP_U: PopR(m.ws, m.U, error, i);
 			| INST_PUSH_V: PushR(m.ws, m.V, error, i);
 			| INST_POP_V:  PopR(m.ws, m.V, error, i);
-			| INST_PUSH_X: Push(m.rs, m.X, error, i);
+			| INST_PUSH_X: Out.Ln; Push(m.rs, m.X, error, i);
 			| INST_POP_X: Pop(m.rs, m.X, error, i);
 			| INST_MOV_XS: m.X := m.S;
 			

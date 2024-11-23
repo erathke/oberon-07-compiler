@@ -115,7 +115,7 @@ BEGIN
 	
 	MUI.HRule(ctx, 2);
 	MUI.Label(ctx, "Return stack: ");
-	IF vmm.ws.sp > 0 THEN
+	IF vmm.rs.sp > 0 THEN
 		FOR i := vmm.rs.sp - 1 TO 0 BY -1 DO
 			String.FromInt(i, stackValStr);
 			String.Append(stackValInfo, stackValStr);
