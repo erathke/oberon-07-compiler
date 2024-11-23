@@ -50,8 +50,9 @@ CONST
 	INST_ADD_UR = 27;
 	INST_DIV_UR = 28;
 	INST_MULT_UR = 29;
-	
-	
+	INST_PUSH_X = 30;
+	INST_POP_X = 31;
+	INST_MOV_XS = 32;
 	
 	MAX_INSTRUCTIONS = 4000; // TODO: dynamic instruction array
 	
@@ -98,8 +99,9 @@ TYPE
 		pc, ic: INTEGER;
 		ws*, rs*: Stack;
 		// registers
-		R, S: INTEGER;
-		U, V: REAL;
+		R, S: INTEGER; // working stack
+		U, V: REAL; // working stack
+		X: INTEGER; // return stack
 		//
 		code: ARRAY MAX_INSTRUCTIONS OF Instruction;
 		// TODO: refactor dictionary
@@ -384,6 +386,12 @@ BEGIN
 				AddInstruction(m, INST_DIV_UR, i, i);
 			ELSIF ref = "UR*" THEN
 				AddInstruction(m, INST_MULT_UR, i, i);
+			ELSIF ref = "X>" THEN
+				AddInstruction(m, INST_PUSH_X, i, i);
+			ELSIF ref = "X<" THEN
+				AddInstruction(m, INST_POP_X, i, i);
+			ELSIF ref = "X<S" THEN
+				AddInstruction(m, INST_MOV_XS, i, i);
 			ELSE
 				AddInstruction(m, INST_ERR, ERR_UNKNOWN_MACRO, i);
 			END;	
@@ -506,6 +514,9 @@ BEGIN
 			| INST_POP_U: PopR(m.ws, m.U, error, i);
 			| INST_PUSH_V: PushR(m.ws, m.V, error, i);
 			| INST_POP_V:  PopR(m.ws, m.V, error, i);
+			| INST_PUSH_X: Push(m.rs, m.X, error, i);
+			| INST_POP_X: Pop(m.rs, m.X, error, i);
+			| INST_MOV_XS: m.X := m.S;
 			
 			| INST_ERR:
 				error.code := instr.value;
