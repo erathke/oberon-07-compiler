@@ -44,6 +44,14 @@ CONST
 	INST_POP_U = 21;
 	INST_PUSH_V = 22;
 	INST_POP_V = 23;
+	INST_ADD_UV = 24;
+	INST_DIV_UV = 25;
+	INST_MULT_UV = 26;
+	INST_ADD_UR = 27;
+	INST_DIV_UR = 28;
+	INST_MULT_UR = 29;
+	
+	
 	
 	MAX_INSTRUCTIONS = 4000; // TODO: dynamic instruction array
 	
@@ -364,6 +372,18 @@ BEGIN
 				AddInstruction(m, INST_PUSH_V, i, i);
 			ELSIF ref = "V<" THEN
 				AddInstruction(m, INST_POP_V, i, i);
+			ELSIF ref = "UV+" THEN
+				AddInstruction(m, INST_ADD_UV, i, i);
+			ELSIF ref = "UV/" THEN
+				AddInstruction(m, INST_DIV_UV, i, i);
+			ELSIF ref = "UV*" THEN
+				AddInstruction(m, INST_MULT_UV, i, i);
+			ELSIF ref = "UR+" THEN
+				AddInstruction(m, INST_ADD_UR, i, i);
+			ELSIF ref = "UR/" THEN
+				AddInstruction(m, INST_DIV_UR, i, i);
+			ELSIF ref = "UR*" THEN
+				AddInstruction(m, INST_MULT_UR, i, i);
 			ELSE
 				AddInstruction(m, INST_ERR, ERR_UNKNOWN_MACRO, i);
 			END;	
@@ -442,6 +462,12 @@ BEGIN
 			| INST_ADD_RS: m.R := m.R + m.S;
 			| INST_DIV_RS: m.R := m.R DIV m.S;
 			| INST_MULT_RS: m.R := m.R * m.S;
+			| INST_ADD_UV: m.U := m.U + m.V;
+			| INST_DIV_UV: m.U := m.U / m.V;
+			| INST_MULT_UV: m.U := m.U * m.U;
+			| INST_ADD_UR: m.U := m.U + FLT(m.R);
+			| INST_DIV_UR: m.U := m.U / FLT(m.R);
+			| INST_MULT_UR: m.U := m.U * FLT(m.R);
 			
 			| INST_ADD_INT:
 				IF Pop(m.ws, m.R, error, i) & Pop(m.ws, m.S, error, i) THEN
