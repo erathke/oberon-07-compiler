@@ -115,6 +115,12 @@ TYPE
 	END;
 
 
+PROCEDURE GetPC*(m: Machine): INTEGER;
+BEGIN
+	RETURN m.pc
+END GetPC;
+
+
 PROCEDURE AddInstruction(VAR m: Machine; code, value, address: INTEGER);
 VAR
 	instr: Instruction;
@@ -448,110 +454,123 @@ BEGIN
 END GetErrorMessage;
 
 
+PROCEDURE Step*(VAR m: Machine; block: ST.Block; VAR error: Error; VAR break: BOOLEAN);
+VAR
+	i: INTEGER;
+	instr: Instruction;
+BEGIN
+	instr := m.code[m.pc];
+	i := m.pc;
+	//Out.String("pc: "); Out.Int(m.pc, 0); 
+	//Out.String(", code:"); Out.Int(instr.code, 0); 
+	//Out.Ln;
+	CASE instr.code OF
+	| INST_CALL:
+		IF Push(m.rs, i, error, i) THEN
+			i := instr.value;
+		END;
+	| INST_RET:
+		IF Pop(m.rs, m.R, error, i) THEN
+			i := m.R;
+		END;
+	| INST_AT:
+		Push(m.rs, instr.value, error, i);
+
+	| INST_PUSH_INT:
+		Push(m.ws, instr.value, error, i);
+	
+	| INST_PUSH_REAL:
+		PushR(m.ws, instr.rvalue, error, i);
+	
+	| INST_ADD_RS: m.R := m.R + m.S;
+	| INST_DIV_RS: m.R := m.R DIV m.S;
+	| INST_MULT_RS: m.R := m.R * m.S;
+	| INST_ADD_UV: m.U := m.U + m.V;
+	| INST_DIV_UV: m.U := m.U / m.V;
+	| INST_MULT_UV: m.U := m.U * m.U;
+	| INST_ADD_UR: m.U := m.U + FLT(m.R);
+	| INST_DIV_UR: m.U := m.U / FLT(m.R);
+	| INST_MULT_UR: m.U := m.U * FLT(m.R);
+	
+	| INST_ADD_INT:
+		IF Pop(m.ws, m.R, error, i) & Pop(m.ws, m.S, error, i) THEN
+			Push(m.ws, m.R + m.S, error, i);
+		END;
+	| INST_JUMP:
+		IF Pop(m.ws, m.R, error, i) THEN
+			i := m.R;
+		END;
+	| INST_JUMP_ZERO:
+		IF Peek(m.ws, m.R, -1, error, i) THEN
+			IF m.R = 0 THEN
+				IF Peek(m.ws, m.S, -2, error, i) THEN
+					i := m.S;
+					Pop(m.ws, m.R, error, i);
+					Pop(m.ws, m.S, error, i);
+				END;
+			END;
+		END;
+	| INST_JUMP_ONE:
+		IF Peek(m.ws, m.R, -1, error, i) THEN
+			IF m.R = 1 THEN
+				IF Peek(m.ws, m.S, -2, error, i) THEN
+					i := m.S;
+					Pop(m.ws, m.R, error, i);
+					Pop(m.ws, m.S, error, i);
+				END;
+			END;
+		END;
+
+	| INST_PUSH_R: Push(m.ws, m.R, error, i);
+	| INST_POP_R: Pop(m.ws, m.R, error, i);
+	| INST_PUSH_S: Push(m.ws, m.S, error, i);
+	| INST_POP_S: Pop(m.ws, m.S, error, i);
+	| INST_PUSH_U: PushR(m.ws, m.U, error, i);
+	| INST_POP_U: PopR(m.ws, m.U, error, i);
+	| INST_PUSH_V: PushR(m.ws, m.V, error, i);
+	| INST_POP_V:  PopR(m.ws, m.V, error, i);
+	| INST_PUSH_X: Push(m.rs, m.X, error, i);
+	| INST_POP_X: Pop(m.rs, m.X, error, i);
+	| INST_MOV_XS: m.X := m.S;
+	| INST_MOV_SX: m.S := m.X;
+	| INST_BRK: break := TRUE;
+	| INST_ERR:
+		error.code := instr.value;
+		error.pos := instr.address;
+		GetErrorMessage(instr.value, error);
+	|INST_NOP:
+	END;
+	
+	m.pc := i;
+	INC(m.pc);
+
+END Step;
+
+
 PROCEDURE Execute(VAR m: Machine; block: ST.Block; entry: INTEGER; VAR error: Error);
 VAR
-	i, len, cols: INTEGER;
-	instr: Instruction;
+	len, cols: INTEGER;
 	break: BOOLEAN;
 BEGIN
 	cols := block.columns;
 	len := entry + (cols - (entry MOD cols));
-	i := entry;
+	m.pc := entry;
 	error.code := ERR_NONE;
-	
-	WHILE (i < len) & (error.code = ERR_NONE) & (~ break)DO
-		instr := m.code[i];
-		
-		IF instr.code # INST_NOP THEN
-			m.pc := i;
-			CASE instr.code OF
-			| INST_CALL:
-				IF Push(m.rs, i, error, i) THEN
-					i := instr.value;
-				END;
-			| INST_RET:
-				IF Pop(m.rs, m.R, error, i) THEN
-					i := m.R;
-				END;
-			| INST_AT:
-				Push(m.rs, instr.value, error, i);
-
-			| INST_PUSH_INT:
-				Push(m.ws, instr.value, error, i);
-			
-			| INST_PUSH_REAL:
-				PushR(m.ws, instr.rvalue, error, i);
-			
-			| INST_ADD_RS: m.R := m.R + m.S;
-			| INST_DIV_RS: m.R := m.R DIV m.S;
-			| INST_MULT_RS: m.R := m.R * m.S;
-			| INST_ADD_UV: m.U := m.U + m.V;
-			| INST_DIV_UV: m.U := m.U / m.V;
-			| INST_MULT_UV: m.U := m.U * m.U;
-			| INST_ADD_UR: m.U := m.U + FLT(m.R);
-			| INST_DIV_UR: m.U := m.U / FLT(m.R);
-			| INST_MULT_UR: m.U := m.U * FLT(m.R);
-			
-			| INST_ADD_INT:
-				IF Pop(m.ws, m.R, error, i) & Pop(m.ws, m.S, error, i) THEN
-					Push(m.ws, m.R + m.S, error, i);
-				END;
-			| INST_JUMP:
-				IF Pop(m.ws, m.R, error, i) THEN
-					i := m.R;
-				END;
-			| INST_JUMP_ZERO:
-				IF Peek(m.ws, m.R, -1, error, i) THEN
-					IF m.R = 0 THEN
-						IF Peek(m.ws, m.S, -2, error, i) THEN
-							i := m.S;
-							Pop(m.ws, m.R, error, i);
-							Pop(m.ws, m.S, error, i);
-						END;
-					END;
-				END;
-			| INST_JUMP_ONE:
-				IF Peek(m.ws, m.R, -1, error, i) THEN
-					IF m.R = 1 THEN
-						IF Peek(m.ws, m.S, -2, error, i) THEN
-							i := m.S;
-							Pop(m.ws, m.R, error, i);
-							Pop(m.ws, m.S, error, i);
-						END;
-					END;
-				END;
-
-			| INST_PUSH_R: Push(m.ws, m.R, error, i);
-			| INST_POP_R: Pop(m.ws, m.R, error, i);
-			| INST_PUSH_S: Push(m.ws, m.S, error, i);
-			| INST_POP_S: Pop(m.ws, m.S, error, i);
-			| INST_PUSH_U: PushR(m.ws, m.U, error, i);
-			| INST_POP_U: PopR(m.ws, m.U, error, i);
-			| INST_PUSH_V: PushR(m.ws, m.V, error, i);
-			| INST_POP_V:  PopR(m.ws, m.V, error, i);
-			| INST_PUSH_X: Push(m.rs, m.X, error, i);
-			| INST_POP_X: Pop(m.rs, m.X, error, i);
-			| INST_MOV_XS: m.X := m.S;
-			| INST_MOV_SX: m.S := m.X;
-			| INST_BRK: break := TRUE;
-			| INST_ERR:
-				error.code := instr.value;
-				error.pos := instr.address;
-				GetErrorMessage(instr.value, error);
-			END;
-		END;
-		INC(i);
+	WHILE (m.pc < len) & (error.code = ERR_NONE) & (~ break) DO
+		Step(m, block, error, break);
 	END;
 END Execute;
 
 
-PROCEDURE ResetMachine(VAR m: Machine);
+PROCEDURE ResetMachine*(VAR m: Machine);
 VAR
 	i: INTEGER;
 BEGIN
-	m.pc := 0;
-	m.ic := 0;
+	m.pc := 0; m.ic := 0;
 	m.wordCount := 0;
+	m.R := 0; m.S := 0;
+	m.U := 0.0; m.V := 0.0;
+	m.X := 0;
 	
 	FOR i := 0 TO m.ws.sp - 1 DO
 		m.ws.data[i].h := 0;
@@ -588,6 +607,19 @@ BEGIN
 	Parse(m, block, len);
 	Execute(m, block, entry, error);
 END Run;
+
+
+PROCEDURE Debug*(VAR m: Machine; block: ST.Block; entry: INTEGER; VAR error: Error; VAR break: BOOLEAN);
+VAR
+	len: INTEGER;
+BEGIN
+	ResetMachine(m);
+	error.code := ERR_NONE;
+	len := LEN(block.data);
+	Parse(m, block, len);
+	m.pc := entry;
+	Step(m, block, error, break);
+END Debug;
 
 
 END VM.

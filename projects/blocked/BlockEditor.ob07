@@ -25,6 +25,17 @@ VAR
 	yOffs: INTEGER;
 	vmm: VM.Machine;
 	error: VM.Error;
+	break: BOOLEAN;
+
+
+PROCEDURE UpdateCursorByPC();
+VAR
+	pc: INTEGER;
+BEGIN
+	pc := VM.GetPC(vmm);
+	cursorPos.x := pc MOD currentBlock.columns;
+	cursorPos.y := pc DIV currentBlock.columns;
+END UpdateCursorByPC;
 
 
 PROCEDURE MainWindow(ctx: MUI.Context; offsY, height: INTEGER);
@@ -50,6 +61,7 @@ BEGIN
 			ST.ReadBlock(d0, FLOOR(d0currentBlock) - 1, currentBlock);			
 			cursorPos.x := 0;
 			cursorPos.y := 0;
+			yOffs := 0;
 		END;
 		MUI.Label(ctx, blockCountInfo);
 		MUI.EndWindow(ctx);
@@ -66,14 +78,33 @@ VAR
 	stackValStr: ARRAY 32 OF CHAR;
 	stackValInfo, errStr, errStr2: ARRAY 64 OF CHAR;
 	rowWidth1: ARRAY 1 OF INTEGER;
+	rowWidth2: ARRAY 3 OF INTEGER;
+	entry: INTEGER;
 BEGIN
 	wr1.x := x; wr1.y := y; wr1.w := SCREEN_WIDTH - x - 5; wr1.h := height;
 	rowWidth1[0] := -1;
+	rowWidth2[0] := 60;
+	rowWidth2[1] := 20;
+	rowWidth2[2] := 60;
 	
 	MUI.LayoutSetNext(ctx, wr1, FALSE);
 	MUI.BeginPanelEx(ctx, "Log", MUI.OPT_NONE);
 	
+	MUI.LayoutRow(ctx, 3, rowWidth2, 0);
+	IF MUI.Button(ctx, "Debug") THEN
+		break := FALSE;
+		entry := cursorPos.x + (cursorPos.y * currentBlock.columns);
+		VM.Debug(vmm, currentBlock, entry, error, break);
+		UpdateCursorByPC();
+	END;
+	MUI.Label(ctx, "");
+	IF MUI.Button(ctx, "Step") THEN
+		VM.Step(vmm, currentBlock, error, break);
+		UpdateCursorByPC();
+	END;
+	
 	MUI.LayoutRow(ctx, 1, rowWidth1, 0);
+	MUI.HRule(ctx, 2);
 	IF error.code # VM.ERR_NONE THEN
 		String.Append(errStr, "Error [");
 		String.FromInt(error.code, errStr2);
@@ -207,10 +238,7 @@ BEGIN
 			IF MUI.Button(ctx, "Execute") THEN
 				entry := cursorPos.x + (cursorPos.y * currentBlock.columns);
 				VM.Run(vmm, currentBlock, entry, error);
-				IF error.code # VM.ERR_NONE THEN // positioning cursor at error
-					cursorPos.x := error.pos MOD currentBlock.columns;
-					cursorPos.y := error.pos DIV currentBlock.columns;
-				END;
+				UpdateCursorByPC();
 			END;
 			
 		ELSE

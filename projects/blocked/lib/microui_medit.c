@@ -320,16 +320,17 @@ int _mu_multitext(mu_Context *ctx, int maxCols, int textLen, char *text, int _, 
 		mu_draw_rect(ctx, rect, panelColor);
 	}
 	
+	mu_Color cursorColor = {255, 0, 255, 255};
+	int cx = rect.x + (cursor->x * colWidth) + 3;
+	int totalYOffs = cursor->y - *yOffs; 
+	int cy = rect.y + (totalYOffs * lineHeight) + 5;
+	mu_Rect cursorRect = {cx + 1, cy + 2, colWidth + 1, lineHeight};
 	// Drawing cursor
 	if (ctx->focus == id)  {
-		mu_Color cursorColor = {255, 0, 255, 255};
-		int x = rect.x + (cursor->x * colWidth) + 3;
-		int totalYOffs = cursor->y - *yOffs; 
-		int y = rect.y + (totalYOffs * lineHeight) + 5;
-		mu_Rect cursorRect = {x + 1, y + 2, colWidth + 1, lineHeight};
+		
 		if (IsKeyDown(KEY_LEFT_SHIFT)) {
 			int width = (maxCols - cursor->x) * colWidth;
-			mu_Rect cursorRect = {x + 1, y + 2, width + 1, lineHeight};
+			mu_Rect cursorRect = {cx + 1, cy + 2, width + 1, lineHeight};
 			mu_draw_box(ctx, cursorRect, cursorColor);
 		}
 		else if (IsKeyDown(KEY_LEFT_CONTROL)) {
@@ -339,6 +340,9 @@ int _mu_multitext(mu_Context *ctx, int maxCols, int textLen, char *text, int _, 
 		else {
 			mu_draw_box(ctx, cursorRect, cursorColor);
 		}
+	}
+	else {
+		mu_draw_rect(ctx, cursorRect, cursorColor);
 	}
 	
 	// Drawing text
