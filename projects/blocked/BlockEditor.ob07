@@ -97,10 +97,12 @@ BEGIN
 		VM.Debug(vmm, currentBlock, entry, error, break);
 		UpdateCursorByPC();
 	END;
-	MUI.Label(ctx, "");
-	IF MUI.Button(ctx, "Step") THEN
-		VM.Step(vmm, currentBlock, error, break);
-		UpdateCursorByPC();
+	IF ~ break THEN
+		MUI.Label(ctx, "");
+		IF MUI.Button(ctx, "Step") THEN
+			VM.Step(vmm, currentBlock, error, break);
+			UpdateCursorByPC();
+		END;
 	END;
 	
 	MUI.LayoutRow(ctx, 1, rowWidth1, 0);
@@ -282,6 +284,7 @@ BEGIN
 	d0currentBlock := 2.0; // test
 	ST.ReadBlock(d0, FLOOR(d0currentBlock) - 1, currentBlock);
 	error.code := VM.ERR_NONE;
+	break := TRUE;
 	
 	RL.SetTargetFPS(60);
 	RL.InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Block Editor");

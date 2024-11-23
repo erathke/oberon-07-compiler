@@ -313,7 +313,7 @@ VAR
 			token_id := ORD(token);
 			INC(j);
 		UNTIL (token_id < MARKS) OR ((offs + j) = len);
-		RETURN j
+		RETURN j - 1
 	END ReadIdent;
 	
 	PROCEDURE SearchIdent(m: Machine; ref: Identifier; VAR ref_addr: INTEGER);
@@ -459,11 +459,18 @@ VAR
 	i: INTEGER;
 	instr: Instruction;
 BEGIN
-	instr := m.code[m.pc];
+
 	i := m.pc;
-	//Out.String("pc: "); Out.Int(m.pc, 0); 
-	//Out.String(", code:"); Out.Int(instr.code, 0); 
-	//Out.Ln;
+	instr := m.code[i];	
+	(*
+	WHILE (i < MAX_INSTRUCTIONS) & (instr.code = INST_NOP) DO
+		INC(i);
+		instr := m.code[i];
+	END;
+	*)
+	
+	Out.String("instr: "); Out.Int(instr.code, 0);  Out.String(" at "); Out.Int(m.pc, 0); Out.Ln;
+	
 	CASE instr.code OF
 	| INST_CALL:
 		IF Push(m.rs, i, error, i) THEN
@@ -612,13 +619,22 @@ END Run;
 PROCEDURE Debug*(VAR m: Machine; block: ST.Block; entry: INTEGER; VAR error: Error; VAR break: BOOLEAN);
 VAR
 	len: INTEGER;
+	instr: Instruction;
 BEGIN
 	ResetMachine(m);
 	error.code := ERR_NONE;
 	len := LEN(block.data);
 	Parse(m, block, len);
+	(*
+	instr := m.code[entry];
+	IF instr.code = INST_NOP THEN
+		WHILE (entry < MAX_INSTRUCTIONS) & (instr.code = INST_NOP) DO
+			INC(entry);
+			instr := m.code[entry];
+		END;
+	END;
+	*)
 	m.pc := entry;
-	Step(m, block, error, break);
 END Debug;
 
 
