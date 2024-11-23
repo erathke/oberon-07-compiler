@@ -95,6 +95,7 @@ BEGIN
 			String.Append(stackValInfo, stackValStr);
 			String.Append(stackValInfo, ": ");
 			sval := vmm.ws.data[i].l;
+			String.Clear(stackValStr);
 			IF sval # 0 THEN // REAL
 				rval := SYSTEM.VAL(vmm.ws.data[i], REAL);
 				String.FromReal(rval, 3, stackValStr);
