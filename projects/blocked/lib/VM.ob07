@@ -51,6 +51,7 @@ CONST
 	ERR_UNKNOWN_REF = 1;
 	ERR_UNKNOWN_MACRO = 2;
 	ERR_T_INT_CONV = 3;
+	ERR_T_REAL_CONV = 4;
 	ERR_ST_UNDERFLOW = 10;
 	ERR_ST_OVERFLOW = 11;
 	ERR_ST_INDEX = 11;
@@ -97,10 +98,6 @@ TYPE
 		dict: Dictionary;
 		wordCount: INTEGER
 	END;
-
-
-PROCEDURE [extern, "printf"] printReal(fmt: INTEGER; value: REAL);
-PROCEDURE [extern, "printf"] printInt(fmt: INTEGER; value: INTEGER);
 
 
 PROCEDURE AddInstruction(VAR m: Machine; code, value, address: INTEGER);
@@ -382,7 +379,7 @@ BEGIN
 			IF String.ToReal(ref, r_val) THEN
 				AddInstructionR(m, INST_PUSH_REAL, r_val, i);
 			ELSE // error: invalid number
-				AddInstruction(m, INST_ERR, ERR_T_INT_CONV, i);
+				AddInstruction(m, INST_ERR, ERR_T_REAL_CONV, i);
 			END;
 		| MARK_TP_ADDR: 
 			i := i + ReadIdent(block, i + 1, len, ref);
@@ -407,6 +404,7 @@ BEGIN
 	| ERR_UNKNOWN_REF:   error.msg := "Unknown reference";
 	| ERR_UNKNOWN_MACRO: error.msg := "Unknown macro";
 	| ERR_T_INT_CONV:    error.msg := "Invalid integer";
+	| ERR_T_REAL_CONV:   error.msg := "Invalid real";
 	END;
 END GetErrorMessage;
 
@@ -473,6 +471,7 @@ BEGIN
 						END;
 					END;
 				END;
+
 			| INST_PUSH_R: Push(m.ws, m.R, error, i);
 			| INST_POP_R: Pop(m.ws, m.R, error, i);
 			| INST_PUSH_S: Push(m.ws, m.S, error, i);
@@ -480,10 +479,7 @@ BEGIN
 			| INST_PUSH_U: PushR(m.ws, m.U, error, i);
 			| INST_POP_U: PopR(m.ws, m.U, error, i);
 			| INST_PUSH_V: PushR(m.ws, m.V, error, i);
-			| INST_POP_V: 
-				PopR(m.ws, m.V, error, i);
-				Out.String("V: "); printReal(SYSTEM.SADR("%f"), m.V);
-				printInt(SYSTEM.SADR("%s"), SYSTEM.SADR(0AX))
+			| INST_POP_V:  PopR(m.ws, m.V, error, i);
 			
 			| INST_ERR:
 				error.code := instr.value;
@@ -502,12 +498,25 @@ VAR
 BEGIN
 	m.pc := 0;
 	m.ic := 0;
-	m.ws.sp := 0;
-	m.rs.sp := 0;
 	m.wordCount := 0;
+	
+	FOR i := 0 TO m.ws.sp - 1 DO
+		m.ws.data[i].h := 0;
+		m.ws.data[i].l := 0;
+	END;
+	m.ws.sp := 0;
+	
+	FOR i := 0 TO m.rs.sp - 1 DO
+		m.rs.data[i].h := 0;
+		m.rs.data[i].l := 0;
+	END;
+	m.rs.sp := 0;
 	
 	FOR i := 0 TO MAX_INSTRUCTIONS - 1 DO
 		m.code[i].code := INST_NOP;
+		m.code[i].value := 0;
+		m.code[i].rvalue := 0.0;
+		m.code[i].address := 0;
 	END;
 	
 	FOR i := 0 TO DICT_SIZE - 1 DO

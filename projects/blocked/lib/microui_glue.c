@@ -32,3 +32,12 @@ int _mu_textheight(mu_Context *ctx) {
 	mu_Font font = ctx->style->font;
 	return ctx->text_height(font);
 }
+
+void mu_hrule(mu_Context *ctx, int thickness) {
+	mu_Id     id = mu_get_id(ctx, &thickness, sizeof(thickness));
+	mu_Rect rect = mu_layout_next(ctx);
+	mu_update_control(ctx, id, rect, 0);
+	mu_Color color = ctx->style->colors[MU_COLOR_TEXT];
+	mu_Rect hrect = {rect.x, rect.y + (rect.h / 2), rect.w, thickness};
+	mu_draw_rect(ctx, hrect, color);
+}

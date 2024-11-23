@@ -63,9 +63,8 @@ VAR
 	wr1: MUI.Rect;
 	i, sval: INTEGER;
 	rval: REAL;
-	hValStr, lValStr: ARRAY 12 OF CHAR;
 	stackValStr: ARRAY 32 OF CHAR;
-	errStr: ARRAY 64 OF CHAR;
+	stackValInfo, errStr, errStr2: ARRAY 64 OF CHAR;
 	rowWidth1: ARRAY 1 OF INTEGER;
 BEGIN
 	wr1.x := x; wr1.y := y; wr1.w := SCREEN_WIDTH - x - 5; wr1.h := height;
@@ -74,42 +73,58 @@ BEGIN
 	MUI.LayoutSetNext(ctx, wr1, FALSE);
 	MUI.BeginPanelEx(ctx, "Log", MUI.OPT_NONE);
 	
-	
 	MUI.LayoutRow(ctx, 1, rowWidth1, 0);
 	IF error.code # VM.ERR_NONE THEN
-		MUI.Label(ctx, "Error: ");
-		String.FromInt(error.code, errStr);
-		String.Append(errStr, ": ");
+		String.Append(errStr, "Error [");
+		String.FromInt(error.code, errStr2);
+		String.Append(errStr, errStr2);
+		String.Append(errStr, "] at ");
+		String.FromInt(error.pos, errStr2);
+		String.Append(errStr, errStr2);
+		MUI.Label(ctx, errStr);
+		String.Clear(errStr);
 		String.Append(errStr, error.msg);
 		MUI.Label(ctx, errStr);
+		MUI.HRule(ctx, 2);
 	END;
 	
 	MUI.Label(ctx, "Working stack: ");
 	IF vmm.ws.sp > 0 THEN
 		FOR i := vmm.ws.sp - 1 TO 0 BY -1 DO
-			sval := vmm.ws.data[i].h;
-			String.FromInt(sval, hValStr);
+			String.FromInt(i, stackValStr);
+			String.Append(stackValInfo, stackValStr);
+			String.Append(stackValInfo, ": ");
 			sval := vmm.ws.data[i].l;
-			IF sval > 0 THEN
+			IF sval # 0 THEN // REAL
 				rval := SYSTEM.VAL(vmm.ws.data[i], REAL);
-				String.FromReal(rval, lValStr);
-				String.Append(stackValStr, lValStr);
-				String.Append(stackValStr, "|");
+				String.FromReal(rval, 3, stackValStr);
+			ELSE
+				sval := vmm.ws.data[i].h;
+				String.FromInt(sval, stackValStr);
 			END;
-			String.Append(stackValStr, hValStr);
-			MUI.Label(ctx, stackValStr);
+			
+			String.Append(stackValInfo, stackValStr);
+			MUI.Label(ctx, stackValInfo);
+			String.Clear(stackValInfo);
 			String.Clear(stackValStr);
 		END;
 	ELSE
 		MUI.Label(ctx, "<empty>");
 	END;
 	
+	MUI.HRule(ctx, 2);
 	MUI.Label(ctx, "Return stack: ");
 	IF vmm.ws.sp > 0 THEN
 		FOR i := vmm.rs.sp - 1 TO 0 BY -1 DO
+			String.FromInt(i, stackValStr);
+			String.Append(stackValInfo, stackValStr);
+			String.Append(stackValInfo, ": ");
 			sval := vmm.rs.data[i].h;
 			String.FromInt(sval, stackValStr);
-			MUI.Label(ctx, stackValStr);
+			String.Append(stackValInfo, stackValStr);
+			MUI.Label(ctx, stackValInfo);
+			String.Clear(stackValInfo);
+			String.Clear(stackValStr);
 		END;
 	ELSE
 		MUI.Label(ctx, "<empty>");

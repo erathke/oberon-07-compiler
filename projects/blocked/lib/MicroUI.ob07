@@ -63,6 +63,8 @@ PROCEDURE [extern, "_mu_multitext"] MultiText*(ctx: Context; maxCols: INTEGER; V
 PROCEDURE [extern, "_mu_textwidth"] TextWidth*(ctx: Context; text: ARRAY OF CHAR): INTEGER;
 PROCEDURE [extern, "_mu_textheight"] TextHeight*(ctx: Context): INTEGER;
 
+PROCEDURE [extern, "mu_hrule"] HRule*(ctx: Context; thickness: INTEGER);
+
 
 PROCEDURE Init*(VAR ctx: Context);
 BEGIN

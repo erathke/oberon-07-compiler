@@ -164,6 +164,17 @@ BEGIN
 END;
 
 
+PROCEDURE CalcBase(len: INTEGER; VAR base: REAL);
+BEGIN
+	base := 1.0;
+	WHILE len > 0 DO
+		base := base * 10.0;
+		DEC(len);
+	END;
+	
+END CalcBase;
+
+
 PROCEDURE ToReal*(str: ARRAY OF CHAR; VAR value: REAL): BOOLEAN;
 VAR
 	lp, rp: REAL;
@@ -172,18 +183,6 @@ VAR
 	rlen: INTEGER;
 	success: BOOLEAN;
 	divisor: REAL;
-	
-	
-	PROCEDURE CalcDivisor(len: INTEGER; VAR divisor: REAL);
-	BEGIN
-		divisor := 1.0;
-		WHILE len > 0 DO
-			divisor := divisor * 10.0;
-			DEC(len);
-		END;
-		
-	END CalcDivisor;
-	
 BEGIN
 	Split(str, '.', left, right);
 	success := ToInt(left, iv);
@@ -194,7 +193,7 @@ BEGIN
 			iv := 0;
 			success := ToInt(right, iv);
 			IF success THEN
-				CalcDivisor(rlen, divisor);
+				CalcBase(rlen, divisor);
 				rp := FLT(iv) / divisor;
 			END;			
 		END;
@@ -209,15 +208,30 @@ BEGIN
 END ToReal;
 
 
-PROCEDURE FromReal*(r: REAL; VAR str: ARRAY OF CHAR);
+PROCEDURE FromReal*(r: REAL; precision: INTEGER; VAR str: ARRAY OF CHAR);
 VAR
 	h, l: INTEGER;
+	x, b: REAL;
+	hstr, lstr: ARRAY 16 OF CHAR;
+	negative: BOOLEAN;
 BEGIN
+	IF r < 0.0 THEN 
+		negative := TRUE;
+		r := -r; 
+	END;
 	h := FLOOR(r);
-	l := FLOOR(FLT(h) - r);
+	x := r - FLT(h);
+	CalcBase(precision, b);
+	x := x * b;
+	l := FLOOR(x);
 	
-	Out.String("h: "); Out.Int(h, 0); Out.Ln;
-	Out.String("l: "); Out.Int(l, 0); Out.Ln;
+	FromInt(h, hstr);
+	FromInt(l, lstr);
+	
+	IF negative THEN Append(str, "-"); END;
+	Append(str, hstr);
+	Append(str, ".");
+	Append(str, lstr);
 	
 END FromReal;
 
