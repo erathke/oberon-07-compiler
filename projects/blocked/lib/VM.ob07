@@ -39,7 +39,9 @@ CONST
 	INST_ADD_RS = 14;
 	INST_DIV_RS = 15;
 	INST_MULT_RS = 16;
-	INST_PUSH_REAL = 17;
+	INST_MOV_RS = 17;
+	INST_MOV_SR = 18;
+	INST_PUSH_REAL = 19;
 	INST_PUSH_U = 20;
 	INST_POP_U = 21;
 	INST_PUSH_V = 22;
@@ -50,12 +52,14 @@ CONST
 	INST_ADD_UR = 27;
 	INST_DIV_UR = 28;
 	INST_MULT_UR = 29;
-	INST_PUSH_X = 30;
-	INST_POP_X = 31;
-	INST_MOV_XS = 32;
-	INST_MOV_SX = 33;
-	INST_AT = 34;
-	INST_BRK = 35;
+	INST_MOV_UV = 30;
+	INST_MOV_VU = 31;
+	INST_PUSH_X = 32;
+	INST_POP_X = 33;
+	INST_MOV_XS = 34;
+	INST_MOV_SX = 35;
+	INST_AT = 36;
+	INST_BRK = 37;
 	
 	MAX_INSTRUCTIONS = 4000; // TODO: dynamic instruction array
 	
@@ -384,6 +388,10 @@ BEGIN
 				AddInstruction(m, INST_PUSH_S, j, j);
 			ELSIF ref = "S<" THEN
 				AddInstruction(m, INST_POP_S, j, j);
+			ELSIF ref = "R>S" THEN
+				AddInstruction(m, INST_MOV_RS, j, j);
+			ELSIF ref = "R<S" THEN
+				AddInstruction(m, INST_MOV_SR, j, j);
 			ELSIF ref = "RS+" THEN
 				AddInstruction(m, INST_ADD_RS, j, j);
 			ELSIF ref = "RS/" THEN
@@ -398,6 +406,10 @@ BEGIN
 				AddInstruction(m, INST_PUSH_V, j, j);
 			ELSIF ref = "V<" THEN
 				AddInstruction(m, INST_POP_V, j, j);
+			ELSIF ref = "U>V" THEN
+				AddInstruction(m, INST_MOV_UV, j, j);
+			ELSIF ref = "U<V" THEN
+				AddInstruction(m, INST_MOV_VU, j, j);
 			ELSIF ref = "UV+" THEN
 				AddInstruction(m, INST_ADD_UV, j, j);
 			ELSIF ref = "UV/" THEN
@@ -560,10 +572,14 @@ BEGIN
 	| INST_POP_R: Pop(m.ws, m.R, error, m.pc); posNext := TRUE;
 	| INST_PUSH_S: Push(m.ws, m.S, error, m.pc); posNext := TRUE;
 	| INST_POP_S: Pop(m.ws, m.S, error, m.pc); posNext := TRUE;
+	| INST_MOV_RS: m.S := m.R; posNext := TRUE;
+	| INST_MOV_SR: m.R := m.S; posNext := TRUE;
 	| INST_PUSH_U: PushR(m.ws, m.U, error, m.pc); posNext := TRUE;
 	| INST_POP_U: PopR(m.ws, m.U, error, m.pc); posNext := TRUE;
 	| INST_PUSH_V: PushR(m.ws, m.V, error, m.pc); posNext := TRUE;
 	| INST_POP_V:  PopR(m.ws, m.V, error, m.pc); posNext := TRUE;
+	| INST_MOV_UV: m.V := m.U; posNext := TRUE;
+	| INST_MOV_VU: m.U := m.V; posNext := TRUE;
 	| INST_PUSH_X: Push(m.rs, m.X, error, m.pc); posNext := TRUE;
 	| INST_POP_X: Pop(m.rs, m.X, error, m.pc); posNext := TRUE;
 	| INST_MOV_XS: m.X := m.S; posNext := TRUE;
