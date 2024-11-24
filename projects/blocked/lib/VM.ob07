@@ -22,18 +22,16 @@ CONST
 	
 	MARKS = 16;
 	
-	MODE_PARSE = 0;
-	MODE_EXEC = 1;
-	
 	INST_ERR = -1;
 	INST_NOP = 0;
-	INST_CALL = 1;
-	INST_RET = 2;
-	INST_PUSH_INT = 3;
-	INST_ADD_INT = 4; // TODO: replace with RS+?
-	INST_JUMP = 5;
-	INST_JUMP_ZERO = 6;
-	INST_JUMP_ONE = 7;
+	INST_ID = 1;
+	INST_CALL = 2;
+	INST_RET = 3;
+	INST_PUSH_INT = 4;
+	INST_ADD_INT = 5; // TODO: replace with RS+?
+	INST_JUMP = 6;
+	INST_JUMP_ZERO = 7;
+	INST_JUMP_ONE = 8;
 	INST_PUSH_R = 10;
 	INST_POP_R = 11;
 	INST_PUSH_S = 12;
@@ -292,7 +290,7 @@ END PeekR;
 PROCEDURE Parse(VAR m: Machine; block: ST.Block; len: INTEGER);
 VAR
 	token: CHAR;
-	i: INTEGER;
+	i, j: INTEGER;
 	token_id: INTEGER;
 	ref: Identifier;
 	ref_addr: INTEGER;
@@ -338,9 +336,11 @@ BEGIN
 		CASE token_id OF
 		| MARK_END:
 		| MARK_ID_DEF:
-			m.dict[m.wordCount].address := i;
+			j := i;
 			i := i + ReadIdent(block, i + 1, len, m.dict[m.wordCount].name);
+			m.dict[m.wordCount].address := j;
 			INC(m.wordCount);
+			AddInstruction(m, INST_ID, j, j);
 		| MARK_ID_END:
 			AddInstruction(m, INST_RET, i, i);
 		| MARK_ID_AT:
@@ -348,93 +348,98 @@ BEGIN
 		| MARK_ID_BRK:
 			AddInstruction(m, INST_BRK, i, i);
 		| MARK_ID_REF:
+			j := i;
 			i := i + ReadIdent(block, i + 1, len, ref);
 			ref_addr := -1;
 			SearchIdent(m, ref, ref_addr);
 			
 			IF ref_addr = -1 THEN // error: not found	
-				AddInstruction(m, INST_ERR, ERR_UNKNOWN_REF, i);
+				AddInstruction(m, INST_ERR, ERR_UNKNOWN_REF, j);
 			ELSE
-				AddInstruction(m, INST_CALL, ref_addr, i);
+				AddInstruction(m, INST_CALL, ref_addr, j);
 			END;
 		| MARK_ID_MACRO:
+			j := i;
 			i := i + ReadIdent(block, i + 1, len, ref);
 			IF ref = "+" THEN
-				AddInstruction(m, INST_ADD_INT, i, i);
+				AddInstruction(m, INST_ADD_INT, j, j);
 			ELSIF ref = "$" THEN
-				AddInstruction(m, INST_JUMP, i, i);
+				AddInstruction(m, INST_JUMP, j, j);
 			ELSIF ref = "$0" THEN
-				AddInstruction(m, INST_JUMP_ZERO, i, i);
+				AddInstruction(m, INST_JUMP_ZERO, j, j);
 			ELSIF ref = "$1" THEN
-				AddInstruction(m, INST_JUMP_ONE, i, i);
+				AddInstruction(m, INST_JUMP_ONE, j, j);
 			ELSIF ref = "R>" THEN
-				AddInstruction(m, INST_PUSH_R, i, i);
+				AddInstruction(m, INST_PUSH_R, j, j);
 			ELSIF ref = "R<" THEN
-				AddInstruction(m, INST_POP_R, i, i);
+				AddInstruction(m, INST_POP_R, j, j);
 			ELSIF ref = "S>" THEN
-				AddInstruction(m, INST_PUSH_S, i, i);
+				AddInstruction(m, INST_PUSH_S, j, j);
 			ELSIF ref = "S<" THEN
-				AddInstruction(m, INST_POP_S, i, i);
+				AddInstruction(m, INST_POP_S, j, j);
 			ELSIF ref = "RS+" THEN
-				AddInstruction(m, INST_ADD_RS, i, i);
+				AddInstruction(m, INST_ADD_RS, j, j);
 			ELSIF ref = "RS/" THEN
-				AddInstruction(m, INST_DIV_RS, i, i);
+				AddInstruction(m, INST_DIV_RS, j, j);
 			ELSIF ref = "RS*" THEN
-				AddInstruction(m, INST_MULT_RS, i, i);
+				AddInstruction(m, INST_MULT_RS, j, j);
 			ELSIF ref = "U>" THEN
-				AddInstruction(m, INST_PUSH_U, i, i);
+				AddInstruction(m, INST_PUSH_U, j, j);
 			ELSIF ref = "U<" THEN
-				AddInstruction(m, INST_POP_U, i, i);
+				AddInstruction(m, INST_POP_U, j, j);
 			ELSIF ref = "V>" THEN
-				AddInstruction(m, INST_PUSH_V, i, i);
+				AddInstruction(m, INST_PUSH_V, j, j);
 			ELSIF ref = "V<" THEN
-				AddInstruction(m, INST_POP_V, i, i);
+				AddInstruction(m, INST_POP_V, j, j);
 			ELSIF ref = "UV+" THEN
-				AddInstruction(m, INST_ADD_UV, i, i);
+				AddInstruction(m, INST_ADD_UV, j, j);
 			ELSIF ref = "UV/" THEN
-				AddInstruction(m, INST_DIV_UV, i, i);
+				AddInstruction(m, INST_DIV_UV, j, j);
 			ELSIF ref = "UV*" THEN
-				AddInstruction(m, INST_MULT_UV, i, i);
+				AddInstruction(m, INST_MULT_UV, j, j);
 			ELSIF ref = "UR+" THEN
-				AddInstruction(m, INST_ADD_UR, i, i);
+				AddInstruction(m, INST_ADD_UR, j, j);
 			ELSIF ref = "UR/" THEN
-				AddInstruction(m, INST_DIV_UR, i, i);
+				AddInstruction(m, INST_DIV_UR, j, j);
 			ELSIF ref = "UR*" THEN
-				AddInstruction(m, INST_MULT_UR, i, i);
+				AddInstruction(m, INST_MULT_UR, j, j);
 			ELSIF ref = "X>" THEN
-				AddInstruction(m, INST_PUSH_X, i, i);
+				AddInstruction(m, INST_PUSH_X, j, j);
 			ELSIF ref = "X<" THEN
-				AddInstruction(m, INST_POP_X, i, i);
+				AddInstruction(m, INST_POP_X, j, j);
 			ELSIF ref = "X<S" THEN
-				AddInstruction(m, INST_MOV_XS, i, i);
+				AddInstruction(m, INST_MOV_XS, j, j);
 			ELSIF ref = "X>S" THEN
-				AddInstruction(m, INST_MOV_SX, i, i);
+				AddInstruction(m, INST_MOV_SX, j, j);
 			ELSE
-				AddInstruction(m, INST_ERR, ERR_UNKNOWN_MACRO, i);
+				AddInstruction(m, INST_ERR, ERR_UNKNOWN_MACRO, j);
 			END;	
 		| MARK_TP_INT:
+			j := i;
 			i := i + ReadIdent(block, i + 1, len, ref);
 			IF String.ToInt(ref, i_val) THEN
-				AddInstruction(m, INST_PUSH_INT, i_val, i);
+				AddInstruction(m, INST_PUSH_INT, i_val, j);
 			ELSE // error: invalid number
-				AddInstruction(m, INST_ERR, ERR_T_INT_CONV, i);
+				AddInstruction(m, INST_ERR, ERR_T_INT_CONV, j);
 			END;
 		| MARK_TP_REAL:
+			j := i;
 			i := i + ReadIdent(block, i + 1, len, ref);
 			IF String.ToReal(ref, r_val) THEN
-				AddInstructionR(m, INST_PUSH_REAL, r_val, i);
+				AddInstructionR(m, INST_PUSH_REAL, r_val, j);
 			ELSE // error: invalid number
-				AddInstruction(m, INST_ERR, ERR_T_REAL_CONV, i);
+				AddInstruction(m, INST_ERR, ERR_T_REAL_CONV, j);
 			END;
-		| MARK_TP_ADDR: 
+		| MARK_TP_ADDR:
+			j := i;
 			i := i + ReadIdent(block, i + 1, len, ref);
 			ref_addr := -1;
 			SearchIdent(m, ref, ref_addr);
 			
 			IF ref_addr = -1 THEN // error: not found	
-				AddInstruction(m, INST_ERR, ERR_UNKNOWN_REF, i);
+				AddInstruction(m, INST_ERR, ERR_UNKNOWN_REF, j);
 			ELSE
-				AddInstruction(m, INST_PUSH_INT, ref_addr, i);
+				AddInstruction(m, INST_PUSH_INT, ref_addr, j);
 			END;
 		ELSE
 			// comment
@@ -456,100 +461,115 @@ END GetErrorMessage;
 
 PROCEDURE Step*(VAR m: Machine; block: ST.Block; VAR error: Error; VAR break: BOOLEAN);
 VAR
-	i: INTEGER;
-	instr: Instruction;
-BEGIN
-
-	i := m.pc;
-	instr := m.code[i];	
-	(*
-	WHILE (i < MAX_INSTRUCTIONS) & (instr.code = INST_NOP) DO
-		INC(i);
-		instr := m.code[i];
-	END;
-	*)
 	
-	Out.String("instr: "); Out.Int(instr.code, 0);  Out.String(" at "); Out.Int(m.pc, 0); Out.Ln;
+	instr: Instruction;
+	posNext: BOOLEAN;
+	
+	PROCEDURE SetNextPC(VAR m: Machine);
+	VAR
+		i: INTEGER;
+	BEGIN
+		INC(m.pc);
+		i := m.pc;
+		WHILE (i < MAX_INSTRUCTIONS) & (m.code[i].code = INST_NOP) DO		
+			INC(i);
+		END;
+		m.pc := i;
+	END;
+	
+BEGIN
+	
+	instr := m.code[m.pc];
+	//Out.String("instr: "); Out.Int(instr.code, 0);  Out.String(" at "); Out.Int(m.pc, 0); Out.Ln;
 	
 	CASE instr.code OF
+	| INST_ID: m.X := m.pc; posNext := TRUE;
 	| INST_CALL:
-		IF Push(m.rs, i, error, i) THEN
-			i := instr.value;
+		IF Push(m.rs, m.pc, error, m.pc) THEN
+			m.pc := instr.value;
 		END;
 	| INST_RET:
-		IF Pop(m.rs, m.R, error, i) THEN
-			i := m.R;
+		IF Pop(m.rs, m.R, error, m.pc) THEN
+			m.pc := m.R;
+			posNext := TRUE;
 		END;
 	| INST_AT:
-		Push(m.rs, instr.value, error, i);
+		Push(m.rs, instr.value, error, m.pc);
+		posNext := TRUE;
 
 	| INST_PUSH_INT:
-		Push(m.ws, instr.value, error, i);
-	
+		Push(m.ws, instr.value, error, m.pc);
+		posNext := TRUE;
+		
 	| INST_PUSH_REAL:
-		PushR(m.ws, instr.rvalue, error, i);
+		PushR(m.ws, instr.rvalue, error, m.pc);
+		posNext := TRUE;
 	
-	| INST_ADD_RS: m.R := m.R + m.S;
-	| INST_DIV_RS: m.R := m.R DIV m.S;
-	| INST_MULT_RS: m.R := m.R * m.S;
-	| INST_ADD_UV: m.U := m.U + m.V;
-	| INST_DIV_UV: m.U := m.U / m.V;
-	| INST_MULT_UV: m.U := m.U * m.U;
-	| INST_ADD_UR: m.U := m.U + FLT(m.R);
-	| INST_DIV_UR: m.U := m.U / FLT(m.R);
-	| INST_MULT_UR: m.U := m.U * FLT(m.R);
+	| INST_ADD_RS: m.R := m.R + m.S; posNext := TRUE;
+	| INST_DIV_RS: m.R := m.R DIV m.S; posNext := TRUE;
+	| INST_MULT_RS: m.R := m.R * m.S; posNext := TRUE;
+	| INST_ADD_UV: m.U := m.U + m.V; posNext := TRUE;
+	| INST_DIV_UV: m.U := m.U / m.V; posNext := TRUE;
+	| INST_MULT_UV: m.U := m.U * m.U; posNext := TRUE;
+	| INST_ADD_UR: m.U := m.U + FLT(m.R); posNext := TRUE;
+	| INST_DIV_UR: m.U := m.U / FLT(m.R); posNext := TRUE;
+	| INST_MULT_UR: m.U := m.U * FLT(m.R); posNext := TRUE;
 	
 	| INST_ADD_INT:
-		IF Pop(m.ws, m.R, error, i) & Pop(m.ws, m.S, error, i) THEN
-			Push(m.ws, m.R + m.S, error, i);
+		IF Pop(m.ws, m.R, error, m.pc) & Pop(m.ws, m.S, error, m.pc) THEN
+			Push(m.ws, m.R + m.S, error, m.pc);
+			posNext := TRUE;
 		END;
 	| INST_JUMP:
-		IF Pop(m.ws, m.R, error, i) THEN
-			i := m.R;
+		IF Pop(m.ws, m.R, error, m.pc) THEN
+			m.pc := m.R;
 		END;
 	| INST_JUMP_ZERO:
-		IF Peek(m.ws, m.R, -1, error, i) THEN
+		IF Peek(m.ws, m.R, -1, error, m.pc) THEN
 			IF m.R = 0 THEN
-				IF Peek(m.ws, m.S, -2, error, i) THEN
-					i := m.S;
-					Pop(m.ws, m.R, error, i);
-					Pop(m.ws, m.S, error, i);
+				IF Peek(m.ws, m.S, -2, error, m.pc) THEN
+					m.pc := m.S;
+					Pop(m.ws, m.R, error, m.pc);
+					Pop(m.ws, m.S, error, m.pc);
 				END;
+			ELSE
+				posNext := TRUE;
 			END;
 		END;
 	| INST_JUMP_ONE:
-		IF Peek(m.ws, m.R, -1, error, i) THEN
+		IF Peek(m.ws, m.R, -1, error, m.pc) THEN
 			IF m.R = 1 THEN
-				IF Peek(m.ws, m.S, -2, error, i) THEN
-					i := m.S;
-					Pop(m.ws, m.R, error, i);
-					Pop(m.ws, m.S, error, i);
+				IF Peek(m.ws, m.S, -2, error, m.pc) THEN
+					m.pc := m.S;
+					Pop(m.ws, m.R, error, m.pc);
+					Pop(m.ws, m.S, error, m.pc);
 				END;
+			ELSE
+				posNext := TRUE;
 			END;
 		END;
 
-	| INST_PUSH_R: Push(m.ws, m.R, error, i);
-	| INST_POP_R: Pop(m.ws, m.R, error, i);
-	| INST_PUSH_S: Push(m.ws, m.S, error, i);
-	| INST_POP_S: Pop(m.ws, m.S, error, i);
-	| INST_PUSH_U: PushR(m.ws, m.U, error, i);
-	| INST_POP_U: PopR(m.ws, m.U, error, i);
-	| INST_PUSH_V: PushR(m.ws, m.V, error, i);
-	| INST_POP_V:  PopR(m.ws, m.V, error, i);
-	| INST_PUSH_X: Push(m.rs, m.X, error, i);
-	| INST_POP_X: Pop(m.rs, m.X, error, i);
-	| INST_MOV_XS: m.X := m.S;
-	| INST_MOV_SX: m.S := m.X;
+	| INST_PUSH_R: Push(m.ws, m.R, error, m.pc); posNext := TRUE;
+	| INST_POP_R: Pop(m.ws, m.R, error, m.pc); posNext := TRUE;
+	| INST_PUSH_S: Push(m.ws, m.S, error, m.pc); posNext := TRUE;
+	| INST_POP_S: Pop(m.ws, m.S, error, m.pc); posNext := TRUE;
+	| INST_PUSH_U: PushR(m.ws, m.U, error, m.pc); posNext := TRUE;
+	| INST_POP_U: PopR(m.ws, m.U, error, m.pc); posNext := TRUE;
+	| INST_PUSH_V: PushR(m.ws, m.V, error, m.pc); posNext := TRUE;
+	| INST_POP_V:  PopR(m.ws, m.V, error, m.pc); posNext := TRUE;
+	| INST_PUSH_X: Push(m.rs, m.X, error, m.pc); posNext := TRUE;
+	| INST_POP_X: Pop(m.rs, m.X, error, m.pc); posNext := TRUE;
+	| INST_MOV_XS: m.X := m.S; posNext := TRUE;
+	| INST_MOV_SX: m.S := m.X; posNext := TRUE;
 	| INST_BRK: break := TRUE;
 	| INST_ERR:
 		error.code := instr.value;
 		error.pos := instr.address;
 		GetErrorMessage(instr.value, error);
-	|INST_NOP:
+	|INST_NOP: posNext := TRUE;
 	END;
 	
-	m.pc := i;
-	INC(m.pc);
+	IF posNext THEN SetNextPC(m);END;
 
 END Step;
 
@@ -619,13 +639,13 @@ END Run;
 PROCEDURE Debug*(VAR m: Machine; block: ST.Block; entry: INTEGER; VAR error: Error; VAR break: BOOLEAN);
 VAR
 	len: INTEGER;
-	//instr: Instruction;
+	instr: Instruction;
 BEGIN
 	ResetMachine(m);
 	error.code := ERR_NONE;
 	len := LEN(block.data);
 	Parse(m, block, len);
-	(*
+	
 	instr := m.code[entry];
 	IF instr.code = INST_NOP THEN
 		WHILE (entry < MAX_INSTRUCTIONS) & (instr.code = INST_NOP) DO
@@ -633,7 +653,7 @@ BEGIN
 			instr := m.code[entry];
 		END;
 	END;
-	*)
+	
 	m.pc := entry;
 END Debug;
 
