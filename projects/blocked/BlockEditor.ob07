@@ -118,6 +118,45 @@ VAR
 		END;
 	END Error;
 	
+	PROCEDURE AddRegLabel(ctx: MUI.Context; VAR regStr, regInfoStr: ARRAY OF CHAR);
+	BEGIN
+		String.Append(regInfoStr, regStr);
+		MUI.Label(ctx, regInfoStr);
+		String.Clear(regStr);
+		String.Clear(regInfoStr);
+	END AddRegLabel;
+	
+	PROCEDURE Registers(ctx: MUI.Context);
+	VAR 
+		r, s, x: INTEGER;
+		u, v: REAL;
+		regStr: ARRAY 32 OF CHAR;
+		regInfoStr: ARRAY 64 OF CHAR;
+	BEGIN
+		VM.GetRegisters(vmm, r, s, x, u, v);
+		MUI.Label(ctx, "Registers: ");
+		regInfoStr := "R: ";
+		String.FromInt(r, regStr);
+		AddRegLabel(ctx, regStr, regInfoStr);
+		
+		regInfoStr := "S: ";
+		String.FromInt(s, regStr);
+		AddRegLabel(ctx, regStr, regInfoStr);
+		
+		regInfoStr := "U: ";
+		String.FromReal(u, 3, regStr);
+		AddRegLabel(ctx, regStr, regInfoStr);
+		
+		regInfoStr := "V: ";
+		String.FromReal(v, 3, regStr);
+		AddRegLabel(ctx, regStr, regInfoStr);
+		
+		regInfoStr := "X: ";
+		String.FromInt(x, regStr);
+		AddRegLabel(ctx, regStr, regInfoStr);
+		
+	END Registers;
+	
 	PROCEDURE WorkingStack(ctx: MUI.Context);
 	VAR
 		i, sval: INTEGER;
@@ -185,6 +224,8 @@ BEGIN
 		MUI.LayoutRow(ctx, 1, rowWidth1, 0);
 		MUI.HRule(ctx, 2);
 		Error(ctx, error);
+		Registers(ctx);
+		MUI.HRule(ctx, 2);
 		WorkingStack(ctx);
 		MUI.HRule(ctx, 2);
 		ReturnStack(ctx);	

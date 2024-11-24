@@ -119,6 +119,13 @@ BEGIN
 END GetPC;
 
 
+PROCEDURE GetRegisters*(m: Machine; VAR r, s, x: INTEGER; VAR u, v: REAL);
+BEGIN
+	r := m.R; s := m.S; x := m.X;
+	u := m.U; v := m.V;
+END GetRegisters;
+
+
 PROCEDURE AddInstruction(VAR m: Machine; code, value, address: INTEGER);
 VAR
 	instr: Instruction;
@@ -489,8 +496,8 @@ BEGIN
 			m.pc := instr.value;
 		END;
 	| INST_RET:
-		IF Pop(m.rs, m.R, error, m.pc) THEN
-			m.pc := m.R;
+		IF Pop(m.rs, m.X, error, m.pc) THEN
+			m.pc := m.X;
 			posNext := TRUE;
 		END;
 	| INST_AT:
