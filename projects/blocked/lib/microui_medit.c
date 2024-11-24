@@ -22,8 +22,9 @@ static mu_Color tag_colors[TAGS] = {
 	{0,   255, 255, 50}, // cyan = real
 	{  0, 255,   0, 50}, // green = compile
 	{ 50,  50, 220, 50}, // blue = string
-	{180, 180, 180, 15}, // gray = macro
-	{255, 255, 255, 15},
+	{180, 180, 180, 50}, // gray = macro
+	{225, 193, 110, 50}, // brass = alias def
+	{225, 193, 110, 50}, // brass = alias store
 	{255, 255, 255, 15},
 	{255, 255, 255, 15},
 	{255, 255, 255, 15},
@@ -33,6 +34,8 @@ static mu_Color tag_colors[TAGS] = {
 	{255, 102,   0, 50}, // orange = at
 	{255,   0, 255, 50} // ret
 };
+
+static const char hexChars[TAGS] = ".:#$*\"%@!....|&\\";
 
 static void updateCursorPos(mu_Rect *rect, mu_Vec2 *mousePos, 
 		mu_Vec2 *cursor, int lineHeight, int colWidth, int maxCols, int visibleLines) {
@@ -348,7 +351,7 @@ int _mu_multitext(mu_Context *ctx, int maxCols, int textLen, char *text, int _, 
 	// Drawing text
 	mu_Color textColor = tag_colors[0];
 	mu_Vec2 posText = {rect.x + 5, rect.y + 10};
-	const char hexChars[TAGS] = ".:#$*\"%......|@\\";
+	
 	mu_Color currentColor = textColor;
 	
 	for (int y = 0; y < visibleLines; y++) {
