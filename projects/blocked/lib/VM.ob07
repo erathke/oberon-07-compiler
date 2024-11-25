@@ -16,6 +16,9 @@ CONST
 	MARK_ID_REF = 4; // green
 	MARK_TP_ADDR = 5; // blue
 	MARK_ID_MACRO = 6; // gray
+	MARK_ALIAS_DEF = 7; // brass
+	MARK_ALIAS_WRITE = 8; // brass
+	MARK_ALIAS_READ = 9; // brass
 	MARK_ID_BRK = 13; //  = BREAK
 	MARK_ID_AT = 14; // orange = AT
 	MARK_ID_END = 15; // RET
@@ -60,22 +63,27 @@ CONST
 	INST_MOV_SX = 35;
 	INST_AT = 36;
 	INST_BRK = 37;
+	INST_ALIAS = 38;
+	INST_ALIAS_WRITE = 39;
+	INST_ALIAS_READ = 40;
 	
 	MAX_INSTRUCTIONS = 4000; // TODO: dynamic instruction array
 	
 	ERR_NONE* = 0;
 	ERR_UNKNOWN_REF = 1;
 	ERR_UNKNOWN_MACRO = 2;
-	ERR_T_INT_CONV = 3;
-	ERR_T_REAL_CONV = 4;
+	ERR_UNKNOWN_ALIAS = 3;
+	ERR_ALIAS_EXISTS = 4;
+	ERR_T_INT_CONV = 8;
+	ERR_T_REAL_CONV = 9;
 	ERR_ST_UNDERFLOW = 10;
 	ERR_ST_OVERFLOW = 11;
-	ERR_ST_INDEX = 11;
+	ERR_ST_INDEX = 12;
 	
 TYPE
 
 	Value* = RECORD
-		h*, l*: INTEGER
+		h*, l*, alias*: INTEGER
 	END;
 
 	Stack* = RECORD 
@@ -83,7 +91,7 @@ TYPE
 		data*: ARRAY STACK_SIZE OF Value
 	END;
 		
-	Identifier = ARRAY 32 OF CHAR;
+	Identifier* = ARRAY 32 OF CHAR;
 	
 	Word = RECORD
 		name: Identifier;
@@ -112,8 +120,10 @@ TYPE
 		//
 		code: ARRAY MAX_INSTRUCTIONS OF Instruction;
 		// TODO: refactor dictionary
-		dict: Dictionary;
-		wordCount: INTEGER
+		words: Dictionary;
+		aliases: Dictionary;
+		wordCount: INTEGER;
+		aliasCount: INTEGER
 	END;
 
 
@@ -128,6 +138,12 @@ BEGIN
 	r := m.R; s := m.S; x := m.X;
 	u := m.U; v := m.V;
 END GetRegisters;
+
+
+PROCEDURE GetAlias*(m: Machine; idx: INTEGER; VAR id: Identifier);
+BEGIN
+	COPY(m.aliases[idx - 1].name, id); 
+END GetAlias;
 
 
 PROCEDURE AddInstruction(VAR m: Machine; code, value, address: INTEGER);
@@ -213,10 +229,17 @@ END PushR;
 PROCEDURE [oberon-] Pop(VAR stack: Stack; VAR value: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
 VAR
 	success: BOOLEAN;
+	
+	PROCEDURE ClearValue(VAR value: Value);
+	BEGIN
+		value.h := 0; value.l := 0; value.alias := 0;
+	END;
+	
 BEGIN
 	IF stack.sp > 0 THEN
 		DEC(stack.sp);
 		value := stack.data[stack.sp].h;
+		ClearValue(stack.data[stack.sp]);
 		success := TRUE;
 	ELSE
 		PopError(address, error);
@@ -301,7 +324,7 @@ END PeekR;
 PROCEDURE Parse(VAR m: Machine; block: ST.Block; len: INTEGER);
 VAR
 	token: CHAR;
-	i, j: INTEGER;
+	i, j, k: INTEGER;
 	token_id: INTEGER;
 	ref: Identifier;
 	ref_addr: INTEGER;
@@ -325,16 +348,19 @@ VAR
 		RETURN j - 1
 	END ReadIdent;
 	
-	PROCEDURE SearchIdent(m: Machine; ref: Identifier; VAR ref_addr: INTEGER);
+	PROCEDURE [oberon-] SearchIdent(dict: Dictionary; count: INTEGER; ref: Identifier; VAR ref_addr: INTEGER): INTEGER;
 	VAR 
-		j: INTEGER;
+		j, idx: INTEGER;
 	BEGIN
+		idx := -1;
 		// Up to word count allows redeclaration
-		FOR j := 0 TO m.wordCount DO
-			IF ref = m.dict[j].name THEN
-				ref_addr := m.dict[j].address;
+		FOR j := 0 TO count DO
+			IF ref = dict[j].name THEN
+				ref_addr := dict[j].address;
+				idx := j;
 			END;
 		END;
+		RETURN idx
 	END SearchIdent;
 	
 BEGIN
@@ -348,10 +374,21 @@ BEGIN
 		| MARK_END:
 		| MARK_ID_DEF:
 			j := i;
-			i := i + ReadIdent(block, i + 1, len, m.dict[m.wordCount].name);
-			m.dict[m.wordCount].address := j;
+			i := i + ReadIdent(block, i + 1, len, m.words[m.wordCount].name);
+			m.words[m.wordCount].address := j;
 			INC(m.wordCount);
 			AddInstruction(m, INST_ID, j, j);
+		| MARK_ALIAS_DEF:
+			j := i;			
+			i := i + ReadIdent(block, i + 1, len, ref);
+			IF SearchIdent(m.aliases, m.aliasCount, ref, ref_addr) = -1 THEN
+				m.aliases[m.aliasCount].name := ref;
+				m.aliases[m.aliasCount].address := j;
+				INC(m.aliasCount);
+				AddInstruction(m, INST_ALIAS, m.aliasCount, j);
+			ELSE
+				AddInstruction(m, INST_ERR, ERR_ALIAS_EXISTS, j);
+			END;	
 		| MARK_ID_END:
 			AddInstruction(m, INST_RET, i, i);
 		| MARK_ID_AT:
@@ -362,13 +399,37 @@ BEGIN
 			j := i;
 			i := i + ReadIdent(block, i + 1, len, ref);
 			ref_addr := -1;
-			SearchIdent(m, ref, ref_addr);
+			SearchIdent(m.words, m.wordCount, ref, ref_addr);
 			
 			IF ref_addr = -1 THEN // error: not found	
 				AddInstruction(m, INST_ERR, ERR_UNKNOWN_REF, j);
 			ELSE
 				AddInstruction(m, INST_CALL, ref_addr, j);
 			END;
+		| MARK_ALIAS_WRITE:
+			j := i;
+			i := i + ReadIdent(block, i + 1, len, ref);
+			ref_addr := -1;
+			k := SearchIdent(m.aliases, m.aliasCount, ref, ref_addr);
+			
+			IF ref_addr = -1 THEN 
+				AddInstruction(m, INST_ERR, ERR_UNKNOWN_ALIAS, j);
+			ELSE
+				AddInstruction(m, INST_ALIAS_WRITE, k + 1, j);
+			END;
+			
+		| MARK_ALIAS_READ:
+			j := i;
+			i := i + ReadIdent(block, i + 1, len, ref);
+			ref_addr := -1;
+			k := SearchIdent(m.aliases, m.aliasCount, ref, ref_addr);
+			
+			IF ref_addr = -1 THEN 
+				AddInstruction(m, INST_ERR, ERR_UNKNOWN_ALIAS, j);
+			ELSE
+				AddInstruction(m, INST_ALIAS_READ, k + 1, j);
+			END;
+			
 		| MARK_ID_MACRO:
 			j := i;
 			i := i + ReadIdent(block, i + 1, len, ref);
@@ -453,7 +514,7 @@ BEGIN
 			j := i;
 			i := i + ReadIdent(block, i + 1, len, ref);
 			ref_addr := -1;
-			SearchIdent(m, ref, ref_addr);
+			SearchIdent(m.words, m.wordCount, ref, ref_addr);
 			
 			IF ref_addr = -1 THEN // error: not found	
 				AddInstruction(m, INST_ERR, ERR_UNKNOWN_REF, j);
@@ -474,6 +535,9 @@ BEGIN
 	| ERR_UNKNOWN_MACRO: error.msg := "Unknown macro";
 	| ERR_T_INT_CONV:    error.msg := "Invalid integer";
 	| ERR_T_REAL_CONV:   error.msg := "Invalid real";
+	ELSE
+		error.msg := "Unknown error";
+		Out.String("error: "); Out.Int(code, 0); Out.Ln;
 	END;
 END GetErrorMessage;
 
@@ -496,6 +560,51 @@ VAR
 		m.pc := i;
 	END;
 	
+	PROCEDURE TagStack(VAR m: Machine; tagIdx: INTEGER);
+	BEGIN
+		m.ws.data[m.ws.sp - 1].alias := tagIdx;
+	END;
+	
+	PROCEDURE SetTagValue(VAR m: Machine; tagIdx: INTEGER; VAR error: Error);
+	VAR
+		i: INTEGER;
+		idx: INTEGER;
+	BEGIN
+		idx := -1;
+		FOR i := m.ws.sp TO 0 BY -1 DO
+			IF tagIdx = m.ws.data[i].alias THEN
+				idx := i;
+				i := -1;
+			END;
+		END;
+		IF idx # -1 THEN
+			IF Pop(m.ws, m.R, error, m.pc) THEN
+				m.ws.data[idx].h := m.R;
+			END;
+		END;
+	END;
+	
+	PROCEDURE GetTagValue(VAR m: Machine; tagIdx: INTEGER; VAR error: Error);
+	VAR
+		i: INTEGER;
+		idx: INTEGER;
+	BEGIN
+		idx := -1;
+		FOR i := m.ws.sp TO 0 BY -1 DO
+			IF tagIdx = m.ws.data[i].alias THEN
+				idx := i;
+				i := -1;
+			END;
+		END;
+		IF idx # -1 THEN
+			Push(m.ws, m.ws.data[idx].h, error, m.pc);
+		ELSE
+			error.code := ERR_UNKNOWN_ALIAS;
+			error.pos := m.pc;
+			GetErrorMessage(ERR_UNKNOWN_ALIAS, error);
+		END;
+	END;
+	
 BEGIN
 	
 	instr := m.code[m.pc];
@@ -503,6 +612,21 @@ BEGIN
 	
 	CASE instr.code OF
 	| INST_ID: m.X := m.pc; posNext := TRUE;
+	| INST_ALIAS:
+		IF m.ws.sp < 1 THEN
+			error.code := ERR_ST_INDEX;
+			error.pos := m.pc;
+			GetErrorMessage(instr.value, error);
+		ELSE
+			TagStack(m, instr.value);
+			m.X := m.pc; posNext := TRUE;
+		END;
+	| INST_ALIAS_WRITE: 
+		SetTagValue(m, instr.value, error);
+		posNext := TRUE;
+	| INST_ALIAS_READ:
+		GetTagValue(m, instr.value, error);
+		posNext := TRUE;
 	| INST_CALL:
 		IF Push(m.rs, m.pc, error, m.pc) THEN
 			m.pc := instr.value;
@@ -617,7 +741,7 @@ VAR
 	i: INTEGER;
 BEGIN
 	m.pc := 0; m.ic := 0;
-	m.wordCount := 0;
+	m.wordCount := 0; m.aliasCount := 0;
 	m.R := 0; m.S := 0;
 	m.U := 0.0; m.V := 0.0;
 	m.X := 0;
@@ -625,6 +749,7 @@ BEGIN
 	FOR i := 0 TO m.ws.sp - 1 DO
 		m.ws.data[i].h := 0;
 		m.ws.data[i].l := 0;
+		m.ws.data[i].alias := 0;
 	END;
 	m.ws.sp := 0;
 	
@@ -642,8 +767,10 @@ BEGIN
 	END;
 	
 	FOR i := 0 TO DICT_SIZE - 1 DO
-		m.dict[i].address := 0;
-		String.Clear(m.dict[i].name);
+		m.words[i].address := 0;
+		m.aliases[i].address := 0;
+		String.Clear(m.words[i].name);
+		String.Clear(m.aliases[i].name);
 	END;
 END ResetMachine;
 
