@@ -80,17 +80,18 @@ CONST
 	ERR_ST_OVERFLOW = 11;
 	ERR_ST_INDEX = 12;
 	
-	KIND_NONE = 0;
-	KIND_INT = 1;
-	KIND_REAL = 2;
-	KIND_CHAR = 3;
-	KIND_BYTE = 4;
-	KIND_POINTER = 5;
+	KIND_NONE* = 0;
+	KIND_INT* = 1;
+	KIND_REAL* = 2;
+	KIND_CHAR* = 3;
+	KIND_BYTE* = 4;
+	KIND_POINTER* = 5;
 	
 TYPE
 
 	Value* = RECORD
-		h*, l*, alias*, kind*: INTEGER
+		h*, l*, alias*: INTEGER;
+		kind*: BYTE
 	END;
 
 	Stack* = RECORD 
@@ -153,6 +154,25 @@ BEGIN
 END GetAlias;
 
 
+PROCEDURE GetErrorMessage(code: INTEGER; VAR error: Error);
+BEGIN
+	CASE code OF
+	| ERR_UNKNOWN_REF:   error.msg := "Unknown reference";
+	| ERR_UNKNOWN_MACRO: error.msg := "Unknown macro";
+	| ERR_UNKNOWN_ALIAS: error.msg := "Unknown alias";
+	| ERR_ALIAS_EXISTS:  error.msg := "Alias already exists";
+	| ERR_T_INT_CONV:    error.msg := "Invalid integer";
+	| ERR_T_REAL_CONV:   error.msg := "Invalid real";
+	| ERR_ST_UNDERFLOW:  error.msg := "Stack underflow";
+	| ERR_ST_OVERFLOW:   error.msg := "Stack overflow";
+	| ERR_ST_INDEX:      error.msg := "Invalid stack index";
+	ELSE
+		error.msg := "Unknown error";
+		Out.String("error: "); Out.Int(code, 0); Out.Ln;
+	END;
+END GetErrorMessage;
+
+
 PROCEDURE AddInstruction(VAR m: Machine; code, value, address: INTEGER);
 VAR
 	instr: Instruction;
@@ -181,7 +201,7 @@ PROCEDURE PushError(address: INTEGER; VAR error: Error);
 BEGIN
 	error.code := ERR_ST_OVERFLOW;
 	error.pos := address;
-	error.msg := "Stack overflow";
+	GetErrorMessage(ERR_ST_OVERFLOW, error);
 END PushError;
 
 
@@ -189,16 +209,16 @@ PROCEDURE PopError(address: INTEGER; VAR error: Error);
 BEGIN
 	error.code := ERR_ST_UNDERFLOW;
 	error.pos := address;
-	error.msg := "Stack underflow";
+	GetErrorMessage(ERR_ST_UNDERFLOW, error);
 END PopError;
 
 
-PROCEDURE PeekError(address: INTEGER; VAR error: Error);
+PROCEDURE IdxError(address: INTEGER; VAR error: Error);
 BEGIN
 	error.code := ERR_ST_INDEX;
 	error.pos := address;
-	error.msg := "Invalid stack index";
-END PeekError;
+	GetErrorMessage(ERR_ST_INDEX, error);
+END IdxError;
 
 
 PROCEDURE [oberon-] Push(VAR stack: Stack; value: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
@@ -285,7 +305,7 @@ BEGIN
 			value := stack.data[idx].h;
 			success := TRUE;
 		ELSE
-			PeekError(address, error);
+			IdxError(address, error);
 			success := FALSE;
 		END;
 	ELSE
@@ -294,7 +314,7 @@ BEGIN
 			value := stack.data[idx].h;
 			success := TRUE;
 		ELSE
-			PeekError(address, error);
+			IdxError(address, error);
 			success := FALSE;
 		END;
 	END;
@@ -313,7 +333,7 @@ BEGIN
 			rvalue := SYSTEM.VAL(stack.data[idx], REAL);
 			success := TRUE;
 		ELSE
-			PeekError(address, error);
+			IdxError(address, error);
 			success := FALSE;
 		END;
 	ELSE
@@ -322,12 +342,29 @@ BEGIN
 			rvalue := SYSTEM.VAL(stack.data[idx], REAL);
 			success := TRUE;
 		ELSE
-			PeekError(address, error);
+			IdxError(address, error);
 			success := FALSE;
 		END;
 	END;
 	RETURN success
 END PeekR;
+
+
+PROCEDURE [oberon-] Poke(VAR stack: Stack; value, relidx: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
+VAR
+	success: BOOLEAN;
+	idx: INTEGER;
+BEGIN
+	idx := stack.sp + relidx;
+	IF idx >= 0 THEN
+		stack.data[idx].h := value;
+		success := TRUE;
+	ELSE
+		IdxError(address, error);
+		success := FALSE;
+	END;
+	RETURN success
+END Poke;
 
 
 PROCEDURE Parse(VAR m: Machine; block: ST.Block; len: INTEGER);
@@ -537,20 +574,6 @@ BEGIN
 END Parse;
 
 
-PROCEDURE GetErrorMessage(code: INTEGER; VAR error: Error);
-BEGIN
-	CASE code OF
-	| ERR_UNKNOWN_REF:   error.msg := "Unknown reference";
-	| ERR_UNKNOWN_MACRO: error.msg := "Unknown macro";
-	| ERR_T_INT_CONV:    error.msg := "Invalid integer";
-	| ERR_T_REAL_CONV:   error.msg := "Invalid real";
-	ELSE
-		error.msg := "Unknown error";
-		Out.String("error: "); Out.Int(code, 0); Out.Ln;
-	END;
-END GetErrorMessage;
-
-
 PROCEDURE Step*(VAR m: Machine; block: ST.Block; VAR error: Error; VAR break: BOOLEAN);
 VAR
 	
@@ -668,8 +691,8 @@ BEGIN
 	| INST_MULT_UR: m.U := m.U * FLT(m.R); posNext := TRUE;
 	
 	| INST_ADD_INT:
-		IF Pop(m.ws, m.R, error, m.pc) & Pop(m.ws, m.S, error, m.pc) THEN
-			Push(m.ws, m.R + m.S, error, m.pc);
+		IF Pop(m.ws, m.R, error, m.pc) & Peek(m.ws, m.S, -1, error, m.pc) THEN
+			Poke(m.ws, m.R + m.S, -1, error, m.pc);
 			posNext := TRUE;
 		END;
 	| INST_JUMP:
@@ -789,6 +812,7 @@ VAR
 	len: INTEGER;
 BEGIN
 	ResetMachine(m);
+	error.code := ERR_NONE;
 	len := LEN(block.data);
 	Parse(m, block, len);
 	Execute(m, block, entry, error);
