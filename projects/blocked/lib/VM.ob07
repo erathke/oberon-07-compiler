@@ -80,10 +80,17 @@ CONST
 	ERR_ST_OVERFLOW = 11;
 	ERR_ST_INDEX = 12;
 	
+	KIND_NONE = 0;
+	KIND_INT = 1;
+	KIND_REAL = 2;
+	KIND_CHAR = 3;
+	KIND_BYTE = 4;
+	KIND_POINTER = 5;
+	
 TYPE
 
 	Value* = RECORD
-		h*, l*, alias*: INTEGER
+		h*, l*, alias*, kind*: INTEGER
 	END;
 
 	Stack* = RECORD 
@@ -200,6 +207,7 @@ VAR
 BEGIN
 	IF stack.sp < STACK_SIZE - 1 THEN
 		stack.data[stack.sp].h := value;
+		stack.data[stack.sp].kind := KIND_INT;
 		INC(stack.sp);
 		success := TRUE;
 	ELSE
@@ -216,6 +224,7 @@ VAR
 BEGIN
 	IF stack.sp < STACK_SIZE - 1 THEN
 		SYSTEM.MOVE(SYSTEM.ADR(rvalue), SYSTEM.ADR(stack.data[stack.sp]), 8);
+		stack.data[stack.sp].kind := KIND_REAL;
 		INC(stack.sp);
 		success := TRUE;
 	ELSE
@@ -623,10 +632,10 @@ BEGIN
 		END;
 	| INST_ALIAS_WRITE: 
 		SetTagValue(m, instr.value, error);
-		posNext := TRUE;
+		posNext := error.code = ERR_NONE;
 	| INST_ALIAS_READ:
 		GetTagValue(m, instr.value, error);
-		posNext := TRUE;
+		posNext := error.code = ERR_NONE;
 	| INST_CALL:
 		IF Push(m.rs, m.pc, error, m.pc) THEN
 			m.pc := instr.value;

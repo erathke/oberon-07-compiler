@@ -94,6 +94,7 @@ VAR
 			MUI.Label(ctx, "");
 			IF MUI.Button(ctx, "Step") THEN
 				VM.Step(vmm, currentBlock, error, break);
+				break := error.code # VM.ERR_NONE;
 				UpdateCursorByPC();
 			END;
 		END;
@@ -104,14 +105,16 @@ VAR
 		 errStr, errStr2: ARRAY 64 OF CHAR;
 	BEGIN
 		IF error.code # VM.ERR_NONE THEN
-			String.Append(errStr, "Error [");
-			String.FromInt(error.code, errStr2);
-			String.Append(errStr, errStr2);
-			String.Append(errStr, "] at ");
+			String.Append(errStr, "Error at [");
 			String.FromInt(error.pos, errStr2);
 			String.Append(errStr, errStr2);
+			String.Append(errStr, "]");
 			MUI.Label(ctx, errStr);
 			String.Clear(errStr);
+			String.Clear(errStr2);
+			String.FromInt(error.code, errStr2);
+			String.Append(errStr, errStr2);
+			String.Append(errStr, ": ");
 			String.Append(errStr, error.msg);
 			MUI.Label(ctx, errStr);
 			MUI.HRule(ctx, 2);
