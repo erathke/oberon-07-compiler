@@ -209,13 +209,13 @@ VAR
 		rowWidth1: ARRAY 4 OF INTEGER;
 	BEGIN
 		MUI.Label(ctx, "Working stack: ");
-		IF vmm.ws.sp > 0 THEN
+		IF vmm.ws.top >= 0 THEN
 			rowWidth1[0] := 30;
 			rowWidth1[1] := 15;
 			rowWidth1[2] := 110;
 			rowWidth1[3] := -1;
 			
-			FOR i := vmm.ws.sp - 1 TO 0 BY -1 DO
+			FOR i := vmm.ws.top TO 0 BY -1 DO
 				MUI.LayoutRow(ctx, 4, rowWidth1, 0);
 				// stack index
 				String.FromInt(i, valStr);
@@ -261,11 +261,11 @@ VAR
 		rowWidth1: ARRAY 3 OF INTEGER;
 	BEGIN
 		MUI.Label(ctx, "Return stack: ");
-		IF vmm.rs.sp > 0 THEN
+		IF vmm.rs.top >= 0 THEN
 			rowWidth1[0] := 30;
 			rowWidth1[1] := 15;
 			rowWidth1[2] := -1;
-			FOR i := vmm.rs.sp - 1 TO 0 BY -1 DO
+			FOR i := vmm.rs.top TO 0 BY -1 DO
 				MUI.LayoutRow(ctx, 3, rowWidth1, 0);
 				// stack index
 				String.FromInt(i, stackValStr);

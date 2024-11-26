@@ -86,6 +86,7 @@ CONST
 	ERR_ST_UNDERFLOW = 10;
 	ERR_ST_OVERFLOW = 11;
 	ERR_ST_INDEX = 12;
+	ERR_INVALID_KIND = 13;
 	
 	KIND_NONE* = 0;
 	KIND_INT* = 1;
@@ -101,7 +102,7 @@ TYPE
 	END;
 
 	Stack* = RECORD 
-		sp*: INTEGER;
+		top*: INTEGER;
 		data*: ARRAY STACK_SIZE OF Value
 	END;
 		
@@ -180,6 +181,7 @@ BEGIN
 	| ERR_ST_UNDERFLOW:  error.msg := "Stack underflow";
 	| ERR_ST_OVERFLOW:   error.msg := "Stack overflow";
 	| ERR_ST_INDEX:      error.msg := "Invalid stack index";
+	| ERR_INVALID_KIND:  error.msg := "Invalid kind";
 	ELSE
 		error.msg := "Unknown error";
 		Out.String("error: "); Out.Int(code, 0); Out.Ln;
@@ -239,12 +241,12 @@ PROCEDURE [oberon-] PushAll(VAR stack: Stack; h, l, kind, alias: INTEGER; VAR er
 VAR
 	success: BOOLEAN;
 BEGIN
-	IF stack.sp < STACK_SIZE - 1 THEN
-		stack.data[stack.sp].h := h;
-		stack.data[stack.sp].l := l;
-		stack.data[stack.sp].kind := kind;
-		stack.data[stack.sp].alias := alias;
-		INC(stack.sp);
+	IF stack.top + 1 < STACK_SIZE THEN
+		INC(stack.top);
+		stack.data[stack.top].h := h;
+		stack.data[stack.top].l := l;
+		stack.data[stack.top].kind := kind;
+		stack.data[stack.top].alias := alias;
 		success := TRUE;
 	ELSE
 		PushError(address, error);
@@ -259,7 +261,6 @@ PROCEDURE [oberon-] Push(VAR stack: Stack; value: INTEGER; VAR error: Error; add
 END Push;
 
 
-
 PROCEDURE [oberon-] PushR(VAR stack: Stack; rvalue: REAL; VAR error: Error; address: INTEGER): BOOLEAN;
 VAR
 	h, l: INTEGER;
@@ -270,64 +271,51 @@ BEGIN
 END PushR;
 
 
-PROCEDURE [oberon-] Pop(VAR stack: Stack; VAR value: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
+PROCEDURE [oberon-] PopAll(VAR stack: Stack; VAR h, l: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
 VAR
 	success: BOOLEAN;
 	
 	PROCEDURE ClearValue(VAR value: Value);
 	BEGIN
-		value.h := 0; value.l := 0; value.alias := 0;
+		value.h := 0;
+		value.l := 0;
+		value.alias := 0;
+		value.kind := KIND_NONE;
 	END;
 	
 BEGIN
-	IF stack.sp > 0 THEN
-		DEC(stack.sp);
-		value := stack.data[stack.sp].h;
-		ClearValue(stack.data[stack.sp]);
+	IF stack.top >= 0 THEN
+		h := stack.data[stack.top].h;
+		l := stack.data[stack.top].l;
+		ClearValue(stack.data[stack.top]);
 		success := TRUE;
+		DEC(stack.top);
 	ELSE
 		PopError(address, error);
 		success := FALSE;
 	END;
 	RETURN success
+END PopAll;
+
+
+PROCEDURE [oberon-] Pop(VAR stack: Stack; VAR value: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
+VAR
+	l: INTEGER;
+BEGIN
+	RETURN PopAll(stack, value, l, error, address)
 END Pop;
 
 
-PROCEDURE [oberon-] PopHL(VAR stack: Stack; VAR h, l: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
-VAR
-	success: BOOLEAN;
-	
-	PROCEDURE ClearValue(VAR value: Value);
-	BEGIN
-		value.h := 0; value.l := 0; value.alias := 0;
-	END;
-	
-BEGIN
-	IF stack.sp > 0 THEN
-		DEC(stack.sp);
-		h := stack.data[stack.sp].h;
-		l := stack.data[stack.sp].l;
-		ClearValue(stack.data[stack.sp]);
-		success := TRUE;
-	ELSE
-		PopError(address, error);
-		success := FALSE;
-	END;
-	RETURN success
-END PopHL;
-
-
 PROCEDURE [oberon-] PopR(VAR stack: Stack; VAR rvalue: REAL; VAR error: Error; address: INTEGER): BOOLEAN;
+TYPE 
+	V = RECORD h, l: INTEGER END;
 VAR
+	val: V;
 	success: BOOLEAN;
 BEGIN
-	IF stack.sp > 0 THEN
-		DEC(stack.sp);
-		rvalue := SYSTEM.VAL(stack.data[stack.sp], REAL);
-		success := TRUE;
-	ELSE
-		PopError(address, error);
-		success := FALSE;
+	success := PopAll(stack, val.h, val.l, error, address);
+	IF success THEN
+		rvalue := SYSTEM.VAL(val, REAL);
 	END;
 	RETURN success
 END PopR;
@@ -338,25 +326,15 @@ VAR
 	success: BOOLEAN;
 	idx: INTEGER;
 BEGIN
-	IF ridx < 0 THEN
-		idx := stack.sp + ridx;
-		IF idx >= 0 THEN
-			value := stack.data[idx].h;
-			success := TRUE;
-		ELSE
-			IdxError(address, error);
-			success := FALSE;
-		END;
+	idx := stack.top + ridx;
+
+	IF (idx < 0) OR (idx >= STACK_SIZE) THEN
+		IdxError(address, error);
 	ELSE
-		idx := ridx;
-		IF (idx >= 0) & (idx < stack.sp) THEN
-			value := stack.data[idx].h;
-			success := TRUE;
-		ELSE
-			IdxError(address, error);
-			success := FALSE;
-		END;
+		value := stack.data[idx].h;
+		success := TRUE;
 	END;
+		
 	RETURN success
 END Peek;
 
@@ -366,26 +344,13 @@ VAR
 	success: BOOLEAN;
 	idx: INTEGER;
 BEGIN
-	IF ridx < 0 THEN
-		idx := stack.sp + ridx;
-		IF idx >= 0 THEN
-			h := stack.data[idx].h;
-			l := stack.data[idx].l;
-			success := TRUE;
-		ELSE
-			IdxError(address, error);
-			success := FALSE;
-		END;
+	idx := stack.top + ridx;
+	IF (idx < 0) OR (idx >= STACK_SIZE) THEN
+		IdxError(address, error);
 	ELSE
-		idx := ridx;
-		IF (idx >= 0) & (idx < stack.sp) THEN
-			h := stack.data[idx].h;
-			l := stack.data[idx].l;
-			success := TRUE;
-		ELSE
-			IdxError(address, error);
-			success := FALSE;
-		END;
+		h := stack.data[idx].h;
+		l := stack.data[idx].l;
+		success := TRUE;
 	END;
 	RETURN success
 END PeekHL;
@@ -395,50 +360,38 @@ PROCEDURE CheckKind(VAR stack: Stack; kind, ridx: INTEGER; VAR error: Error; add
 VAR
 	idx: INTEGER;
 	match: BOOLEAN;
-BEGIN 
-	IF ridx < 0 THEN
-		idx := stack.sp + ridx;
-		IF idx >= 0 THEN
-			match := stack.data[idx].kind = kind;
-		ELSE
-			IdxError(address, error);
-			match := FALSE;
-		END;
+BEGIN
+	idx := stack.top + ridx;
+	IF (idx < 0) OR (idx >= STACK_SIZE) THEN
+		IdxError(address, error);
 	ELSE
-		idx := ridx;
-		IF (idx >= 0) & (idx < stack.sp) THEN
-			match := stack.data[idx].kind = kind;
-		ELSE
-			IdxError(address, error);
-			match := FALSE;
-		END;
+		match := stack.data[idx].kind = kind;
+		IF ~ match THEN
+			error.code := ERR_INVALID_KIND;
+			error.pos := address;
+			GetErrorMessage(ERR_INVALID_KIND, error);
+		END; 
 	END;
+
 	RETURN match
 END CheckKind;
 
 
 PROCEDURE [oberon-] PeekR(VAR stack: Stack; VAR rvalue: REAL; ridx: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
+TYPE 
+	V = RECORD h, l: INTEGER END;
 VAR
 	success: BOOLEAN;
 	idx: INTEGER;
+	val: V;
 BEGIN
-	IF ridx < 0 THEN
-		idx := stack.sp + ridx;
-		IF idx >= 0 THEN
-			rvalue := SYSTEM.VAL(stack.data[idx], REAL);
-			success := TRUE;
-		ELSE
-			IdxError(address, error);
-			success := FALSE;
-		END;
+	idx := stack.top + ridx;
+	IF (idx < 0) OR (idx >= STACK_SIZE) THEN
+		IdxError(address, error);
 	ELSE
-		idx := ridx;
-		IF (idx >= 0) & (idx < stack.sp) THEN
+		success := PeekHL(stack, val.h, val.l, ridx, error, address);
+		IF success THEN
 			rvalue := SYSTEM.VAL(stack.data[idx], REAL);
-			success := TRUE;
-		ELSE
-			IdxError(address, error);
-			success := FALSE;
 		END;
 	END;
 	RETURN success
@@ -450,13 +403,12 @@ VAR
 	success: BOOLEAN;
 	idx: INTEGER;
 BEGIN
-	idx := stack.sp + relidx;
-	IF idx >= 0 THEN
+	idx := stack.top + relidx;
+	IF (idx < 0) OR (idx >= STACK_SIZE) THEN
+		IdxError(address, error);
+	ELSE
 		stack.data[idx].h := value;
 		success := TRUE;
-	ELSE
-		IdxError(address, error);
-		success := FALSE;
 	END;
 	RETURN success
 END Poke;
@@ -694,7 +646,7 @@ VAR
 	
 	PROCEDURE TagStack(VAR m: Machine; tagIdx: INTEGER);
 	BEGIN
-		m.ws.data[m.ws.sp - 1].alias := tagIdx;
+		m.ws.data[m.ws.top].alias := tagIdx;
 	END;
 	
 	PROCEDURE SetTagValue(VAR m: Machine; tagIdx: INTEGER; VAR error: Error);
@@ -703,7 +655,7 @@ VAR
 		idx: INTEGER;
 	BEGIN
 		idx := -1;
-		FOR i := m.ws.sp TO 0 BY -1 DO
+		FOR i := m.ws.top TO 0 BY -1 DO
 			IF tagIdx = m.ws.data[i].alias THEN
 				idx := i;
 				i := -1;
@@ -722,7 +674,7 @@ VAR
 		idx: INTEGER;
 	BEGIN
 		idx := -1;
-		FOR i := m.ws.sp TO 0 BY -1 DO
+		FOR i := m.ws.top TO 0 BY -1 DO
 			IF tagIdx = m.ws.data[i].alias THEN
 				idx := i;
 				i := -1;
@@ -743,7 +695,7 @@ BEGIN
 	CASE instr.code OF
 	| INST_ID: m.X := m.pc; posNext := TRUE;
 	| INST_ALIAS:
-		IF m.ws.sp < 1 THEN
+		IF m.ws.top < 0 THEN
 			error.code := ERR_ST_INDEX;
 			error.pos := m.pc;
 			GetErrorMessage(instr.value, error);
@@ -790,8 +742,8 @@ BEGIN
 	| INST_MULT_UR: m.U := m.U * FLT(m.R); posNext := TRUE;
 	
 	| INST_ADD_INT:
-		IF Pop(m.ws, m.R, error, m.pc) & Peek(m.ws, m.S, -1, error, m.pc) THEN
-			Poke(m.ws, m.R + m.S, -1, error, m.pc);
+		IF Pop(m.ws, m.R, error, m.pc) & Peek(m.ws, m.S, 0, error, m.pc) THEN
+			Poke(m.ws, m.R + m.S, 0, error, m.pc);
 			posNext := TRUE;
 		END;
 	| INST_JUMP:
@@ -799,9 +751,9 @@ BEGIN
 			m.pc := m.R;
 		END;
 	| INST_JUMP_ZERO:
-		IF Peek(m.ws, m.R, -1, error, m.pc) THEN
+		IF Peek(m.ws, m.R, 0, error, m.pc) THEN
 			IF m.R = 0 THEN
-				IF Peek(m.ws, m.S, -2, error, m.pc) THEN
+				IF Peek(m.ws, m.S, -1, error, m.pc) THEN
 					m.pc := m.S;
 					Pop(m.ws, m.R, error, m.pc);
 					Pop(m.ws, m.S, error, m.pc);
@@ -811,9 +763,9 @@ BEGIN
 			END;
 		END;
 	| INST_JUMP_ONE:
-		IF Peek(m.ws, m.R, -1, error, m.pc) THEN
+		IF Peek(m.ws, m.R, 0, error, m.pc) THEN
 			IF m.R = 1 THEN
-				IF Peek(m.ws, m.S, -2, error, m.pc) THEN
+				IF Peek(m.ws, m.S, -1, error, m.pc) THEN
 					m.pc := m.S;
 					Pop(m.ws, m.R, error, m.pc);
 					Pop(m.ws, m.S, error, m.pc);
@@ -851,11 +803,11 @@ BEGIN
 			END;
 		END;
 	| INST_PTR_WRITE:
-		IF CheckKind(m.ws, KIND_POINTER, -3, error, m.pc) THEN
-			IF CheckKind(m.ws, KIND_INT, -2, error, m.pc) THEN
+		IF CheckKind(m.ws, KIND_POINTER, -2, error, m.pc) THEN
+			IF CheckKind(m.ws, KIND_INT, -1, error, m.pc) THEN
 				Pop(m.ws, m.R, error, m.pc); // value
 				Pop(m.ws, m.S, error, m.pc); // offset
-				PeekHL(m.ws, m.X, m.T, -1, error, m.pc); // pointer
+				PeekHL(m.ws, m.X, m.T, 0, error, m.pc); // pointer
 				m.T := m.T + m.X;
 				m.X := m.X + m.S;
 				IF (m.X + 4) > (m.T) THEN // passing pointer size?
@@ -864,16 +816,15 @@ BEGIN
 					GetErrorMessage(-1, error); // TODO: proper error message
 				ELSE
 					SYSTEM.PUT32(m.X, m.R);
-					//SYSTEM.MOVE(SYSTEM.ADR(m.R), SYSTEM.ADR(m.X), 4);
 					posNext := TRUE;
 				END;
 			END;
 		END;
 	| INST_PTR_READ:
-		IF CheckKind(m.ws, KIND_POINTER, -2, error, m.pc) THEN
-			IF CheckKind(m.ws, KIND_INT, -1, error, m.pc) THEN
+		IF CheckKind(m.ws, KIND_POINTER, -1, error, m.pc) THEN
+			IF CheckKind(m.ws, KIND_INT, 0, error, m.pc) THEN
 				Pop(m.ws, m.S, error, m.pc); // offset
-				PeekHL(m.ws, m.X, m.T, -1, error, m.pc); // pointer
+				PeekHL(m.ws, m.X, m.T, 0, error, m.pc); // pointer
 				m.T := m.T + m.X;
 				m.X := m.X + m.S;
 				IF (m.X + 4) > (m.T) THEN // passing pointer size?
@@ -882,15 +833,9 @@ BEGIN
 					GetErrorMessage(-1, error); // TODO: proper error message
 				ELSE
 					SYSTEM.GET32(m.X, m.R);
-					//m.R := SYSTEM.VAL(m.X, INTEGER);
-					//SYSTEM.MOVE(SYSTEM.ADR(m.X), SYSTEM.ADR(m.R), 4);
 					posNext := PushAll(m.ws, m.R, 0, KIND_INT, 0, error, m.pc);
 				END;
-			ELSE
-				posNext := FALSE;
-			END;
-		ELSE
-			posNext := FALSE;	
+			END;	
 		END;
 	| INST_BRK: break := TRUE;
 	| INST_ERR:
@@ -937,18 +882,18 @@ BEGIN
 	m.X := 0;
 	Arena.Wipe(m.heap);
 	
-	FOR i := 0 TO m.ws.sp - 1 DO
+	FOR i := 0 TO m.ws.top DO
 		m.ws.data[i].h := 0;
 		m.ws.data[i].l := 0;
 		m.ws.data[i].alias := 0;
 	END;
-	m.ws.sp := 0;
+	m.ws.top := -1;
 	
-	FOR i := 0 TO m.rs.sp - 1 DO
+	FOR i := 0 TO m.rs.top DO
 		m.rs.data[i].h := 0;
 		m.rs.data[i].l := 0;
 	END;
-	m.rs.sp := 0;
+	m.rs.top := -1;
 	
 	FOR i := 0 TO MAX_INSTRUCTIONS - 1 DO
 		m.code[i].code := INST_NOP;
