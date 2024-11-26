@@ -1,7 +1,7 @@
 MODULE VM;
 IMPORT 
 	Out := Out_sys,
-	SYSTEM,
+	SYSTEM, Arena, 
 	ST IN "./Storage.ob07",
 	String IN "./String.ob07";
 
@@ -19,6 +19,8 @@ CONST
 	MARK_ALIAS_DEF = 7; // brass
 	MARK_ALIAS_WRITE = 8; // brass
 	MARK_ALIAS_READ = 9; // brass
+	MARK_PTR_WRITE = 10; // brass
+	
 	MARK_ID_BRK = 13; //  = BREAK
 	MARK_ID_AT = 14; // orange = AT
 	MARK_ID_END = 15; // RET
@@ -66,6 +68,10 @@ CONST
 	INST_ALIAS = 38;
 	INST_ALIAS_WRITE = 39;
 	INST_ALIAS_READ = 40;
+	INST_ALLOCB = 50;
+	INST_ALLOCS = 51; // TODO
+	INST_PTR_WRITE = 52;
+	INST_PTR_READ = 53; // TODO
 	
 	MAX_INSTRUCTIONS = 4000; // TODO: dynamic instruction array
 	
@@ -88,7 +94,6 @@ CONST
 	KIND_POINTER* = 5;
 	
 TYPE
-
 	Value* = RECORD
 		h*, l*, alias*: INTEGER;
 		kind*: BYTE
@@ -127,6 +132,7 @@ TYPE
 		X: INTEGER; // return stack
 		//
 		code: ARRAY MAX_INSTRUCTIONS OF Instruction;
+		heap: Arena.Memory;
 		// TODO: refactor dictionary
 		words: Dictionary;
 		aliases: Dictionary;
@@ -152,6 +158,12 @@ PROCEDURE GetAlias*(m: Machine; idx: INTEGER; VAR id: Identifier);
 BEGIN
 	COPY(m.aliases[idx - 1].name, id); 
 END GetAlias;
+
+
+PROCEDURE GetMemoryStats*(m: Machine; VAR size, usage: INTEGER);
+BEGIN
+	Arena.GetStats(m.heap, size, usage);
+END GetMemoryStats;
 
 
 PROCEDURE GetErrorMessage(code: INTEGER; VAR error: Error);
@@ -221,13 +233,15 @@ BEGIN
 END IdxError;
 
 
-PROCEDURE [oberon-] Push(VAR stack: Stack; value: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
+PROCEDURE [oberon-] PushAll(VAR stack: Stack; h, l, kind, alias: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
 VAR
 	success: BOOLEAN;
 BEGIN
 	IF stack.sp < STACK_SIZE - 1 THEN
-		stack.data[stack.sp].h := value;
-		stack.data[stack.sp].kind := KIND_INT;
+		stack.data[stack.sp].h := h;
+		stack.data[stack.sp].l := l;
+		stack.data[stack.sp].kind := kind;
+		stack.data[stack.sp].alias := alias;
 		INC(stack.sp);
 		success := TRUE;
 	ELSE
@@ -235,6 +249,11 @@ BEGIN
 		success := FALSE;
 	END;
 	RETURN success
+END PushAll;
+
+
+PROCEDURE [oberon-] Push(VAR stack: Stack; value: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
+	RETURN PushAll(stack, value, 0, KIND_INT, 0, error, address)
 END Push;
 
 
@@ -320,6 +339,32 @@ BEGIN
 	END;
 	RETURN success
 END Peek;
+
+
+PROCEDURE CheckKind(VAR stack: Stack; kind, ridx: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
+VAR
+	idx: INTEGER;
+	match: BOOLEAN;
+BEGIN 
+	IF ridx < 0 THEN
+		idx := stack.sp + ridx;
+		IF idx >= 0 THEN
+			match := stack.data[idx].kind = kind;
+		ELSE
+			IdxError(address, error);
+			match := FALSE;
+		END;
+	ELSE
+		idx := ridx;
+		IF (idx >= 0) & (idx < stack.sp) THEN
+			match := stack.data[idx].kind = kind;
+		ELSE
+			IdxError(address, error);
+			match := FALSE;
+		END;
+	END;
+	RETURN match
+END CheckKind;
 
 
 PROCEDURE [oberon-] PeekR(VAR stack: Stack; VAR rvalue: REAL; ridx: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
@@ -475,6 +520,8 @@ BEGIN
 			ELSE
 				AddInstruction(m, INST_ALIAS_READ, k + 1, j);
 			END;
+		| MARK_PTR_WRITE:
+			AddInstruction(m, INST_PTR_WRITE, i, i);
 			
 		| MARK_ID_MACRO:
 			j := i;
@@ -537,6 +584,8 @@ BEGIN
 				AddInstruction(m, INST_MOV_XS, j, j);
 			ELSIF ref = "X>S" THEN
 				AddInstruction(m, INST_MOV_SX, j, j);
+			ELSIF ref = "allocb" THEN
+				AddInstruction(m, INST_ALLOCB, j, j);
 			ELSE
 				AddInstruction(m, INST_ERR, ERR_UNKNOWN_MACRO, j);
 			END;	
@@ -638,9 +687,7 @@ VAR
 	END;
 	
 BEGIN
-	
 	instr := m.code[m.pc];
-	//Out.String("instr: "); Out.Int(instr.code, 0);  Out.String(" at "); Out.Int(m.pc, 0); Out.Ln;
 	
 	CASE instr.code OF
 	| INST_ID: m.X := m.pc; posNext := TRUE;
@@ -724,22 +771,45 @@ BEGIN
 			END;
 		END;
 
-	| INST_PUSH_R: Push(m.ws, m.R, error, m.pc); posNext := TRUE;
-	| INST_POP_R: Pop(m.ws, m.R, error, m.pc); posNext := TRUE;
-	| INST_PUSH_S: Push(m.ws, m.S, error, m.pc); posNext := TRUE;
-	| INST_POP_S: Pop(m.ws, m.S, error, m.pc); posNext := TRUE;
+	| INST_PUSH_R: posNext := Push(m.ws, m.R, error, m.pc);
+	| INST_POP_R:  posNext := Pop(m.ws, m.R, error, m.pc);
+	| INST_PUSH_S: posNext := Push(m.ws, m.S, error, m.pc);
+	| INST_POP_S:  posNext := Pop(m.ws, m.S, error, m.pc);
 	| INST_MOV_RS: m.S := m.R; posNext := TRUE;
 	| INST_MOV_SR: m.R := m.S; posNext := TRUE;
-	| INST_PUSH_U: PushR(m.ws, m.U, error, m.pc); posNext := TRUE;
-	| INST_POP_U: PopR(m.ws, m.U, error, m.pc); posNext := TRUE;
-	| INST_PUSH_V: PushR(m.ws, m.V, error, m.pc); posNext := TRUE;
-	| INST_POP_V:  PopR(m.ws, m.V, error, m.pc); posNext := TRUE;
+	| INST_PUSH_U: posNext := PushR(m.ws, m.U, error, m.pc);
+	| INST_POP_U:  posNext := PopR(m.ws, m.U, error, m.pc);
+	| INST_PUSH_V: posNext := PushR(m.ws, m.V, error, m.pc);
+	| INST_POP_V:  posNext := PopR(m.ws, m.V, error, m.pc);
 	| INST_MOV_UV: m.V := m.U; posNext := TRUE;
 	| INST_MOV_VU: m.U := m.V; posNext := TRUE;
-	| INST_PUSH_X: Push(m.rs, m.X, error, m.pc); posNext := TRUE;
-	| INST_POP_X: Pop(m.rs, m.X, error, m.pc); posNext := TRUE;
+	| INST_PUSH_X: posNext := Push(m.rs, m.X, error, m.pc);
+	| INST_POP_X:  posNext := Pop(m.rs, m.X, error, m.pc);
 	| INST_MOV_XS: m.X := m.S; posNext := TRUE;
 	| INST_MOV_SX: m.S := m.X; posNext := TRUE;
+	| INST_ALLOCB:
+		IF Pop(m.ws, m.R, error, m.pc) THEN
+			IF m.R > 0 THEN
+				m.S := Arena.Alloc(m.heap, m.R);
+				posNext := PushAll(m.ws, m.S, m.R, KIND_POINTER, 0, error, m.pc);
+			ELSE
+				error.code := -1;
+				error.pos := instr.address;
+				GetErrorMessage(-1, error); // TODO: proper error message
+			END;
+		END;
+	| INST_PTR_WRITE:
+		IF CheckKind(m.ws, KIND_POINTER, -3, error, m.pc) THEN
+			IF CheckKind(m.ws, KIND_INT, -2, error, m.pc) THEN
+				// TODO: test kind of value
+				Pop(m.ws, m.R, error, m.pc); // value
+				Pop(m.ws, m.S, error, m.pc); // offset
+				Pop(m.ws, m.X, error, m.pc); // pointer
+				m.X := m.X + m.S;
+				SYSTEM.MOVE(SYSTEM.ADR(m.R), SYSTEM.ADR(m.X), 4);
+				posNext := TRUE;
+			END;
+		END;
 	| INST_BRK: break := TRUE;
 	| INST_ERR:
 		error.code := instr.value;
@@ -768,6 +838,12 @@ BEGIN
 END Execute;
 
 
+PROCEDURE InitMachine*(VAR m: Machine; heapSize: INTEGER);
+BEGIN
+	m.heap := Arena.Create(heapSize);
+END InitMachine;
+
+
 PROCEDURE ResetMachine*(VAR m: Machine);
 VAR
 	i: INTEGER;
@@ -777,6 +853,7 @@ BEGIN
 	m.R := 0; m.S := 0;
 	m.U := 0.0; m.V := 0.0;
 	m.X := 0;
+	Arena.Wipe(m.heap);
 	
 	FOR i := 0 TO m.ws.sp - 1 DO
 		m.ws.data[i].h := 0;

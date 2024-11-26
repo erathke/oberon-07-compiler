@@ -1,0 +1,87 @@
+MODULE Arena;
+IMPORT SYSTEM;
+
+CONST 
+	MEM_ALIGN = 16;
+	OUT_OF_MEMORY = 99;
+
+TYPE
+	Memory* = POINTER TO RECORD
+		size: INTEGER;
+		offset*: INTEGER;
+		data: INTEGER
+	END;
+
+
+PROCEDURE [extern, "malloc"] malloc(size: INTEGER): INTEGER;
+PROCEDURE [extern, "free"] free(ptr: INTEGER);
+
+
+PROCEDURE Create*(size: INTEGER): Memory;
+VAR
+	mem: Memory;
+BEGIN
+	NEW(mem);
+	mem.size := size;
+	mem.data := malloc(size);
+	RETURN mem
+END Create;
+
+
+PROCEDURE Destroy*(mem: Memory);
+BEGIN
+	free(mem.data);
+	DISPOSE(mem);
+END Destroy;
+
+
+PROCEDURE Wipe*(mem: Memory);
+VAR
+	i: INTEGER;
+BEGIN
+	FOR i := 0 TO mem.size - 1 DO
+		SYSTEM.PUT8(mem.data + i, 0);
+	END;
+	mem.offset := 0;
+END Wipe;
+
+
+PROCEDURE Alloc*(mem: Memory; size: INTEGER): INTEGER;
+VAR
+	baddr, uaddr, tsize: INTEGER;
+BEGIN
+	tsize := size + MEM_ALIGN;
+	IF mem.offset + tsize > mem.size THEN
+		RAISE(OUT_OF_MEMORY);
+	END;
+	baddr := mem.data + mem.offset;
+	uaddr := baddr + MEM_ALIGN;
+	SYSTEM.PUT32(baddr, size);
+	INC(mem.offset, tsize);
+	RETURN uaddr
+END Alloc;
+
+
+PROCEDURE Free*(mem: Memory; addr: INTEGER); END Free;
+
+
+PROCEDURE Realloc*(mem: Memory; addr: INTEGER; newSize: INTEGER): INTEGER;
+VAR
+	baddr, naddr, osize : INTEGER;
+BEGIN
+	baddr := addr - MEM_ALIGN;
+	SYSTEM.GET32(baddr, osize);
+	naddr := Alloc(mem, newSize);
+	SYSTEM.MOVE(addr, naddr, osize);
+	RETURN naddr
+END Realloc;
+
+
+PROCEDURE GetStats*(mem: Memory; VAR size, usage: INTEGER);
+BEGIN
+	size := mem.size;
+	usage := mem.offset;
+END GetStats;
+
+
+END Arena.

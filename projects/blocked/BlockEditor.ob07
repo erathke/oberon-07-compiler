@@ -174,6 +174,7 @@ VAR
 		CASE kind OF 
 		| VM.KIND_INT: COPY("#", symbol);
 		| VM.KIND_REAL: COPY("$", symbol);
+		| VM.KIND_POINTER: COPY("^", symbol);
 		ELSE COPY("?", symbol); END;
 	END;
 
@@ -186,7 +187,7 @@ VAR
 		| VM.KIND_REAL:
 			rval := SYSTEM.VAL(vmm.ws.data[idx], REAL);
 			String.FromReal(rval, 3, valStr);
-		| VM.KIND_INT:
+		| VM.KIND_INT, VM.KIND_POINTER:
 			sval := vmm.ws.data[idx].h;
 			String.FromInt(sval, valStr);
 		ELSE
@@ -288,6 +289,31 @@ VAR
 		END;
 	END ReturnStack;
 	
+	PROCEDURE HeapInfo(ctx: MUI.Context; width: INTEGER);
+	VAR
+		size, usage: INTEGER;
+		valStr: ARRAY 16 OF CHAR;
+		memInfo: ARRAY 32 OF CHAR;
+		rowWidth1: ARRAY 2 OF INTEGER;
+	BEGIN
+		VM.GetMemoryStats(vmm, size, usage);
+		rowWidth1[0] := (width DIV 2) - 5;
+		rowWidth1[1] := -1;
+		// 
+		MUI.Label(ctx, "Memory status: ");
+		MUI.LayoutRow(ctx, 2, rowWidth1, 0);
+		String.Append(memInfo, "Size: ");
+		String.FromInt(size, valStr);
+		String.Append(memInfo, valStr);
+		MUI.Label(ctx, memInfo);
+		String.Clear(valStr);
+		String.Clear(memInfo);
+		String.Append(memInfo, "Usage: ");
+		String.FromInt(usage, valStr);
+		String.Append(memInfo, valStr);
+		MUI.Label(ctx, memInfo);
+	END;
+	
 BEGIN
 	wr1.x := x; wr1.y := y; wr1.w := SCREEN_WIDTH - x - 5; wr1.h := height;
 	rowWidth1[0] := -1;
@@ -303,7 +329,10 @@ BEGIN
 		WorkingStack(ctx);
 		MUI.LayoutRow(ctx, 1, rowWidth1, 0);
 		MUI.HRule(ctx, 2);
-		ReturnStack(ctx);	
+		ReturnStack(ctx);
+		MUI.LayoutRow(ctx, 1, rowWidth1, 0);
+		MUI.HRule(ctx, 2);
+		HeapInfo(ctx, wr1.w);	
 	MUI.EndPanel(ctx);
 END LogPanel;
 
@@ -421,6 +450,8 @@ BEGIN
 	ST.ReadBlock(d0, FLOOR(d0currentBlock) - 1, currentBlock);
 	error.code := VM.ERR_NONE;
 	break := TRUE;
+	
+	VM.InitMachine(vmm, 4096);
 	
 	RL.SetTargetFPS(60);
 	RL.InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Block Editor");

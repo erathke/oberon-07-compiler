@@ -26,7 +26,7 @@ static mu_Color tag_colors[TAGS] = {
 	{225, 193, 110, 50}, // brass = alias def
 	{225, 193, 110, 50}, // brass = alias write
 	{225, 193, 110, 50}, // brass = alias read
-	{255, 255, 255, 15},
+	{225, 193, 110, 50}, // brass = alias pointer write
 	{255, 255, 255, 15},
 	{255, 255, 255, 15},
 	{191, 255,   0, 150}, // lime = brk
@@ -34,7 +34,7 @@ static mu_Color tag_colors[TAGS] = {
 	{255,   0, 255, 50} // ret
 };
 
-static const char hexChars[TAGS] = ".:#$*\"%@><...|&\\";
+static const char hexChars[TAGS] = ".:#$*\"%@><!..|&\\";
 
 static void updateCursorPos(mu_Rect *rect, mu_Vec2 *mousePos, 
 		mu_Vec2 *cursor, int lineHeight, int colWidth, int maxCols, int visibleLines) {
