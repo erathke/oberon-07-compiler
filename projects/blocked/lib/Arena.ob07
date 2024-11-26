@@ -2,7 +2,6 @@ MODULE Arena;
 IMPORT SYSTEM;
 
 CONST 
-	MEM_ALIGN = 16;
 	OUT_OF_MEMORY = 99;
 
 TYPE
@@ -48,33 +47,19 @@ END Wipe;
 
 PROCEDURE Alloc*(mem: Memory; size: INTEGER): INTEGER;
 VAR
-	baddr, uaddr, tsize: INTEGER;
+	baddr: INTEGER;
 BEGIN
-	tsize := size + MEM_ALIGN;
-	IF mem.offset + tsize > mem.size THEN
+	IF mem.offset + size > mem.size THEN
 		RAISE(OUT_OF_MEMORY);
 	END;
 	baddr := mem.data + mem.offset;
-	uaddr := baddr + MEM_ALIGN;
 	SYSTEM.PUT32(baddr, size);
-	INC(mem.offset, tsize);
-	RETURN uaddr
+	INC(mem.offset, size);
+	RETURN baddr
 END Alloc;
 
 
 PROCEDURE Free*(mem: Memory; addr: INTEGER); END Free;
-
-
-PROCEDURE Realloc*(mem: Memory; addr: INTEGER; newSize: INTEGER): INTEGER;
-VAR
-	baddr, naddr, osize : INTEGER;
-BEGIN
-	baddr := addr - MEM_ALIGN;
-	SYSTEM.GET32(baddr, osize);
-	naddr := Alloc(mem, newSize);
-	SYSTEM.MOVE(addr, naddr, osize);
-	RETURN naddr
-END Realloc;
 
 
 PROCEDURE GetStats*(mem: Memory; VAR size, usage: INTEGER);

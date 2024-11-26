@@ -87,6 +87,7 @@ CONST
 	ERR_ST_OVERFLOW = 11;
 	ERR_ST_INDEX = 12;
 	ERR_INVALID_KIND = 13;
+	ERR_INVALID_OFFSET = 14;
 	
 	KIND_NONE* = 0;
 	KIND_INT* = 1;
@@ -151,7 +152,7 @@ END GetPC;
 
 PROCEDURE GetRegisters*(m: Machine; VAR r, s, t, x: INTEGER; VAR u, v: REAL);
 BEGIN
-	r := m.R; s := m.T; s := m.T;
+	r := m.R; s := m.S; t := m.T;
 	x := m.X;
 	u := m.U; v := m.V;
 END GetRegisters;
@@ -172,16 +173,17 @@ END GetMemoryStats;
 PROCEDURE GetErrorMessage(code: INTEGER; VAR error: Error);
 BEGIN
 	CASE code OF
-	| ERR_UNKNOWN_REF:   error.msg := "Unknown reference";
-	| ERR_UNKNOWN_MACRO: error.msg := "Unknown macro";
-	| ERR_UNKNOWN_ALIAS: error.msg := "Unknown alias";
-	| ERR_ALIAS_EXISTS:  error.msg := "Alias already exists";
-	| ERR_T_INT_CONV:    error.msg := "Invalid integer";
-	| ERR_T_REAL_CONV:   error.msg := "Invalid real";
-	| ERR_ST_UNDERFLOW:  error.msg := "Stack underflow";
-	| ERR_ST_OVERFLOW:   error.msg := "Stack overflow";
-	| ERR_ST_INDEX:      error.msg := "Invalid stack index";
-	| ERR_INVALID_KIND:  error.msg := "Invalid kind";
+	| ERR_UNKNOWN_REF:    error.msg := "Unknown reference";
+	| ERR_UNKNOWN_MACRO:  error.msg := "Unknown macro";
+	| ERR_UNKNOWN_ALIAS:  error.msg := "Unknown alias";
+	| ERR_ALIAS_EXISTS:   error.msg := "Alias exists";
+	| ERR_T_INT_CONV:     error.msg := "Invalid integer";
+	| ERR_T_REAL_CONV:    error.msg := "Invalid real";
+	| ERR_ST_UNDERFLOW:   error.msg := "Stack underflow";
+	| ERR_ST_OVERFLOW:    error.msg := "Stack overflow";
+	| ERR_ST_INDEX:       error.msg := "Invalid stack index";
+	| ERR_INVALID_KIND:   error.msg := "Invalid kind";
+	| ERR_INVALID_OFFSET: error.msg := "Invalid offset";
 	ELSE
 		error.msg := "Unknown error";
 		Out.String("error: "); Out.Int(code, 0); Out.Ln;
@@ -799,7 +801,7 @@ BEGIN
 			ELSE
 				error.code := -1;
 				error.pos := instr.address;
-				GetErrorMessage(-1, error); // TODO: proper error message
+				GetErrorMessage(-1, error); // TODO: mem allocation error
 			END;
 		END;
 	| INST_PTR_WRITE:
@@ -811,9 +813,9 @@ BEGIN
 				m.T := m.T + m.X;
 				m.X := m.X + m.S;
 				IF (m.X + 4) > (m.T) THEN // passing pointer size?
-					error.code := -1;
+					error.code := ERR_INVALID_OFFSET;
 					error.pos := instr.address;
-					GetErrorMessage(-1, error); // TODO: proper error message
+					GetErrorMessage(ERR_INVALID_OFFSET, error); 
 				ELSE
 					SYSTEM.PUT32(m.X, m.R);
 					posNext := TRUE;
@@ -828,9 +830,9 @@ BEGIN
 				m.T := m.T + m.X;
 				m.X := m.X + m.S;
 				IF (m.X + 4) > (m.T) THEN // passing pointer size?
-					error.code := -1;
+					error.code := ERR_INVALID_OFFSET;
 					error.pos := instr.address;
-					GetErrorMessage(-1, error); // TODO: proper error message
+					GetErrorMessage(ERR_INVALID_OFFSET, error);
 				ELSE
 					SYSTEM.GET32(m.X, m.R);
 					posNext := PushAll(m.ws, m.R, 0, KIND_INT, 0, error, m.pc);
