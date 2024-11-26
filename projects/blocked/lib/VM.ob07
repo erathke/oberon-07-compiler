@@ -127,7 +127,7 @@ TYPE
 		pc, ic: INTEGER;
 		ws*, rs*: Stack;
 		// registers
-		R, S: INTEGER; // working stack
+		R, S, T: INTEGER; // working stack
 		U, V: REAL; // working stack
 		X: INTEGER; // return stack
 		//
@@ -147,9 +147,10 @@ BEGIN
 END GetPC;
 
 
-PROCEDURE GetRegisters*(m: Machine; VAR r, s, x: INTEGER; VAR u, v: REAL);
+PROCEDURE GetRegisters*(m: Machine; VAR r, s, t, x: INTEGER; VAR u, v: REAL);
 BEGIN
-	r := m.R; s := m.S; x := m.X;
+	r := m.R; s := m.T; s := m.T;
+	x := m.X;
 	u := m.U; v := m.V;
 END GetRegisters;
 
@@ -257,20 +258,14 @@ PROCEDURE [oberon-] Push(VAR stack: Stack; value: INTEGER; VAR error: Error; add
 END Push;
 
 
+
 PROCEDURE [oberon-] PushR(VAR stack: Stack; rvalue: REAL; VAR error: Error; address: INTEGER): BOOLEAN;
 VAR
-	success: BOOLEAN;
+	h, l: INTEGER;
 BEGIN
-	IF stack.sp < STACK_SIZE - 1 THEN
-		SYSTEM.MOVE(SYSTEM.ADR(rvalue), SYSTEM.ADR(stack.data[stack.sp]), 8);
-		stack.data[stack.sp].kind := KIND_REAL;
-		INC(stack.sp);
-		success := TRUE;
-	ELSE
-		PushError(address, error);
-		success := FALSE;
-	END;
-	RETURN success
+	SYSTEM.MOVE(SYSTEM.ADR(rvalue), SYSTEM.ADR(h), 4);
+	SYSTEM.MOVE(SYSTEM.ADR(rvalue) + 4, SYSTEM.ADR(l), 4);
+	RETURN PushAll(stack, h, l, KIND_REAL, 0, error, address)
 END PushR;
 
 
@@ -295,6 +290,30 @@ BEGIN
 	END;
 	RETURN success
 END Pop;
+
+
+PROCEDURE [oberon-] PopHL(VAR stack: Stack; VAR h, l: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
+VAR
+	success: BOOLEAN;
+	
+	PROCEDURE ClearValue(VAR value: Value);
+	BEGIN
+		value.h := 0; value.l := 0; value.alias := 0;
+	END;
+	
+BEGIN
+	IF stack.sp > 0 THEN
+		DEC(stack.sp);
+		h := stack.data[stack.sp].h;
+		l := stack.data[stack.sp].l;
+		ClearValue(stack.data[stack.sp]);
+		success := TRUE;
+	ELSE
+		PopError(address, error);
+		success := FALSE;
+	END;
+	RETURN success
+END PopHL;
 
 
 PROCEDURE [oberon-] PopR(VAR stack: Stack; VAR rvalue: REAL; VAR error: Error; address: INTEGER): BOOLEAN;
@@ -339,6 +358,36 @@ BEGIN
 	END;
 	RETURN success
 END Peek;
+
+
+PROCEDURE [oberon-] PeekHL(VAR stack: Stack; VAR h, l: INTEGER; ridx: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
+VAR
+	success: BOOLEAN;
+	idx: INTEGER;
+BEGIN
+	IF ridx < 0 THEN
+		idx := stack.sp + ridx;
+		IF idx >= 0 THEN
+			h := stack.data[idx].h;
+			l := stack.data[idx].l;
+			success := TRUE;
+		ELSE
+			IdxError(address, error);
+			success := FALSE;
+		END;
+	ELSE
+		idx := ridx;
+		IF (idx >= 0) & (idx < stack.sp) THEN
+			h := stack.data[idx].h;
+			l := stack.data[idx].l;
+			success := TRUE;
+		ELSE
+			IdxError(address, error);
+			success := FALSE;
+		END;
+	END;
+	RETURN success
+END PeekHL;
 
 
 PROCEDURE CheckKind(VAR stack: Stack; kind, ridx: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
@@ -625,7 +674,6 @@ END Parse;
 
 PROCEDURE Step*(VAR m: Machine; block: ST.Block; VAR error: Error; VAR break: BOOLEAN);
 VAR
-	
 	instr: Instruction;
 	posNext: BOOLEAN;
 	
@@ -724,8 +772,9 @@ BEGIN
 		posNext := TRUE;
 		
 	| INST_PUSH_REAL:
-		PushR(m.ws, instr.rvalue, error, m.pc);
-		posNext := TRUE;
+		
+		posNext := PushR(m.ws, instr.rvalue, error, m.pc);
+		//posNext := PushAll(m.ws, m.R, m.S, KIND_REAL, 0, error, m.pc);
 	
 	| INST_ADD_RS: m.R := m.R + m.S; posNext := TRUE;
 	| INST_DIV_RS: m.R := m.R DIV m.S; posNext := TRUE;
@@ -801,13 +850,19 @@ BEGIN
 	| INST_PTR_WRITE:
 		IF CheckKind(m.ws, KIND_POINTER, -3, error, m.pc) THEN
 			IF CheckKind(m.ws, KIND_INT, -2, error, m.pc) THEN
-				// TODO: test kind of value
 				Pop(m.ws, m.R, error, m.pc); // value
 				Pop(m.ws, m.S, error, m.pc); // offset
-				Pop(m.ws, m.X, error, m.pc); // pointer
+				PeekHL(m.ws, m.X, m.T, -1, error, m.pc); // pointer
+				m.T := m.T + m.X;
 				m.X := m.X + m.S;
-				SYSTEM.MOVE(SYSTEM.ADR(m.R), SYSTEM.ADR(m.X), 4);
-				posNext := TRUE;
+				IF (m.X + 4) > (m.T) THEN // passing pointer size?
+					error.code := -1;
+					error.pos := instr.address;
+					GetErrorMessage(-1, error); // TODO: proper error message
+				ELSE
+					SYSTEM.MOVE(SYSTEM.ADR(m.R), SYSTEM.ADR(m.X), 4);
+					posNext := TRUE;
+				END;
 			END;
 		END;
 	| INST_BRK: break := TRUE;

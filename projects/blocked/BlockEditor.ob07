@@ -140,18 +140,22 @@ VAR
 	
 	PROCEDURE Registers(ctx: MUI.Context);
 	VAR 
-		r, s, x: INTEGER;
+		r, s, t, x: INTEGER;
 		u, v: REAL;
 		regStr: ARRAY 32 OF CHAR;
 		regInfoStr: ARRAY 64 OF CHAR;
 	BEGIN
-		VM.GetRegisters(vmm, r, s, x, u, v);
+		VM.GetRegisters(vmm, r, s, t, x, u, v);
 		MUI.Label(ctx, "Registers: ");
 		regInfoStr := "R: ";
 		String.FromInt(r, regStr);
 		AddRegLabel(ctx, regStr, regInfoStr);
 		
 		regInfoStr := "S: ";
+		String.FromInt(s, regStr);
+		AddRegLabel(ctx, regStr, regInfoStr);
+		
+		regInfoStr := "T: ";
 		String.FromInt(s, regStr);
 		AddRegLabel(ctx, regStr, regInfoStr);
 		
