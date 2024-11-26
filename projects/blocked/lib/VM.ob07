@@ -73,6 +73,8 @@ CONST
 	INST_ALLOCS = 51; // TODO
 	INST_PTR_WRITE = 52;
 	INST_PTR_READ = 53; // TODO
+	INST_JUMP_ZERO_NX = 54;
+	INST_JUMP_ONE_NX = 55;
 	
 	MAX_INSTRUCTIONS = 4000; // TODO: dynamic instruction array
 	
@@ -540,6 +542,10 @@ BEGIN
 				AddInstruction(m, INST_JUMP_ZERO, j, j);
 			ELSIF ref = "$1" THEN
 				AddInstruction(m, INST_JUMP_ONE, j, j);
+			ELSIF ref = "$0&" THEN
+				AddInstruction(m, INST_JUMP_ZERO_NX, j, j);
+			ELSIF ref = "$1&" THEN
+				AddInstruction(m, INST_JUMP_ONE_NX, j, j);
 			ELSIF ref = "R>" THEN
 				AddInstruction(m, INST_PUSH_R, j, j);
 			ELSIF ref = "R<" THEN
@@ -629,6 +635,23 @@ BEGIN
 END Parse;
 
 
+PROCEDURE FindNextInstruction(m: Machine; VAR entry: INTEGER): BOOLEAN;
+VAR
+	instr: Instruction;
+	found: BOOLEAN;
+BEGIN
+	instr := m.code[entry];
+	IF instr.code = INST_NOP THEN
+		WHILE (entry < MAX_INSTRUCTIONS) & (instr.code = INST_NOP) & (~found) DO
+			INC(entry);
+			instr := m.code[entry];
+			found := instr.code # INST_NOP;
+		END;
+	END;
+	RETURN found
+END FindNextInstruction;
+
+
 PROCEDURE Step*(VAR m: Machine; block: ST.Block; VAR error: Error; VAR break: BOOLEAN);
 VAR
 	instr: Instruction;
@@ -688,6 +711,21 @@ VAR
 			error.code := ERR_UNKNOWN_ALIAS;
 			error.pos := m.pc;
 			GetErrorMessage(ERR_UNKNOWN_ALIAS, error);
+		END;
+	END;
+	
+	PROCEDURE JumpCond(VAR m: Machine; cond: INTEGER; VAR error: Error; VAR posNext: BOOLEAN);
+	BEGIN
+		IF Peek(m.ws, m.R, 0, error, m.pc) THEN
+			IF m.R = cond THEN
+				IF Peek(m.ws, m.S, -1, error, m.pc) THEN
+					m.pc := m.S;
+					Pop(m.ws, m.R, error, m.pc);
+					Pop(m.ws, m.S, error, m.pc);
+				END;
+			ELSE
+				posNext := TRUE;
+			END;
 		END;
 	END;
 	
@@ -753,30 +791,43 @@ BEGIN
 			m.pc := m.R;
 		END;
 	| INST_JUMP_ZERO:
+		JumpCond(m, 0, error, posNext);
+	| INST_JUMP_ZERO_NX:
 		IF Peek(m.ws, m.R, 0, error, m.pc) THEN
 			IF m.R = 0 THEN
 				IF Peek(m.ws, m.S, -1, error, m.pc) THEN
+					m.T := m.pc + 1;
 					m.pc := m.S;
 					Pop(m.ws, m.R, error, m.pc);
-					Pop(m.ws, m.S, error, m.pc);
+					IF FindNextInstruction(m, m.T) THEN
+						Poke(m.ws, m.T, 0, error, m.pc);
+					ELSE
+					// TODO: error no next instruction
+					END;
 				END;
 			ELSE
 				posNext := TRUE;
 			END;
 		END;
 	| INST_JUMP_ONE:
+		JumpCond(m, 1, error, posNext);
+	| INST_JUMP_ONE_NX:
 		IF Peek(m.ws, m.R, 0, error, m.pc) THEN
 			IF m.R = 1 THEN
 				IF Peek(m.ws, m.S, -1, error, m.pc) THEN
+					m.T := m.pc + 1;
 					m.pc := m.S;
 					Pop(m.ws, m.R, error, m.pc);
-					Pop(m.ws, m.S, error, m.pc);
+					IF FindNextInstruction(m, m.T) THEN
+						Poke(m.ws, m.T, 0, error, m.pc);
+					ELSE
+					// TODO: error no next instruction
+					END;
 				END;
 			ELSE
 				posNext := TRUE;
 			END;
 		END;
-
 	| INST_PUSH_R: posNext := Push(m.ws, m.R, error, m.pc);
 	| INST_POP_R:  posNext := Pop(m.ws, m.R, error, m.pc);
 	| INST_PUSH_S: posNext := Push(m.ws, m.S, error, m.pc);
