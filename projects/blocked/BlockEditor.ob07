@@ -207,15 +207,16 @@ VAR
 		valAlias: VM.Identifier;
 		stackValInfo: ARRAY 32 OF CHAR;
 		rowWidth1: ARRAY 4 OF INTEGER;
+		stackCount: INTEGER;
 	BEGIN
 		MUI.Label(ctx, "Working stack: ");
-		IF vmm.ws.top >= 0 THEN
+		IF ~ VM.IsStackEmpty(vmm.ws) THEN
 			rowWidth1[0] := 30;
 			rowWidth1[1] := 15;
 			rowWidth1[2] := 110;
 			rowWidth1[3] := -1;
-			
-			FOR i := vmm.ws.top TO 0 BY -1 DO
+			VM.GetStackCount(vmm.ws, stackCount);
+			FOR i := stackCount TO 0 BY -1 DO
 				MUI.LayoutRow(ctx, 4, rowWidth1, 0);
 				// stack index
 				String.FromInt(i, valStr);
@@ -259,13 +260,15 @@ VAR
 		stackValStr: ARRAY 16 OF CHAR;
 		stackValInfo: ARRAY 32 OF CHAR;
 		rowWidth1: ARRAY 3 OF INTEGER;
+		stackCount: INTEGER;
 	BEGIN
 		MUI.Label(ctx, "Return stack: ");
-		IF vmm.rs.top >= 0 THEN
+		IF ~ VM.IsStackEmpty(vmm.rs) THEN
 			rowWidth1[0] := 30;
 			rowWidth1[1] := 15;
 			rowWidth1[2] := -1;
-			FOR i := vmm.rs.top TO 0 BY -1 DO
+			VM.GetStackCount(vmm.rs, stackCount);
+			FOR i := stackCount TO 0 BY -1 DO
 				MUI.LayoutRow(ctx, 3, rowWidth1, 0);
 				// stack index
 				String.FromInt(i, stackValStr);

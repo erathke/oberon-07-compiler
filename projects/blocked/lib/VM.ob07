@@ -113,7 +113,7 @@ TYPE
 	END;
 
 	Stack* = RECORD 
-		top*: INTEGER;
+		top: INTEGER;
 		data*: ARRAY STACK_SIZE OF Item
 	END;
 		
@@ -178,6 +178,18 @@ PROCEDURE GetMemoryStats*(m: Machine; VAR size, usage: INTEGER);
 BEGIN
 	Arena.GetStats(m.heap, size, usage);
 END GetMemoryStats;
+
+
+PROCEDURE IsStackEmpty*(stack: Stack): BOOLEAN;
+BEGIN 
+	RETURN stack.top < 0
+END IsStackEmpty;
+
+
+PROCEDURE GetStackCount*(stack: Stack; VAR count: INTEGER);
+BEGIN 
+	count := stack.top;
+END GetStackCount;
 
 
 PROCEDURE GetErrorMessage(code: INTEGER; VAR error: Error);
@@ -977,12 +989,6 @@ BEGIN
 END Execute;
 
 
-PROCEDURE InitMachine*(VAR m: Machine; heapSize: INTEGER);
-BEGIN
-	m.heap := Arena.Create(heapSize);
-END InitMachine;
-
-
 PROCEDURE ResetMachine*(VAR m: Machine);
 VAR
 	i: INTEGER;
@@ -1021,6 +1027,13 @@ BEGIN
 		String.Clear(m.aliases[i].name);
 	END;
 END ResetMachine;
+
+
+PROCEDURE InitMachine*(VAR m: Machine; heapSize: INTEGER);
+BEGIN
+	m.heap := Arena.Create(heapSize);
+	ResetMachine(m);
+END InitMachine;
 
 
 PROCEDURE Run*(VAR m: Machine; block: ST.Block; entry: INTEGER; VAR error: Error);
