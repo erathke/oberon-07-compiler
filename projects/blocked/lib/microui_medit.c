@@ -90,7 +90,7 @@ static bool shiftDataDown(mu_Vec2 *cursor, int dataSize, char *data, int *yOffs,
 	bool moved = false;
 	if (cursor->y < *yOffs + visibleLines - 1) {
 		int tpos = cursor->x + (cursor->y * maxCols);
-		int size = dataSize - tpos - cursor->x;
+		int size = dataSize - tpos - cursor->x - maxCols;
 		memmove(data + tpos + maxCols, data + tpos, size);
 		// cleaning line
 		memset(data + tpos, 0, maxCols);

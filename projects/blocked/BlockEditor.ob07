@@ -413,7 +413,6 @@ BEGIN
 			MUI.Label(ctx, "");
 		END;
 		
-		
 		IF currentBlock.columns > 0 THEN
 			// Block text area
 			MUI.LayoutNext(ctx, dataRect);
