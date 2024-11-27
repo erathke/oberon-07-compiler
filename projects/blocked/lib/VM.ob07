@@ -75,6 +75,9 @@ CONST
 	INST_PTR_READ = 53;
 	INST_JUMP_COND_IF = 54; // TODO
 	INST_JUMP_COND_IFELSE = 55;
+	INST_DUP = 56;
+	INST_DROP = 57;
+	INST_SWAP = 58;
 	
 	MAX_INSTRUCTIONS = 4000; // TODO: dynamic instruction array
 	
@@ -360,7 +363,24 @@ BEGIN
 END PeekHL;
 
 
-PROCEDURE CheckKind(VAR stack: Stack; kind, ridx: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
+PROCEDURE [oberon-] PeekKind(stack: Stack; ridx: INTEGER; VAR kind: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
+VAR
+	success: BOOLEAN;
+	idx: INTEGER;
+BEGIN
+	idx := stack.top + ridx;
+	IF (idx < 0) OR (idx >= STACK_SIZE) THEN
+		IdxError(address, error);
+	ELSE
+		kind := stack.data[idx].kind;
+		success := TRUE;
+	END;
+	RETURN success
+	
+END PeekKind;
+
+
+PROCEDURE CheckKind(stack: Stack; kind, ridx: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
 VAR
 	idx: INTEGER;
 	match: BOOLEAN;
@@ -416,6 +436,25 @@ BEGIN
 	END;
 	RETURN success
 END Poke;
+
+
+PROCEDURE Swap(VAR stack: Stack; idx1, idx2: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
+VAR
+	temp: Value;
+	success: BOOLEAN;
+BEGIN
+	IF stack.top >= 1 THEN
+		idx1 := stack.top + idx1;
+		idx2 := stack.top + idx2;
+		temp := stack.data[idx1];
+		stack.data[idx1] := stack.data[idx2];
+		stack.data[idx2] := temp;
+		success := TRUE;
+	ELSE
+		PopError(address, error);
+	END;
+	RETURN success
+END Swap;
 
 
 PROCEDURE Parse(VAR m: Machine; block: ST.Block; len: INTEGER);
@@ -536,6 +575,12 @@ BEGIN
 			i := i + ReadIdent(block, i + 1, len, ref);
 			IF ref = "+" THEN
 				AddInstruction(m, INST_ADD_INT, j, j);
+			ELSIF ref = "drop" THEN
+				AddInstruction(m, INST_DROP, j, j);
+			ELSIF ref = "dup" THEN
+				AddInstruction(m, INST_DUP, j, j);
+			ELSIF ref = "swap" THEN
+				AddInstruction(m, INST_SWAP, j, j);
 			ELSIF ref = "$" THEN
 				AddInstruction(m, INST_JUMP, j, j);
 			ELSIF ref = "$0" THEN
@@ -881,6 +926,16 @@ BEGIN
 				END;
 			END;	
 		END;
+	| INST_DUP:
+		IF PeekHL(m.ws, m.R, m.S, 0, error, m.pc) THEN
+			PeekKind(m.ws, 0, m.T, error, m.pc);
+			posNext := PushAll(m.ws, m.R, m.S, m.T, 0, error, m.pc);
+		END;
+	| INST_DROP:
+		posNext := Pop(m.ws, m.R, error, m.pc);
+	| INST_SWAP:
+		posNext := Swap(m.ws, 0, -1, error, m.pc);
+		
 	| INST_BRK: break := TRUE;
 	| INST_ERR:
 		error.code := instr.value;
