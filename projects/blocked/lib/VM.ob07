@@ -103,13 +103,18 @@ CONST
 	
 TYPE
 	Value* = RECORD
-		h*, l*, alias*: INTEGER;
+		h*, l*: INTEGER
+	END;
+	
+	Item* = RECORD
+		value*: Value;
+		alias*: INTEGER;
 		kind*: BYTE
 	END;
 
 	Stack* = RECORD 
 		top*: INTEGER;
-		data*: ARRAY STACK_SIZE OF Value
+		data*: ARRAY STACK_SIZE OF Item
 	END;
 		
 	Identifier* = ARRAY 32 OF CHAR;
@@ -122,8 +127,8 @@ TYPE
 	Dictionary = ARRAY DICT_SIZE OF Word;
 
 	Instruction = RECORD
-		code, value, address*: INTEGER;
-		rvalue: REAL
+		code, address: INTEGER;
+		value: Value
 	END;
 	
 	Error* = RECORD
@@ -196,13 +201,13 @@ BEGIN
 END GetErrorMessage;
 
 
-PROCEDURE AddInstruction(VAR m: Machine; code, value, address: INTEGER);
+PROCEDURE AddInstruction(VAR m: Machine; code, ivalue, address: INTEGER);
 VAR
 	instr: Instruction;
 BEGIN 
 	instr.code := code;
-	instr.value := value;
 	instr.address := address;
+	instr.value.h := ivalue;
 	m.code[address] := instr;
 	INC(m.ic);
 END;
@@ -213,8 +218,9 @@ VAR
 	instr: Instruction;
 BEGIN 
 	instr.code := code;
-	instr.rvalue := rvalue;
 	instr.address := address;
+	SYSTEM.MOVE(SYSTEM.ADR(rvalue), SYSTEM.ADR(instr.value.h), 4);
+	SYSTEM.MOVE(SYSTEM.ADR(rvalue) + 4, SYSTEM.ADR(instr.value.l), 4);
 	m.code[address] := instr;
 	INC(m.ic);
 END;
@@ -250,8 +256,8 @@ VAR
 BEGIN
 	IF stack.top + 1 < STACK_SIZE THEN
 		INC(stack.top);
-		stack.data[stack.top].h := h;
-		stack.data[stack.top].l := l;
+		stack.data[stack.top].value.h := h;
+		stack.data[stack.top].value.l := l;
 		stack.data[stack.top].kind := kind;
 		stack.data[stack.top].alias := alias;
 		success := TRUE;
@@ -268,13 +274,9 @@ PROCEDURE [oberon-] Push(VAR stack: Stack; value: INTEGER; VAR error: Error; add
 END Push;
 
 
-PROCEDURE [oberon-] PushR(VAR stack: Stack; rvalue: REAL; VAR error: Error; address: INTEGER): BOOLEAN;
-VAR
-	h, l: INTEGER;
+PROCEDURE [oberon-] PushR(VAR stack: Stack; value: Value; VAR error: Error; address: INTEGER): BOOLEAN;
 BEGIN
-	SYSTEM.MOVE(SYSTEM.ADR(rvalue), SYSTEM.ADR(h), 4);
-	SYSTEM.MOVE(SYSTEM.ADR(rvalue) + 4, SYSTEM.ADR(l), 4);
-	RETURN PushAll(stack, h, l, KIND_REAL, 0, error, address)
+	RETURN PushAll(stack, value.h, value.l, KIND_REAL, 0, error, address)
 END PushR;
 
 
@@ -282,19 +284,19 @@ PROCEDURE [oberon-] PopAll(VAR stack: Stack; VAR h, l: INTEGER; VAR error: Error
 VAR
 	success: BOOLEAN;
 	
-	PROCEDURE ClearValue(VAR value: Value);
+	PROCEDURE ClearItem(VAR item: Item);
 	BEGIN
-		value.h := 0;
-		value.l := 0;
-		value.alias := 0;
-		value.kind := KIND_NONE;
+		item.value.h := 0;
+		item.value.l := 0;
+		item.alias := 0;
+		item.kind := KIND_NONE;
 	END;
 	
 BEGIN
 	IF stack.top >= 0 THEN
-		h := stack.data[stack.top].h;
-		l := stack.data[stack.top].l;
-		ClearValue(stack.data[stack.top]);
+		h := stack.data[stack.top].value.h;
+		l := stack.data[stack.top].value.l;
+		ClearItem(stack.data[stack.top]);
 		success := TRUE;
 		DEC(stack.top);
 	ELSE
@@ -338,7 +340,7 @@ BEGIN
 	IF (idx < 0) OR (idx >= STACK_SIZE) THEN
 		IdxError(address, error);
 	ELSE
-		value := stack.data[idx].h;
+		value := stack.data[idx].value.h;
 		success := TRUE;
 	END;
 		
@@ -355,8 +357,8 @@ BEGIN
 	IF (idx < 0) OR (idx >= STACK_SIZE) THEN
 		IdxError(address, error);
 	ELSE
-		h := stack.data[idx].h;
-		l := stack.data[idx].l;
+		h := stack.data[idx].value.h;
+		l := stack.data[idx].value.l;
 		success := TRUE;
 	END;
 	RETURN success
@@ -431,7 +433,7 @@ BEGIN
 	IF (idx < 0) OR (idx >= STACK_SIZE) THEN
 		IdxError(address, error);
 	ELSE
-		stack.data[idx].h := value;
+		stack.data[idx].value.h := value;
 		success := TRUE;
 	END;
 	RETURN success
@@ -440,7 +442,7 @@ END Poke;
 
 PROCEDURE Swap(VAR stack: Stack; idx1, idx2: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
 VAR
-	temp: Value;
+	temp: Item;
 	success: BOOLEAN;
 BEGIN
 	IF stack.top >= 1 THEN
@@ -701,6 +703,7 @@ PROCEDURE Step*(VAR m: Machine; block: ST.Block; VAR error: Error; VAR break: BO
 VAR
 	instr: Instruction;
 	posNext: BOOLEAN;
+	value: Value;
 	
 	PROCEDURE SetNextPC(VAR m: Machine);
 	VAR
@@ -733,7 +736,7 @@ VAR
 		END;
 		IF idx # -1 THEN
 			IF Pop(m.ws, m.R, error, m.pc) THEN
-				m.ws.data[idx].h := m.R;
+				m.ws.data[idx].value.h := m.R;
 			END;
 		END;
 	END;
@@ -751,7 +754,7 @@ VAR
 			END;
 		END;
 		IF idx # -1 THEN
-			Push(m.ws, m.ws.data[idx].h, error, m.pc);
+			Push(m.ws, m.ws.data[idx].value.h, error, m.pc);
 		ELSE
 			error.code := ERR_UNKNOWN_ALIAS;
 			error.pos := m.pc;
@@ -774,6 +777,12 @@ VAR
 		END;
 	END;
 	
+	PROCEDURE ToValue(VAR value: Value; r: REAL);
+	BEGIN
+		SYSTEM.MOVE(SYSTEM.ADR(r), SYSTEM.ADR(value.h), 4);
+		SYSTEM.MOVE(SYSTEM.ADR(r) + 4, SYSTEM.ADR(value.l), 4);
+	END;
+	
 BEGIN
 	instr := m.code[m.pc];
 	
@@ -783,20 +792,20 @@ BEGIN
 		IF m.ws.top < 0 THEN
 			error.code := ERR_ST_INDEX;
 			error.pos := m.pc;
-			GetErrorMessage(instr.value, error);
+			GetErrorMessage(instr.value.h, error);
 		ELSE
-			TagStack(m, instr.value);
+			TagStack(m, instr.value.h);
 			m.X := m.pc; posNext := TRUE;
 		END;
 	| INST_ALIAS_WRITE: 
-		SetTagValue(m, instr.value, error);
+		SetTagValue(m, instr.value.h, error);
 		posNext := error.code = ERR_NONE;
 	| INST_ALIAS_READ:
-		GetTagValue(m, instr.value, error);
+		GetTagValue(m, instr.value.h, error);
 		posNext := error.code = ERR_NONE;
 	| INST_CALL:
 		IF Push(m.rs, m.pc, error, m.pc) THEN
-			m.pc := instr.value;
+			m.pc := instr.value.h;
 		END;
 	| INST_RET:
 		IF Pop(m.rs, m.X, error, m.pc) THEN
@@ -804,16 +813,16 @@ BEGIN
 			posNext := TRUE;
 		END;
 	| INST_AT:
-		Push(m.rs, instr.value, error, m.pc);
+		Push(m.rs, instr.value.h, error, m.pc);
 		posNext := TRUE;
 
 	| INST_PUSH_INT:
-		Push(m.ws, instr.value, error, m.pc);
+		Push(m.ws, instr.value.h, error, m.pc);
 		posNext := TRUE;
 		
 	| INST_PUSH_REAL:
 		
-		posNext := PushR(m.ws, instr.rvalue, error, m.pc);
+		posNext := PushR(m.ws, instr.value, error, m.pc);
 		//posNext := PushAll(m.ws, m.R, m.S, KIND_REAL, 0, error, m.pc);
 	
 	| INST_ADD_RS: m.R := m.R + m.S; posNext := TRUE;
@@ -870,9 +879,13 @@ BEGIN
 	| INST_POP_S:  posNext := Pop(m.ws, m.S, error, m.pc);
 	| INST_MOV_RS: m.S := m.R; posNext := TRUE;
 	| INST_MOV_SR: m.R := m.S; posNext := TRUE;
-	| INST_PUSH_U: posNext := PushR(m.ws, m.U, error, m.pc);
+	| INST_PUSH_U:
+		ToValue(value, m.U);
+		posNext := PushR(m.ws, value, error, m.pc);
 	| INST_POP_U:  posNext := PopR(m.ws, m.U, error, m.pc);
-	| INST_PUSH_V: posNext := PushR(m.ws, m.V, error, m.pc);
+	| INST_PUSH_V: 
+		ToValue(value, m.V);
+		posNext := PushR(m.ws, value, error, m.pc);
 	| INST_POP_V:  posNext := PopR(m.ws, m.V, error, m.pc);
 	| INST_MOV_UV: m.V := m.U; posNext := TRUE;
 	| INST_MOV_VU: m.U := m.V; posNext := TRUE;
@@ -938,9 +951,9 @@ BEGIN
 		
 	| INST_BRK: break := TRUE;
 	| INST_ERR:
-		error.code := instr.value;
+		error.code := instr.value.h;
 		error.pos := instr.address;
-		GetErrorMessage(instr.value, error);
+		GetErrorMessage(instr.value.h, error);
 	|INST_NOP: posNext := TRUE;
 	END;
 	
@@ -982,22 +995,22 @@ BEGIN
 	Arena.Wipe(m.heap);
 	
 	FOR i := 0 TO m.ws.top DO
-		m.ws.data[i].h := 0;
-		m.ws.data[i].l := 0;
+		m.ws.data[i].value.h := 0;
+		m.ws.data[i].value.l := 0;
 		m.ws.data[i].alias := 0;
 	END;
 	m.ws.top := -1;
 	
 	FOR i := 0 TO m.rs.top DO
-		m.rs.data[i].h := 0;
-		m.rs.data[i].l := 0;
+		m.rs.data[i].value.h := 0;
+		m.rs.data[i].value.l := 0;
 	END;
 	m.rs.top := -1;
 	
 	FOR i := 0 TO MAX_INSTRUCTIONS - 1 DO
 		m.code[i].code := INST_NOP;
-		m.code[i].value := 0;
-		m.code[i].rvalue := 0.0;
+		m.code[i].value.h := 0;
+		m.code[i].value.l := 0;
 		m.code[i].address := 0;
 	END;
 	

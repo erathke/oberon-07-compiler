@@ -189,10 +189,10 @@ VAR
 	BEGIN
 		CASE kind OF
 		| VM.KIND_REAL:
-			rval := SYSTEM.VAL(vmm.ws.data[idx], REAL);
+			rval := SYSTEM.VAL(vmm.ws.data[idx].value, REAL);
 			String.FromReal(rval, 3, valStr);
 		| VM.KIND_INT, VM.KIND_POINTER:
-			sval := vmm.ws.data[idx].h;
+			sval := vmm.ws.data[idx].value.h;
 			String.FromInt(sval, valStr);
 		ELSE
 			COPY("?", valStr);
@@ -281,7 +281,7 @@ VAR
 				String.Clear(stackValInfo);
 				String.Clear(stackValStr);
 				// value
-				sval := vmm.rs.data[i].h;
+				sval := vmm.rs.data[i].value.h;
 				String.FromInt(sval, stackValStr);
 				String.Append(stackValInfo, stackValStr);
 				MUI.Label(ctx, stackValInfo);
