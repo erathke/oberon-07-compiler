@@ -870,7 +870,7 @@ BEGIN
 					m.pc := m.S;
 				END;
 			ELSE
-				posNext := TRUE;
+				posNext := Pop(m.ws, m.R, error, m.pc) & Pop(m.ws, m.S, error, m.pc);
 			END;
 		END;
 	| INST_PUSH_R: posNext := Push(m.ws, m.R, error, m.pc);
