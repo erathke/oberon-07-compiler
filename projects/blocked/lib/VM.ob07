@@ -72,9 +72,9 @@ CONST
 	INST_ALLOCB = 50;
 	INST_ALLOCS = 51; // TODO
 	INST_PTR_WRITE = 52;
-	INST_PTR_READ = 53; // TODO
-	INST_JUMP_ZERO_NX = 54;
-	INST_JUMP_ONE_NX = 55;
+	INST_PTR_READ = 53;
+	INST_JUMP_COND_IF = 54; // TODO
+	INST_JUMP_COND_IFELSE = 55;
 	
 	MAX_INSTRUCTIONS = 4000; // TODO: dynamic instruction array
 	
@@ -542,10 +542,10 @@ BEGIN
 				AddInstruction(m, INST_JUMP_ZERO, j, j);
 			ELSIF ref = "$1" THEN
 				AddInstruction(m, INST_JUMP_ONE, j, j);
-			ELSIF ref = "$0&" THEN
-				AddInstruction(m, INST_JUMP_ZERO_NX, j, j);
-			ELSIF ref = "$1&" THEN
-				AddInstruction(m, INST_JUMP_ONE_NX, j, j);
+			ELSIF ref = "ifelse" THEN
+				AddInstruction(m, INST_JUMP_COND_IFELSE, j, j);
+			ELSIF ref = "if" THEN
+				AddInstruction(m, INST_JUMP_COND_IF, j, j);
 			ELSIF ref = "R>" THEN
 				AddInstruction(m, INST_PUSH_R, j, j);
 			ELSIF ref = "R<" THEN
@@ -792,37 +792,28 @@ BEGIN
 		END;
 	| INST_JUMP_ZERO:
 		JumpCond(m, 0, error, posNext);
-	| INST_JUMP_ZERO_NX:
-		IF Peek(m.ws, m.R, 0, error, m.pc) THEN
-			IF m.R = 0 THEN
-				IF Peek(m.ws, m.S, -1, error, m.pc) THEN
-					m.T := m.pc + 1;
+	| INST_JUMP_COND_IFELSE:
+		IF Pop(m.ws, m.R, error, m.pc) THEN
+			IF m.R = 1 THEN
+				IF Pop(m.ws, m.R, error, m.pc) & Pop(m.ws, m.S, error, m.pc) THEN
+					Push(m.rs, m.pc, error, m.pc);
 					m.pc := m.S;
-					Pop(m.ws, m.R, error, m.pc);
-					IF FindNextInstruction(m, m.T) THEN
-						Poke(m.ws, m.T, 0, error, m.pc);
-					ELSE
-					// TODO: error no next instruction
-					END;
 				END;
 			ELSE
-				posNext := TRUE;
+				IF Pop(m.ws, m.R, error, m.pc) & Pop(m.ws, m.S, error, m.pc) THEN
+					Push(m.rs, m.pc, error, m.pc);
+					m.pc := m.R;
+				END;
 			END;
-		END;
+		END;	
 	| INST_JUMP_ONE:
 		JumpCond(m, 1, error, posNext);
-	| INST_JUMP_ONE_NX:
+	| INST_JUMP_COND_IF:
 		IF Peek(m.ws, m.R, 0, error, m.pc) THEN
 			IF m.R = 1 THEN
-				IF Peek(m.ws, m.S, -1, error, m.pc) THEN
-					m.T := m.pc + 1;
+				IF Pop(m.ws, m.R, error, m.pc) & Pop(m.ws, m.S, error, m.pc) THEN
+					Push(m.rs, m.pc, error, m.pc);
 					m.pc := m.S;
-					Pop(m.ws, m.R, error, m.pc);
-					IF FindNextInstruction(m, m.T) THEN
-						Poke(m.ws, m.T, 0, error, m.pc);
-					ELSE
-					// TODO: error no next instruction
-					END;
 				END;
 			ELSE
 				posNext := TRUE;
