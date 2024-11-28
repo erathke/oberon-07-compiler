@@ -78,8 +78,11 @@ CONST
 	INST_DUP = 56;
 	INST_DROP = 57;
 	INST_SWAP = 58;
+	INST_JUMP_FOR = 59;
+	INST_JUMP_NEXT = 60;
 	
 	MAX_INSTRUCTIONS = 4000; // TODO: dynamic instruction array
+	MAX_MACRO_FOR = 3;
 	
 	ERR_NONE* = 0;
 	ERR_UNKNOWN_REF = 1;
@@ -93,6 +96,8 @@ CONST
 	ERR_ST_INDEX = 12;
 	ERR_INVALID_KIND = 13;
 	ERR_INVALID_OFFSET = 14;
+	ERR_FOR_NOT_FOUND = 15;
+	ERR_FOR_MAX_NESTED = 16;
 	
 	KIND_NONE* = 0;
 	KIND_INT* = 1;
@@ -143,6 +148,10 @@ TYPE
 		R, S, T: INTEGER; // working stack
 		U, V: REAL; // working stack
 		X: INTEGER; // return stack
+		J: INTEGER; // control
+		I: ARRAY MAX_MACRO_FOR OF INTEGER; // for / next
+		// flags
+		L: BOOLEAN;
 		//
 		code: ARRAY MAX_INSTRUCTIONS OF Instruction;
 		heap: Arena.Memory;
@@ -206,6 +215,8 @@ BEGIN
 	| ERR_ST_INDEX:       error.msg := "Invalid stack index";
 	| ERR_INVALID_KIND:   error.msg := "Invalid kind";
 	| ERR_INVALID_OFFSET: error.msg := "Invalid offset";
+	| ERR_FOR_NOT_FOUND:  error.msg := "for not found";
+	| ERR_FOR_MAX_NESTED: error.msg := "max for nesting: 3";
 	ELSE
 		error.msg := "Unknown error";
 		Out.String("error: "); Out.Int(code, 0); Out.Ln;
@@ -480,6 +491,8 @@ VAR
 	ref_addr: INTEGER;
 	i_val: INTEGER;
 	r_val: REAL;
+	forMacros: ARRAY MAX_MACRO_FOR OF INTEGER;
+	forMacroCount: INTEGER;
 	
 	PROCEDURE ReadIdent(block: ST.Block; offs, len: INTEGER; VAR ident: Identifier): INTEGER;
 	VAR
@@ -514,6 +527,7 @@ VAR
 	END SearchIdent;
 	
 BEGIN
+	forMacroCount := 0;
 	FOR i := 0 TO len - 1 DO
 		token := block.data[i];
 		token_id := ORD(token);
@@ -605,6 +619,21 @@ BEGIN
 				AddInstruction(m, INST_JUMP_COND_IFELSE, j, j);
 			ELSIF ref = "if" THEN
 				AddInstruction(m, INST_JUMP_COND_IF, j, j);
+			ELSIF ref = "for" THEN
+				IF forMacroCount < MAX_MACRO_FOR THEN
+					forMacros[forMacroCount] := j;
+					AddInstruction(m, INST_JUMP_FOR, j, j);
+					INC(forMacroCount);
+				ELSE
+					AddInstruction(m, INST_ERR, ERR_FOR_MAX_NESTED, j);
+				END;
+			ELSIF ref = "next" THEN
+				IF forMacroCount > 0 THEN
+					DEC(forMacroCount);
+					AddInstruction(m, INST_JUMP_NEXT, forMacros[forMacroCount], j);
+				ELSE
+					AddInstruction(m, INST_ERR, ERR_FOR_NOT_FOUND, j);
+				END;
 			ELSIF ref = "R>" THEN
 				AddInstruction(m, INST_PUSH_R, j, j);
 			ELSIF ref = "R<" THEN
@@ -827,16 +856,12 @@ BEGIN
 	| INST_AT:
 		Push(m.rs, instr.value.h, error, m.pc);
 		posNext := TRUE;
-
 	| INST_PUSH_INT:
 		Push(m.ws, instr.value.h, error, m.pc);
 		posNext := TRUE;
-		
 	| INST_PUSH_REAL:
-		
 		posNext := PushR(m.ws, instr.value, error, m.pc);
 		//posNext := PushAll(m.ws, m.R, m.S, KIND_REAL, 0, error, m.pc);
-	
 	| INST_ADD_RS: m.R := m.R + m.S; posNext := TRUE;
 	| INST_DIV_RS: m.R := m.R DIV m.S; posNext := TRUE;
 	| INST_MULT_RS: m.R := m.R * m.S; posNext := TRUE;
@@ -960,7 +985,22 @@ BEGIN
 		posNext := Pop(m.ws, m.R, error, m.pc);
 	| INST_SWAP:
 		posNext := Swap(m.ws, 0, -1, error, m.pc);
-		
+	| INST_JUMP_FOR:
+		IF m.I[m.J] = 0 THEN
+			posNext := Peek(m.ws, m.I[m.J], 0, error, m.pc);
+			m.I[m.J] := ABS(m.I[m.J]);
+		ELSE
+			DEC(m.I[m.J]);
+			posNext := TRUE;
+		END;
+		INC(m.J);
+	| INST_JUMP_NEXT:
+		DEC(m.J);
+		IF m.I[m.J] = 0 THEN
+			posNext := Pop(m.ws, m.R, error, m.pc);
+		ELSE
+			m.pc := instr.value.h;
+		END;
 	| INST_BRK: break := TRUE;
 	| INST_ERR:
 		error.code := instr.value.h;
@@ -969,21 +1009,18 @@ BEGIN
 	|INST_NOP: posNext := TRUE;
 	END;
 	
-	IF posNext THEN SetNextPC(m);END;
+	IF posNext THEN SetNextPC(m) END;
 
 END Step;
 
 
 PROCEDURE Execute(VAR m: Machine; block: ST.Block; entry: INTEGER; VAR error: Error);
 VAR
-	len, cols: INTEGER;
 	break: BOOLEAN;
 BEGIN
-	cols := block.columns;
-	len := entry + (cols - (entry MOD cols));
 	m.pc := entry;
 	error.code := ERR_NONE;
-	WHILE (m.pc < len) & (error.code = ERR_NONE) & (~ break) DO
+	WHILE (error.code = ERR_NONE) & (~ break) DO
 		Step(m, block, error, break);
 	END;
 END Execute;
@@ -998,6 +1035,9 @@ BEGIN
 	m.R := 0; m.S := 0;
 	m.U := 0.0; m.V := 0.0;
 	m.X := 0;
+	m.T := 0; m.J := 0;
+	FOR i := 0 TO MAX_MACRO_FOR - 1 DO m.I[i] := 0 END;
+	m.L := FALSE;
 	Arena.Wipe(m.heap);
 	
 	FOR i := 0 TO m.ws.top DO
