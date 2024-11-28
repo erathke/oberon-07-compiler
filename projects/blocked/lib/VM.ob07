@@ -147,11 +147,12 @@ TYPE
 	Machine* = RECORD
 		pc, ic: INTEGER;
 		ws*, rs*: Stack;
-		// registers
+		// data registers
 		R, S, T: INTEGER; // working stack
 		U, V: REAL; // working stack
 		X: INTEGER; // return stack
-		J: INTEGER; // control
+		// control registers
+		J: INTEGER;
 		I: ARRAY MAX_MACRO_FOR OF INTEGER; // for / next
 		// flags
 		L: BOOLEAN;
