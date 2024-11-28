@@ -80,8 +80,10 @@ CONST
 	INST_SWAP = 58;
 	INST_JUMP_FOR = 59;
 	INST_JUMP_NEXT = 60;
+	INST_JUMP_BREAK = 61;
+	INST_EQUAL = 62;
 	
-	MAX_INSTRUCTIONS = 4000; // TODO: dynamic instruction array
+	MAX_INSTRUCTIONS = 3960; // TODO: dynamic instruction array
 	MAX_MACRO_FOR = 3;
 	
 	ERR_NONE* = 0;
@@ -98,6 +100,7 @@ CONST
 	ERR_INVALID_OFFSET = 14;
 	ERR_FOR_NOT_FOUND = 15;
 	ERR_FOR_MAX_NESTED = 16;
+	ERR_FOR_BREAK = 17;
 	
 	KIND_NONE* = 0;
 	KIND_INT* = 1;
@@ -217,6 +220,7 @@ BEGIN
 	| ERR_INVALID_OFFSET: error.msg := "Invalid offset";
 	| ERR_FOR_NOT_FOUND:  error.msg := "for not found";
 	| ERR_FOR_MAX_NESTED: error.msg := "max for nesting: 3";
+	| ERR_FOR_BREAK:      error.msg := "not in a loop";
 	ELSE
 		error.msg := "Unknown error";
 		Out.String("error: "); Out.Int(code, 0); Out.Ln;
@@ -404,6 +408,23 @@ BEGIN
 	
 END PeekKind;
 
+
+PROCEDURE [oberon-] PeekValue(stack: Stack; ridx: INTEGER; VAR value: Value; VAR kind: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
+VAR
+	success: BOOLEAN;
+	idx: INTEGER;
+BEGIN
+	idx := stack.top + ridx;
+	IF (idx < 0) OR (idx >= STACK_SIZE) THEN
+		IdxError(address, error);
+	ELSE
+		value := stack.data[idx].value;
+		kind := stack.data[idx].kind;
+		success := TRUE;
+	END;
+	RETURN success
+	
+END PeekValue;
 
 PROCEDURE CheckKind(stack: Stack; kind, ridx: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
 VAR
@@ -603,6 +624,8 @@ BEGIN
 			i := i + ReadIdent(block, i + 1, len, ref);
 			IF ref = "+" THEN
 				AddInstruction(m, INST_ADD_INT, j, j);
+			ELSIF ref = "=" THEN
+				AddInstruction(m, INST_EQUAL, j, j);
 			ELSIF ref = "drop" THEN
 				AddInstruction(m, INST_DROP, j, j);
 			ELSIF ref = "dup" THEN
@@ -634,6 +657,8 @@ BEGIN
 				ELSE
 					AddInstruction(m, INST_ERR, ERR_FOR_NOT_FOUND, j);
 				END;
+			ELSIF ref = "break" THEN
+				AddInstruction(m, INST_JUMP_BREAK, j, j);
 			ELSIF ref = "R>" THEN
 				AddInstruction(m, INST_PUSH_R, j, j);
 			ELSIF ref = "R<" THEN
@@ -744,7 +769,7 @@ PROCEDURE Step*(VAR m: Machine; block: ST.Block; VAR error: Error; VAR break: BO
 VAR
 	instr: Instruction;
 	posNext: BOOLEAN;
-	value: Value;
+	val1, val2: Value;
 	
 	PROCEDURE SetNextPC(VAR m: Machine);
 	VAR
@@ -752,7 +777,19 @@ VAR
 	BEGIN
 		INC(m.pc);
 		i := m.pc;
-		WHILE (i < MAX_INSTRUCTIONS) & (m.code[i].code = INST_NOP) DO		
+		WHILE (i < MAX_INSTRUCTIONS - 1) & (m.code[i].code = INST_NOP) DO		
+			INC(i);
+		END;
+		m.pc := i;
+	END;
+	
+	PROCEDURE SetNextCode(VAR m: Machine; code: INTEGER);
+	VAR
+		i: INTEGER;
+	BEGIN
+		INC(m.pc);
+		i := m.pc;
+		WHILE (i < MAX_INSTRUCTIONS - 1) & (m.code[i].code # INST_BRK) & (m.code[i].code # code) DO		
 			INC(i);
 		END;
 		m.pc := i;
@@ -786,16 +823,18 @@ VAR
 	VAR
 		i: INTEGER;
 		idx: INTEGER;
+		item: Item;
 	BEGIN
 		idx := -1;
 		FOR i := m.ws.top TO 0 BY -1 DO
 			IF tagIdx = m.ws.data[i].alias THEN
 				idx := i;
 				i := -1;
+				item := m.ws.data[idx];
 			END;
 		END;
 		IF idx # -1 THEN
-			Push(m.ws, m.ws.data[idx].value.h, error, m.pc);
+			PushAll(m.ws, item.value.h, item.value.l, item.kind, 0, error, m.pc);
 		ELSE
 			error.code := ERR_UNKNOWN_ALIAS;
 			error.pos := m.pc;
@@ -822,6 +861,11 @@ VAR
 	BEGIN
 		SYSTEM.MOVE(SYSTEM.ADR(r), SYSTEM.ADR(value.h), 4);
 		SYSTEM.MOVE(SYSTEM.ADR(r) + 4, SYSTEM.ADR(value.l), 4);
+	END;
+	
+	PROCEDURE IsEqual(v1, v2: Value; k1, k2: INTEGER): BOOLEAN;
+	BEGIN
+		RETURN (v1.h = v2.h) & (v1.l = v2.l) & (k1 = k2)
 	END;
 	
 BEGIN
@@ -877,6 +921,14 @@ BEGIN
 			Poke(m.ws, m.R + m.S, 0, error, m.pc);
 			posNext := TRUE;
 		END;
+	| INST_EQUAL:
+		IF PeekValue(m.ws, 0, val1, m.R, error, m.pc) & PeekValue(m.ws, -1, val2, m.S, error, m.pc) THEN
+			IF IsEqual(val1, val2, m.R, m.S) THEN
+				posNext := Push(m.ws, 1, error, m.pc);
+			ELSE
+				posNext := Push(m.ws, 0, error, m.pc);
+			END;
+		END;
 	| INST_JUMP:
 		IF Pop(m.ws, m.R, error, m.pc) THEN
 			m.pc := m.R;
@@ -917,12 +969,12 @@ BEGIN
 	| INST_MOV_RS: m.S := m.R; posNext := TRUE;
 	| INST_MOV_SR: m.R := m.S; posNext := TRUE;
 	| INST_PUSH_U:
-		ToValue(value, m.U);
-		posNext := PushR(m.ws, value, error, m.pc);
+		ToValue(val1, m.U);
+		posNext := PushR(m.ws, val1, error, m.pc);
 	| INST_POP_U:  posNext := PopR(m.ws, m.U, error, m.pc);
 	| INST_PUSH_V: 
-		ToValue(value, m.V);
-		posNext := PushR(m.ws, value, error, m.pc);
+		ToValue(val1, m.V);
+		posNext := PushR(m.ws, val1, error, m.pc);
 	| INST_POP_V:  posNext := PopR(m.ws, m.V, error, m.pc);
 	| INST_MOV_UV: m.V := m.U; posNext := TRUE;
 	| INST_MOV_VU: m.U := m.V; posNext := TRUE;
@@ -987,17 +1039,26 @@ BEGIN
 		posNext := Swap(m.ws, 0, -1, error, m.pc);
 	| INST_JUMP_FOR:
 		IF m.I[m.J] = 0 THEN
-			posNext := Peek(m.ws, m.I[m.J], 0, error, m.pc);
+			posNext := Pop(m.ws, m.I[m.J], error, m.pc);
 			m.I[m.J] := ABS(m.I[m.J]);
 		ELSE
 			DEC(m.I[m.J]);
 			posNext := TRUE;
 		END;
 		INC(m.J);
+	| INST_JUMP_BREAK:
+		IF m.J > 0 THEN
+			m.I[m.J - 1] := 0;
+			SetNextCode(m, INST_JUMP_NEXT);
+		ELSE
+			error.code := ERR_FOR_BREAK;
+			error.pos := instr.address;
+			GetErrorMessage(ERR_FOR_BREAK, error);
+		END;
 	| INST_JUMP_NEXT:
 		DEC(m.J);
 		IF m.I[m.J] = 0 THEN
-			posNext := Pop(m.ws, m.R, error, m.pc);
+			posNext := TRUE;
 		ELSE
 			m.pc := instr.value.h;
 		END;
@@ -1017,10 +1078,12 @@ END Step;
 PROCEDURE Execute(VAR m: Machine; block: ST.Block; entry: INTEGER; VAR error: Error);
 VAR
 	break: BOOLEAN;
+	len: INTEGER;
 BEGIN
 	m.pc := entry;
 	error.code := ERR_NONE;
-	WHILE (error.code = ERR_NONE) & (~ break) DO
+	len := MAX_INSTRUCTIONS;
+	WHILE (m.pc < len) & (error.code = ERR_NONE) & (~ break) DO
 		Step(m, block, error, break);
 	END;
 END Execute;
