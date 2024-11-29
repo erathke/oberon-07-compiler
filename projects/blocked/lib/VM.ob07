@@ -21,7 +21,7 @@ CONST
 	MARK_ALIAS_READ = 9; // brass
 	MARK_PTR_WRITE = 10; // brass
 	MARK_PTR_READ = 11; // brass
-	
+	MARK_FFI = 12; // spring green
 	MARK_ID_BRK = 13; //  = BREAK
 	MARK_ID_AT = 14; // orange = AT
 	MARK_ID_END = 15; // RET
@@ -82,6 +82,7 @@ CONST
 	INST_JUMP_NEXT = 60;
 	INST_JUMP_BREAK = 61;
 	INST_EQUAL = 62;
+	INST_FFI_CALL = 63;
 	
 	MAX_INSTRUCTIONS = 3960; // TODO: dynamic instruction array
 	MAX_MACRO_FOR = 3;
@@ -101,6 +102,7 @@ CONST
 	ERR_FOR_NOT_FOUND = 15;
 	ERR_FOR_MAX_NESTED = 16;
 	ERR_FOR_BREAK = 17;
+	ERR_UNKNOWN_FFI = 18;
 	
 	KIND_NONE* = 0;
 	KIND_INT* = 1;
@@ -143,7 +145,9 @@ TYPE
 		code*, pos*: INTEGER;
 		msg*: ARRAY 32 OF CHAR
 	END;
-
+	
+	Function* = PROCEDURE(VAR ws: Stack; argc: INTEGER): INTEGER;
+	
 	Machine* = RECORD
 		pc, ic: INTEGER;
 		ws*, rs*: Stack;
@@ -162,9 +166,17 @@ TYPE
 		// TODO: refactor dictionary
 		words: Dictionary;
 		aliases: Dictionary;
+		ffi: Dictionary;
 		wordCount: INTEGER;
-		aliasCount: INTEGER
+		aliasCount: INTEGER;
+		ffiCount: INTEGER
 	END;
+
+	ResetFunction* = PROCEDURE(VAR m: Machine);
+
+
+VAR
+	onReset: ResetFunction;
 
 
 PROCEDURE GetPC*(m: Machine): INTEGER;
@@ -208,20 +220,21 @@ END GetStackCount;
 PROCEDURE GetErrorMessage(code: INTEGER; VAR error: Error);
 BEGIN
 	CASE code OF
-	| ERR_UNKNOWN_REF:    error.msg := "Unknown reference";
-	| ERR_UNKNOWN_MACRO:  error.msg := "Unknown macro";
-	| ERR_UNKNOWN_ALIAS:  error.msg := "Unknown alias";
-	| ERR_ALIAS_EXISTS:   error.msg := "Alias exists";
-	| ERR_T_INT_CONV:     error.msg := "Invalid integer";
-	| ERR_T_REAL_CONV:    error.msg := "Invalid real";
-	| ERR_ST_UNDERFLOW:   error.msg := "Stack underflow";
-	| ERR_ST_OVERFLOW:    error.msg := "Stack overflow";
-	| ERR_ST_INDEX:       error.msg := "Invalid stack index";
+	| ERR_UNKNOWN_REF:    error.msg := "unknown reference";
+	| ERR_UNKNOWN_MACRO:  error.msg := "unknown macro";
+	| ERR_UNKNOWN_ALIAS:  error.msg := "unknown alias";
+	| ERR_ALIAS_EXISTS:   error.msg := "alias exists";
+	| ERR_T_INT_CONV:     error.msg := "invalid integer";
+	| ERR_T_REAL_CONV:    error.msg := "invalid real";
+	| ERR_ST_UNDERFLOW:   error.msg := "stack underflow";
+	| ERR_ST_OVERFLOW:    error.msg := "stack overflow";
+	| ERR_ST_INDEX:       error.msg := "invalid stack index";
 	| ERR_INVALID_KIND:   error.msg := "Invalid kind";
 	| ERR_INVALID_OFFSET: error.msg := "Invalid offset";
 	| ERR_FOR_NOT_FOUND:  error.msg := "for not found";
 	| ERR_FOR_MAX_NESTED: error.msg := "max for nesting: 3";
 	| ERR_FOR_BREAK:      error.msg := "not in a loop";
+	| ERR_UNKNOWN_FFI:    error.msg := "unknown function";
 	ELSE
 		error.msg := "Unknown error";
 		Out.String("error: "); Out.Int(code, 0); Out.Ln;
@@ -306,6 +319,12 @@ PROCEDURE [oberon-] PushR(VAR stack: Stack; value: Value; VAR error: Error; addr
 BEGIN
 	RETURN PushAll(stack, value.h, value.l, KIND_REAL, 0, error, address)
 END PushR;
+
+
+PROCEDURE [oberon-] PushInt*(VAR stack: Stack; value: INTEGER; VAR error: Error): BOOLEAN;
+BEGIN
+	RETURN Push(stack, value, error, -1)
+END;
 
 
 PROCEDURE [oberon-] PopAll(VAR stack: Stack; VAR h, l: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
@@ -619,7 +638,16 @@ BEGIN
 			AddInstruction(m, INST_PTR_WRITE, i, i);
 		| MARK_PTR_READ:
 			AddInstruction(m, INST_PTR_READ, i, i);
-			
+		| MARK_FFI:
+			j := i;
+			i := i + ReadIdent(block, i + 1, len, ref);
+			ref_addr := -1;
+			k := SearchIdent(m.ffi, m.ffiCount, ref, ref_addr);
+			IF ref_addr = -1 THEN 
+				AddInstruction(m, INST_ERR, ERR_UNKNOWN_FFI, j);
+			ELSE
+				AddInstruction(m, INST_FFI_CALL, ref_addr, j);
+			END;
 		| MARK_ID_MACRO:
 			j := i;
 			i := i + ReadIdent(block, i + 1, len, ref);
@@ -771,6 +799,7 @@ VAR
 	instr: Instruction;
 	posNext: BOOLEAN;
 	val1, val2: Value;
+	ffiFn: Function;
 	
 	PROCEDURE SetNextPC(VAR m: Machine);
 	VAR
@@ -1063,6 +1092,13 @@ BEGIN
 		ELSE
 			m.pc := instr.value.h;
 		END;
+	| INST_FFI_CALL:
+		IF Pop(m.ws, m.R, error, m.pc) THEN
+			m.X := instr.value.h;
+			ffiFn := SYSTEM.VAL(m.X, Function);
+			m.S := ffiFn(m.ws, m.R);
+			posNext := TRUE;
+		END;
 	| INST_BRK: break := TRUE;
 	| INST_ERR:
 		error.code := instr.value.h;
@@ -1096,6 +1132,7 @@ VAR
 BEGIN
 	m.pc := 0; m.ic := 0;
 	m.wordCount := 0; m.aliasCount := 0;
+	m.ffiCount := 0;
 	m.R := 0; m.S := 0;
 	m.U := 0.0; m.V := 0.0;
 	m.X := 0;
@@ -1127,15 +1164,21 @@ BEGIN
 	FOR i := 0 TO DICT_SIZE - 1 DO
 		m.words[i].address := 0;
 		m.aliases[i].address := 0;
+		m.ffi[i].address := 0;
 		String.Clear(m.words[i].name);
 		String.Clear(m.aliases[i].name);
+		String.Clear(m.ffi[i].name);
 	END;
+	
+	IF onReset # NIL THEN onReset(m) END;
+	
 END ResetMachine;
 
 
-PROCEDURE InitMachine*(VAR m: Machine; heapSize: INTEGER);
+PROCEDURE InitMachine*(VAR m: Machine; heapSize: INTEGER; resetFn: ResetFunction);
 BEGIN
 	m.heap := Arena.Create(heapSize);
+	onReset := resetFn;
 	ResetMachine(m);
 END InitMachine;
 
@@ -1173,5 +1216,12 @@ BEGIN
 	m.pc := entry;
 END Debug;
 
+
+PROCEDURE Registry*(VAR m: Machine; fn: Function; name: Identifier);
+BEGIN
+	COPY(name, m.ffi[m.ffiCount].name);
+	m.ffi[m.ffiCount].address := SYSTEM.VAL(fn, INTEGER);
+	INC(m.ffiCount);
+END Registry;
 
 END VM.

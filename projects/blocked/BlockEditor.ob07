@@ -281,7 +281,7 @@ VAR
 				String.Clear(stackValInfo);
 				String.Clear(stackValStr);
 				// type symbol
-				kind := vmm.ws.data[i].kind;
+				kind := vmm.rs.data[i].kind;
 				GetKindSymbol(kind, stackValStr);
 				String.Append(stackValInfo, stackValStr);
 				MUI.Label(ctx, stackValInfo);
@@ -445,6 +445,22 @@ BEGIN
 END BlockWindow;
 
 
+PROCEDURE Hello(VAR ws: VM.Stack; argc: INTEGER): INTEGER;
+VAR
+	error: VM.Error;
+BEGIN
+	Out.String("Hello from Oberon: "); Out.Int(argc, 0); Out.Ln;
+	VM.PushInt(ws, 77, error);
+	RETURN 1
+END Hello;
+
+
+PROCEDURE OnReset(VAR m: VM.Machine);
+BEGIN
+	VM.Registry(m, Hello, "hello");
+END OnReset;
+
+
 PROCEDURE Loop();
 VAR
 	fontSize: INTEGER;
@@ -462,7 +478,7 @@ BEGIN
 	error.code := VM.ERR_NONE;
 	break := TRUE;
 	
-	VM.InitMachine(vmm, 4096);
+	VM.InitMachine(vmm, 4096, OnReset);
 	
 	RL.SetTargetFPS(60);
 	RL.InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Block Editor");
