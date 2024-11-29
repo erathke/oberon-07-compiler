@@ -688,13 +688,13 @@ BEGIN
 				END;
 			ELSIF ref = "break" THEN
 				AddInstruction(m, INST_JUMP_BREAK, j, j);
-			ELSIF ref = "R>" THEN
+			ELSIF ref = "<R" THEN
 				AddInstruction(m, INST_PUSH_R, j, j);
-			ELSIF ref = "R<" THEN
+			ELSIF ref = ">R" THEN
 				AddInstruction(m, INST_POP_R, j, j);
-			ELSIF ref = "S>" THEN
+			ELSIF ref = "<S" THEN
 				AddInstruction(m, INST_PUSH_S, j, j);
-			ELSIF ref = "S<" THEN
+			ELSIF ref = ">S" THEN
 				AddInstruction(m, INST_POP_S, j, j);
 			ELSIF ref = "R>S" THEN
 				AddInstruction(m, INST_MOV_RS, j, j);
@@ -706,13 +706,13 @@ BEGIN
 				AddInstruction(m, INST_DIV_RS, j, j);
 			ELSIF ref = "RS*" THEN
 				AddInstruction(m, INST_MULT_RS, j, j);
-			ELSIF ref = "U>" THEN
+			ELSIF ref = "<U" THEN
 				AddInstruction(m, INST_PUSH_U, j, j);
-			ELSIF ref = "U<" THEN
+			ELSIF ref = ">U" THEN
 				AddInstruction(m, INST_POP_U, j, j);
-			ELSIF ref = "V>" THEN
+			ELSIF ref = "<V" THEN
 				AddInstruction(m, INST_PUSH_V, j, j);
-			ELSIF ref = "V<" THEN
+			ELSIF ref = ">V" THEN
 				AddInstruction(m, INST_POP_V, j, j);
 			ELSIF ref = "U>V" THEN
 				AddInstruction(m, INST_MOV_UV, j, j);
@@ -730,9 +730,9 @@ BEGIN
 				AddInstruction(m, INST_DIV_UR, j, j);
 			ELSIF ref = "UR*" THEN
 				AddInstruction(m, INST_MULT_UR, j, j);
-			ELSIF ref = "X>" THEN
+			ELSIF ref = "<X" THEN
 				AddInstruction(m, INST_PUSH_X, j, j);
-			ELSIF ref = "X<" THEN
+			ELSIF ref = ">X" THEN
 				AddInstruction(m, INST_POP_X, j, j);
 			ELSIF ref = "X<S" THEN
 				AddInstruction(m, INST_MOV_XS, j, j);
@@ -1223,5 +1223,6 @@ BEGIN
 	m.ffi[m.ffiCount].address := SYSTEM.VAL(fn, INTEGER);
 	INC(m.ffiCount);
 END Registry;
+
 
 END VM.
