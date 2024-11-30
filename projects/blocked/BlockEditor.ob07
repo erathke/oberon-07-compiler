@@ -6,7 +6,6 @@ IMPORT
 	MUI IN "./lib/MicroUI.ob07",
 	MURL IN "./lib/MURL.ob07",
 	String IN "./lib/String.ob07",
-	P IN "./lib/Parser.ob07",
 	VM IN "./lib/VM.ob07",
 	STK IN "./lib/Stack.ob07",
 	ERR IN "./lib/Errors.ob07",
@@ -361,7 +360,7 @@ VAR
 	colTextWidth: INTEGER;
 	aliasLabel, maxColsLabel: ARRAY 32 OF CHAR;
 	maxColsStr, cursorXStr, cursorYStr: ARRAY 4 OF CHAR;
-	cursorOffsStr: ARRAY 8 OF CHAR;
+	cursorOffsStr: ARRAY 7 OF CHAR;
 	cursorInfo: ARRAY 32 OF CHAR;
 	status: SET;
 BEGIN
@@ -372,7 +371,6 @@ BEGIN
 	rowWidth1[4] := 20;
 	rowWidth1[5] := 20;
 	rowWidth1[6] := 210;
-	rowWidth1[7] := 75;
 	aliasLabel:= "Alias: ";
 	maxColsLabel:= " Columns: ";
 	rowWidth1[0] := MUI.TextWidth(ctx, aliasLabel);
@@ -391,7 +389,7 @@ BEGIN
 	String.Append(cursorInfo, "]");
 	
 	IF MUI.BeginWindowEx(ctx, "Block info", wr1, MUI.OPT_NOINTERACT + MUI.OPT_NOCLOSE) THEN
-		MUI.LayoutRow(ctx, 8, rowWidth1, 0);
+		MUI.LayoutRow(ctx, 7, rowWidth1, 0);
 		MUI.Label(ctx, aliasLabel);
 		status := MUI.Textbox(ctx, currentBlock.alias, LEN(currentBlock.alias));
 		IF status = MUI.RES_SUBMIT THEN
@@ -413,15 +411,6 @@ BEGIN
 			END;
 		END;
 		MUI.Label(ctx, cursorInfo);
-		
-		IF String.EndsWith(".ob07", currentBlock.alias) THEN
-			IF MUI.Button(ctx, "Compile") THEN
-				P.Tokenize(currentBlock);
-			END;
-		
-		ELSE
-			MUI.Label(ctx, "");
-		END;
 		
 		IF currentBlock.columns > 0 THEN
 			// Block text area
