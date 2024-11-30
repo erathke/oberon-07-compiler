@@ -3,10 +3,11 @@ IMPORT
 	Out := Out_sys,
 	SYSTEM, Arena, 
 	ST IN "./Storage.ob07",
-	String IN "./String.ob07";
+	String IN "./String.ob07",
+	STK IN "./Stack.ob07",
+	ERR IN "./Errors.ob07";
 
 CONST
-	STACK_SIZE = 256;
 	DICT_SIZE = 128;
 	
 	MARK_END = 0; // .
@@ -89,46 +90,8 @@ CONST
 	MAX_INSTRUCTIONS = 3960; // TODO: dynamic instruction array
 	MAX_MACRO_FOR = 3;
 	
-	ERR_NONE* = 0;
-	ERR_UNKNOWN_REF = 1;
-	ERR_UNKNOWN_MACRO = 2;
-	ERR_UNKNOWN_ALIAS = 3;
-	ERR_ALIAS_EXISTS = 4;
-	ERR_T_INT_CONV = 8;
-	ERR_T_REAL_CONV = 9;
-	ERR_ST_UNDERFLOW = 10;
-	ERR_ST_OVERFLOW = 11;
-	ERR_ST_INDEX = 12;
-	ERR_INVALID_KIND = 13;
-	ERR_INVALID_OFFSET = 14;
-	ERR_FOR_NOT_FOUND = 15;
-	ERR_FOR_MAX_NESTED = 16;
-	ERR_FOR_BREAK = 17;
-	ERR_UNKNOWN_FFI = 18;
-	
-	KIND_NONE* = 0;
-	KIND_INT* = 1;
-	KIND_REAL* = 2;
-	KIND_CHAR* = 3;
-	KIND_BYTE* = 4;
-	KIND_POINTER* = 5;
-	
 TYPE
-	Value* = RECORD
-		h*, l*: INTEGER
-	END;
 	
-	Item* = RECORD
-		value*: Value;
-		alias*: INTEGER;
-		kind*: BYTE
-	END;
-
-	Stack* = RECORD 
-		top: INTEGER;
-		data*: ARRAY STACK_SIZE OF Item
-	END;
-		
 	Identifier* = ARRAY 32 OF CHAR;
 	
 	Word = RECORD
@@ -137,16 +100,17 @@ TYPE
 	END;
 	
 	Dictionary = ARRAY DICT_SIZE OF Word;
+	
+	Value = STK.Value;
 
 	Instruction = RECORD
 		code, address: INTEGER;
 		value: Value
 	END;
 	
-	Error* = RECORD
-		code*, pos*: INTEGER;
-		msg*: ARRAY 32 OF CHAR
-	END;
+	Error = ERR.Error;
+	
+	Stack = STK.Stack;
 	
 	Function* = PROCEDURE(VAR ws: Stack; argc: INTEGER): INTEGER;
 	
@@ -207,43 +171,6 @@ BEGIN
 END GetMemoryStats;
 
 
-PROCEDURE IsStackEmpty*(stack: Stack): BOOLEAN;
-BEGIN 
-	RETURN stack.top < 0
-END IsStackEmpty;
-
-
-PROCEDURE GetStackCount*(stack: Stack; VAR count: INTEGER);
-BEGIN 
-	count := stack.top;
-END GetStackCount;
-
-
-PROCEDURE GetErrorMessage(code: INTEGER; VAR error: Error);
-BEGIN
-	CASE code OF
-	| ERR_UNKNOWN_REF:    error.msg := "unknown reference";
-	| ERR_UNKNOWN_MACRO:  error.msg := "unknown macro";
-	| ERR_UNKNOWN_ALIAS:  error.msg := "unknown alias";
-	| ERR_ALIAS_EXISTS:   error.msg := "alias exists";
-	| ERR_T_INT_CONV:     error.msg := "invalid integer";
-	| ERR_T_REAL_CONV:    error.msg := "invalid real";
-	| ERR_ST_UNDERFLOW:   error.msg := "stack underflow";
-	| ERR_ST_OVERFLOW:    error.msg := "stack overflow";
-	| ERR_ST_INDEX:       error.msg := "invalid stack index";
-	| ERR_INVALID_KIND:   error.msg := "Invalid kind";
-	| ERR_INVALID_OFFSET: error.msg := "Invalid offset";
-	| ERR_FOR_NOT_FOUND:  error.msg := "for not found";
-	| ERR_FOR_MAX_NESTED: error.msg := "max for nesting: 3";
-	| ERR_FOR_BREAK:      error.msg := "not in a loop";
-	| ERR_UNKNOWN_FFI:    error.msg := "unknown function";
-	ELSE
-		error.msg := "Unknown error";
-		Out.String("error: "); Out.Int(code, 0); Out.Ln;
-	END;
-END GetErrorMessage;
-
-
 PROCEDURE AddInstruction(VAR m: Machine; code, ivalue, address: INTEGER);
 VAR
 	instr: Instruction;
@@ -267,291 +194,6 @@ BEGIN
 	m.code[address] := instr;
 	INC(m.ic);
 END;
-
-
-PROCEDURE PushError(address: INTEGER; VAR error: Error);
-BEGIN
-	error.code := ERR_ST_OVERFLOW;
-	error.pos := address;
-	GetErrorMessage(ERR_ST_OVERFLOW, error);
-END PushError;
-
-
-PROCEDURE PopError(address: INTEGER; VAR error: Error);
-BEGIN
-	error.code := ERR_ST_UNDERFLOW;
-	error.pos := address;
-	GetErrorMessage(ERR_ST_UNDERFLOW, error);
-END PopError;
-
-
-PROCEDURE IdxError(address: INTEGER; VAR error: Error);
-BEGIN
-	error.code := ERR_ST_INDEX;
-	error.pos := address;
-	GetErrorMessage(ERR_ST_INDEX, error);
-END IdxError;
-
-
-PROCEDURE [oberon-] PushAll(VAR stack: Stack; h, l, kind, alias: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
-VAR
-	success: BOOLEAN;
-BEGIN
-	IF stack.top + 1 < STACK_SIZE THEN
-		INC(stack.top);
-		stack.data[stack.top].value.h := h;
-		stack.data[stack.top].value.l := l;
-		stack.data[stack.top].kind := kind;
-		stack.data[stack.top].alias := alias;
-		success := TRUE;
-	ELSE
-		PushError(address, error);
-		success := FALSE;
-	END;
-	RETURN success
-END PushAll;
-
-
-PROCEDURE [oberon-] Push(VAR stack: Stack; value: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
-	RETURN PushAll(stack, value, 0, KIND_INT, 0, error, address)
-END Push;
-
-
-PROCEDURE [oberon-] PushR(VAR stack: Stack; value: Value; VAR error: Error; address: INTEGER): BOOLEAN;
-BEGIN
-	RETURN PushAll(stack, value.h, value.l, KIND_REAL, 0, error, address)
-END PushR;
-
-
-PROCEDURE [oberon-] PushInt*(VAR stack: Stack; value: INTEGER; VAR error: Error): BOOLEAN;
-BEGIN
-	RETURN Push(stack, value, error, -1)
-END;
-
-
-PROCEDURE [oberon-] PopAll(VAR stack: Stack; VAR h, l: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
-VAR
-	success: BOOLEAN;
-	
-	PROCEDURE ClearItem(VAR item: Item);
-	BEGIN
-		item.value.h := 0;
-		item.value.l := 0;
-		item.alias := 0;
-		item.kind := KIND_NONE;
-	END;
-	
-BEGIN
-	IF stack.top >= 0 THEN
-		h := stack.data[stack.top].value.h;
-		l := stack.data[stack.top].value.l;
-		ClearItem(stack.data[stack.top]);
-		success := TRUE;
-		DEC(stack.top);
-	ELSE
-		PopError(address, error);
-		success := FALSE;
-	END;
-	RETURN success
-END PopAll;
-
-
-PROCEDURE [oberon-] Pop(VAR stack: Stack; VAR value: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
-VAR
-	l: INTEGER;
-BEGIN
-	RETURN PopAll(stack, value, l, error, address)
-END Pop;
-
-
-PROCEDURE [oberon-] PopR(VAR stack: Stack; VAR rvalue: REAL; VAR error: Error; address: INTEGER): BOOLEAN;
-TYPE 
-	V = RECORD h, l: INTEGER END;
-VAR
-	val: V;
-	success: BOOLEAN;
-BEGIN
-	success := PopAll(stack, val.h, val.l, error, address);
-	IF success THEN
-		rvalue := SYSTEM.VAL(val, REAL);
-	END;
-	RETURN success
-END PopR;
-
-
-PROCEDURE [oberon-] Peek(VAR stack: Stack; VAR value: INTEGER; ridx: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
-VAR
-	success: BOOLEAN;
-	idx: INTEGER;
-BEGIN
-	idx := stack.top + ridx;
-
-	IF (idx < 0) OR (idx >= STACK_SIZE) THEN
-		IdxError(address, error);
-	ELSE
-		value := stack.data[idx].value.h;
-		success := TRUE;
-	END;
-		
-	RETURN success
-END Peek;
-
-
-PROCEDURE [oberon-] PeekHL(VAR stack: Stack; VAR h, l: INTEGER; ridx: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
-VAR
-	success: BOOLEAN;
-	idx: INTEGER;
-BEGIN
-	idx := stack.top + ridx;
-	IF (idx < 0) OR (idx >= STACK_SIZE) THEN
-		IdxError(address, error);
-	ELSE
-		h := stack.data[idx].value.h;
-		l := stack.data[idx].value.l;
-		success := TRUE;
-	END;
-	RETURN success
-END PeekHL;
-
-
-PROCEDURE [oberon-] PeekKind(stack: Stack; ridx: INTEGER; VAR kind: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
-VAR
-	success: BOOLEAN;
-	idx: INTEGER;
-BEGIN
-	idx := stack.top + ridx;
-	IF (idx < 0) OR (idx >= STACK_SIZE) THEN
-		IdxError(address, error);
-	ELSE
-		kind := stack.data[idx].kind;
-		success := TRUE;
-	END;
-	RETURN success
-	
-END PeekKind;
-
-
-PROCEDURE [oberon-] PeekValue(stack: Stack; ridx: INTEGER; VAR value: Value; VAR kind: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
-VAR
-	success: BOOLEAN;
-	idx: INTEGER;
-BEGIN
-	idx := stack.top + ridx;
-	IF (idx < 0) OR (idx >= STACK_SIZE) THEN
-		IdxError(address, error);
-	ELSE
-		value := stack.data[idx].value;
-		kind := stack.data[idx].kind;
-		success := TRUE;
-	END;
-	RETURN success
-	
-END PeekValue;
-
-
-PROCEDURE [oberon-] PopValue(VAR stack: Stack; ridx: INTEGER; VAR value: Value; VAR kind: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
-VAR
-	success: BOOLEAN;
-	
-	PROCEDURE ClearItem(VAR item: Item);
-	BEGIN
-		item.value.h := 0;
-		item.value.l := 0;
-		item.alias := 0;
-		item.kind := KIND_NONE;
-	END;
-	
-BEGIN
-	IF stack.top >= 0 THEN
-		value := stack.data[stack.top].value;
-		kind := stack.data[stack.top].kind;
-		ClearItem(stack.data[stack.top]);
-		success := TRUE;
-		DEC(stack.top);
-	ELSE
-		PopError(address, error);
-		success := FALSE;
-	END;
-	RETURN success
-	
-END PopValue;
-
-
-PROCEDURE CheckKind(stack: Stack; kind, ridx: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
-VAR
-	idx: INTEGER;
-	match: BOOLEAN;
-BEGIN
-	idx := stack.top + ridx;
-	IF (idx < 0) OR (idx >= STACK_SIZE) THEN
-		IdxError(address, error);
-	ELSE
-		match := stack.data[idx].kind = kind;
-		IF ~ match THEN
-			error.code := ERR_INVALID_KIND;
-			error.pos := address;
-			GetErrorMessage(ERR_INVALID_KIND, error);
-		END; 
-	END;
-
-	RETURN match
-END CheckKind;
-
-
-PROCEDURE [oberon-] PeekR(VAR stack: Stack; VAR rvalue: REAL; ridx: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
-TYPE 
-	V = RECORD h, l: INTEGER END;
-VAR
-	success: BOOLEAN;
-	idx: INTEGER;
-	val: V;
-BEGIN
-	idx := stack.top + ridx;
-	IF (idx < 0) OR (idx >= STACK_SIZE) THEN
-		IdxError(address, error);
-	ELSE
-		success := PeekHL(stack, val.h, val.l, ridx, error, address);
-		IF success THEN
-			rvalue := SYSTEM.VAL(stack.data[idx], REAL);
-		END;
-	END;
-	RETURN success
-END PeekR;
-
-
-PROCEDURE [oberon-] Poke(VAR stack: Stack; value, relidx: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
-VAR
-	success: BOOLEAN;
-	idx: INTEGER;
-BEGIN
-	idx := stack.top + relidx;
-	IF (idx < 0) OR (idx >= STACK_SIZE) THEN
-		IdxError(address, error);
-	ELSE
-		stack.data[idx].value.h := value;
-		success := TRUE;
-	END;
-	RETURN success
-END Poke;
-
-
-PROCEDURE Swap(VAR stack: Stack; idx1, idx2: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
-VAR
-	temp: Item;
-	success: BOOLEAN;
-BEGIN
-	IF stack.top >= 1 THEN
-		idx1 := stack.top + idx1;
-		idx2 := stack.top + idx2;
-		temp := stack.data[idx1];
-		stack.data[idx1] := stack.data[idx2];
-		stack.data[idx2] := temp;
-		success := TRUE;
-	ELSE
-		PopError(address, error);
-	END;
-	RETURN success
-END Swap;
 
 
 PROCEDURE Parse(VAR m: Machine; block: ST.Block; len: INTEGER);
@@ -623,7 +265,7 @@ BEGIN
 				INC(m.aliasCount);
 				AddInstruction(m, INST_ALIAS, m.aliasCount, j);
 			ELSE
-				AddInstruction(m, INST_ERR, ERR_ALIAS_EXISTS, j);
+				AddInstruction(m, INST_ERR, ERR.ALIAS_EXISTS, j);
 			END;	
 		| MARK_ID_END:
 			AddInstruction(m, INST_RET, i, i);
@@ -638,7 +280,7 @@ BEGIN
 			SearchIdent(m.words, m.wordCount, ref, ref_addr);
 			
 			IF ref_addr = -1 THEN // error: not found	
-				AddInstruction(m, INST_ERR, ERR_UNKNOWN_REF, j);
+				AddInstruction(m, INST_ERR, ERR.UNKNOWN_REF, j);
 			ELSE
 				AddInstruction(m, INST_CALL, ref_addr, j);
 			END;
@@ -649,7 +291,7 @@ BEGIN
 			k := SearchIdent(m.aliases, m.aliasCount, ref, ref_addr);
 			
 			IF ref_addr = -1 THEN 
-				AddInstruction(m, INST_ERR, ERR_UNKNOWN_ALIAS, j);
+				AddInstruction(m, INST_ERR, ERR.UNKNOWN_ALIAS, j);
 			ELSE
 				AddInstruction(m, INST_ALIAS_WRITE, k + 1, j);
 			END;
@@ -660,7 +302,7 @@ BEGIN
 			k := SearchIdent(m.aliases, m.aliasCount, ref, ref_addr);
 			
 			IF ref_addr = -1 THEN 
-				AddInstruction(m, INST_ERR, ERR_UNKNOWN_ALIAS, j);
+				AddInstruction(m, INST_ERR, ERR.UNKNOWN_ALIAS, j);
 			ELSE
 				AddInstruction(m, INST_ALIAS_READ, k + 1, j);
 			END;
@@ -674,7 +316,7 @@ BEGIN
 			ref_addr := -1;
 			k := SearchIdent(m.ffi, m.ffiCount, ref, ref_addr);
 			IF ref_addr = -1 THEN 
-				AddInstruction(m, INST_ERR, ERR_UNKNOWN_FFI, j);
+				AddInstruction(m, INST_ERR, ERR.UNKNOWN_FFI, j);
 			ELSE
 				AddInstruction(m, INST_FFI_CALL, ref_addr, j);
 			END;
@@ -711,14 +353,14 @@ BEGIN
 					AddInstruction(m, INST_JUMP_FOR, j, j);
 					INC(forMacroCount);
 				ELSE
-					AddInstruction(m, INST_ERR, ERR_FOR_MAX_NESTED, j);
+					AddInstruction(m, INST_ERR, ERR.FOR_MAX_NESTED, j);
 				END;
 			ELSIF ref = "next" THEN
 				IF forMacroCount > 0 THEN
 					DEC(forMacroCount);
 					AddInstruction(m, INST_JUMP_NEXT, forMacros[forMacroCount], j);
 				ELSE
-					AddInstruction(m, INST_ERR, ERR_FOR_NOT_FOUND, j);
+					AddInstruction(m, INST_ERR, ERR.FOR_NOT_FOUND, j);
 				END;
 			ELSIF ref = "break" THEN
 				AddInstruction(m, INST_JUMP_BREAK, j, j);
@@ -775,7 +417,7 @@ BEGIN
 			ELSIF ref = "allocb" THEN
 				AddInstruction(m, INST_ALLOCB, j, j);
 			ELSE
-				AddInstruction(m, INST_ERR, ERR_UNKNOWN_MACRO, j);
+				AddInstruction(m, INST_ERR, ERR.UNKNOWN_MACRO, j);
 			END;	
 		| MARK_TP_INT:
 			j := i;
@@ -783,7 +425,7 @@ BEGIN
 			IF String.ToInt(ref, i_val) THEN
 				AddInstruction(m, INST_PUSH_INT, i_val, j);
 			ELSE // error: invalid number
-				AddInstruction(m, INST_ERR, ERR_T_INT_CONV, j);
+				AddInstruction(m, INST_ERR, ERR.T_INT_CONV, j);
 			END;
 		| MARK_TP_REAL:
 			j := i;
@@ -791,7 +433,7 @@ BEGIN
 			IF String.ToReal(ref, r_val) THEN
 				AddInstructionR(m, INST_PUSH_REAL, r_val, j);
 			ELSE // error: invalid number
-				AddInstruction(m, INST_ERR, ERR_T_REAL_CONV, j);
+				AddInstruction(m, INST_ERR, ERR.T_REAL_CONV, j);
 			END;
 		| MARK_TP_ADDR:
 			j := i;
@@ -800,7 +442,7 @@ BEGIN
 			SearchIdent(m.words, m.wordCount, ref, ref_addr);
 			
 			IF ref_addr = -1 THEN // error: not found	
-				AddInstruction(m, INST_ERR, ERR_UNKNOWN_REF, j);
+				AddInstruction(m, INST_ERR, ERR.UNKNOWN_REF, j);
 			ELSE
 				AddInstruction(m, INST_PUSH_INT, ref_addr, j);
 			END;
@@ -859,61 +501,14 @@ VAR
 		m.pc := i;
 	END;
 	
-	PROCEDURE TagStack(VAR m: Machine; tagIdx: INTEGER);
-	BEGIN
-		m.ws.data[m.ws.top].alias := tagIdx;
-	END;
-	
-	PROCEDURE SetTagValue(VAR m: Machine; tagIdx: INTEGER; VAR error: Error);
-	VAR
-		i: INTEGER;
-		idx: INTEGER;
-	BEGIN
-		idx := -1;
-		FOR i := m.ws.top TO 0 BY -1 DO
-			IF tagIdx = m.ws.data[i].alias THEN
-				idx := i;
-				i := -1;
-			END;
-		END;
-		IF idx # -1 THEN
-			IF Pop(m.ws, m.R, error, m.pc) THEN
-				m.ws.data[idx].value.h := m.R;
-			END;
-		END;
-	END;
-	
-	PROCEDURE GetTagValue(VAR m: Machine; tagIdx: INTEGER; VAR error: Error);
-	VAR
-		i: INTEGER;
-		idx: INTEGER;
-		item: Item;
-	BEGIN
-		idx := -1;
-		FOR i := m.ws.top TO 0 BY -1 DO
-			IF tagIdx = m.ws.data[i].alias THEN
-				idx := i;
-				i := -1;
-				item := m.ws.data[idx];
-			END;
-		END;
-		IF idx # -1 THEN
-			PushAll(m.ws, item.value.h, item.value.l, item.kind, 0, error, m.pc);
-		ELSE
-			error.code := ERR_UNKNOWN_ALIAS;
-			error.pos := m.pc;
-			GetErrorMessage(ERR_UNKNOWN_ALIAS, error);
-		END;
-	END;
-	
 	PROCEDURE JumpCond(VAR m: Machine; cond: INTEGER; VAR error: Error; VAR posNext: BOOLEAN);
 	BEGIN
-		IF Peek(m.ws, m.R, 0, error, m.pc) THEN
+		IF STK.Peek(m.ws, m.R, 0, error, m.pc) THEN
 			IF m.R = cond THEN
-				IF Peek(m.ws, m.S, -1, error, m.pc) THEN
+				IF STK.Peek(m.ws, m.S, -1, error, m.pc) THEN
 					m.pc := m.S;
-					Pop(m.ws, m.R, error, m.pc);
-					Pop(m.ws, m.S, error, m.pc);
+					STK.Pop(m.ws, m.R, error, m.pc);
+					STK.Pop(m.ws, m.S, error, m.pc);
 				END;
 			ELSE
 				posNext := TRUE;
@@ -939,36 +534,36 @@ BEGIN
 	| INST_ID: m.X := m.pc; posNext := TRUE;
 	| INST_ALIAS:
 		IF m.ws.top < 0 THEN
-			error.code := ERR_ST_INDEX;
+			error.code := ERR.ST_INDEX;
 			error.pos := m.pc;
-			GetErrorMessage(instr.value.h, error);
+			ERR.GetErrorMessage(instr.value.h, error);
 		ELSE
-			TagStack(m, instr.value.h);
+			STK.TagStack(m.ws, instr.value.h);
 			m.X := m.pc; posNext := TRUE;
 		END;
 	| INST_ALIAS_WRITE: 
-		SetTagValue(m, instr.value.h, error);
-		posNext := error.code = ERR_NONE;
+		STK.SetTagValue(m.ws, instr.value.h, m.pc, m.R, error);
+		posNext := error.code = ERR.NONE;
 	| INST_ALIAS_READ:
-		GetTagValue(m, instr.value.h, error);
-		posNext := error.code = ERR_NONE;
+		STK.GetTagValue(m.ws, instr.value.h, m.pc, error);
+		posNext := error.code = ERR.NONE;
 	| INST_CALL:
-		IF Push(m.rs, m.pc, error, m.pc) THEN
+		IF STK.Push(m.rs, m.pc, error, m.pc) THEN
 			m.pc := instr.value.h;
 		END;
 	| INST_RET:
-		IF Pop(m.rs, m.X, error, m.pc) THEN
+		IF STK.Pop(m.rs, m.X, error, m.pc) THEN
 			m.pc := m.X;
 			posNext := TRUE;
 		END;
 	| INST_AT:
-		Push(m.rs, instr.value.h, error, m.pc);
+		STK.Push(m.rs, instr.value.h, error, m.pc);
 		posNext := TRUE;
 	| INST_PUSH_INT:
-		Push(m.ws, instr.value.h, error, m.pc);
+		STK.Push(m.ws, instr.value.h, error, m.pc);
 		posNext := TRUE;
 	| INST_PUSH_REAL:
-		posNext := PushR(m.ws, instr.value, error, m.pc);
+		posNext := STK.PushR(m.ws, instr.value, error, m.pc);
 		//posNext := PushAll(m.ws, m.R, m.S, KIND_REAL, 0, error, m.pc);
 	| INST_ADD_RS: m.R := m.R + m.S; posNext := TRUE;
 	| INST_DIV_RS: m.R := m.R DIV m.S; posNext := TRUE;
@@ -981,35 +576,35 @@ BEGIN
 	| INST_MULT_UR: m.U := m.U * FLT(m.R); posNext := TRUE;
 	
 	| INST_ADD_INT:
-		IF Pop(m.ws, m.R, error, m.pc) & Peek(m.ws, m.S, 0, error, m.pc) THEN
-			Poke(m.ws, m.R + m.S, 0, error, m.pc);
+		IF STK.Pop(m.ws, m.R, error, m.pc) & STK.Peek(m.ws, m.S, 0, error, m.pc) THEN
+			STK.Poke(m.ws, m.R + m.S, 0, error, m.pc);
 			posNext := TRUE;
 		END;
 	| INST_EQUAL:
 		//IF PeekValue(m.ws, 0, val1, m.R, error, m.pc) & PeekValue(m.ws, -1, val2, m.S, error, m.pc) THEN
-		IF PopValue(m.ws, 0, val1, m.R, error, m.pc) & PopValue(m.ws, 0, val2, m.S, error, m.pc) THEN
+		IF STK.PopValue(m.ws, 0, val1, m.R, error, m.pc) & STK.PopValue(m.ws, 0, val2, m.S, error, m.pc) THEN
 			IF IsEqual(val1, val2, m.R, m.S) THEN
-				posNext := Push(m.ws, 1, error, m.pc);
+				posNext := STK.Push(m.ws, 1, error, m.pc);
 			ELSE
-				posNext := Push(m.ws, 0, error, m.pc);
+				posNext := STK.Push(m.ws, 0, error, m.pc);
 			END;
 		END;
 	| INST_JUMP:
-		IF Pop(m.ws, m.R, error, m.pc) THEN
+		IF STK.Pop(m.ws, m.R, error, m.pc) THEN
 			m.pc := m.R;
 		END;
 	| INST_JUMP_ZERO:
 		JumpCond(m, 0, error, posNext);
 	| INST_JUMP_COND_IFELSE:
-		IF Pop(m.ws, m.R, error, m.pc) THEN
+		IF STK.Pop(m.ws, m.R, error, m.pc) THEN
 			IF m.R = 1 THEN
-				IF Pop(m.ws, m.R, error, m.pc) & Pop(m.ws, m.S, error, m.pc) THEN
-					Push(m.rs, m.pc, error, m.pc);
+				IF STK.Pop(m.ws, m.R, error, m.pc) & STK.Pop(m.ws, m.S, error, m.pc) THEN
+					STK.Push(m.rs, m.pc, error, m.pc);
 					m.pc := m.S;
 				END;
 			ELSE
-				IF Pop(m.ws, m.R, error, m.pc) & Pop(m.ws, m.S, error, m.pc) THEN
-					Push(m.rs, m.pc, error, m.pc);
+				IF STK.Pop(m.ws, m.R, error, m.pc) & STK.Pop(m.ws, m.S, error, m.pc) THEN
+					STK.Push(m.rs, m.pc, error, m.pc);
 					m.pc := m.R;
 				END;
 			END;
@@ -1017,59 +612,59 @@ BEGIN
 	| INST_JUMP_ONE:
 		JumpCond(m, 1, error, posNext);
 	| INST_JUMP_COND_IF:
-		IF Peek(m.ws, m.R, 0, error, m.pc) THEN
+		IF STK.Peek(m.ws, m.R, 0, error, m.pc) THEN
 			IF m.R = 1 THEN
-				IF Pop(m.ws, m.R, error, m.pc) & Pop(m.ws, m.S, error, m.pc) THEN
-					Push(m.rs, m.pc, error, m.pc);
+				IF STK.Pop(m.ws, m.R, error, m.pc) & STK.Pop(m.ws, m.S, error, m.pc) THEN
+					STK.Push(m.rs, m.pc, error, m.pc);
 					m.pc := m.S;
 				END;
 			ELSE
-				posNext := Pop(m.ws, m.R, error, m.pc) & Pop(m.ws, m.S, error, m.pc);
+				posNext := STK.Pop(m.ws, m.R, error, m.pc) & STK.Pop(m.ws, m.S, error, m.pc);
 			END;
 		END;
-	| INST_PUSH_R: posNext := Push(m.ws, m.R, error, m.pc);
-	| INST_POP_R:  posNext := Pop(m.ws, m.R, error, m.pc);
-	| INST_PUSH_S: posNext := Push(m.ws, m.S, error, m.pc);
-	| INST_POP_S:  posNext := Pop(m.ws, m.S, error, m.pc);
+	| INST_PUSH_R: posNext := STK.Push(m.ws, m.R, error, m.pc);
+	| INST_POP_R:  posNext := STK.Pop(m.ws, m.R, error, m.pc);
+	| INST_PUSH_S: posNext := STK.Push(m.ws, m.S, error, m.pc);
+	| INST_POP_S:  posNext := STK.Pop(m.ws, m.S, error, m.pc);
 	| INST_MOV_RS: m.S := m.R; posNext := TRUE;
 	| INST_MOV_SR: m.R := m.S; posNext := TRUE;
 	| INST_PUSH_U:
 		ToValue(val1, m.U);
-		posNext := PushR(m.ws, val1, error, m.pc);
-	| INST_POP_U:  posNext := PopR(m.ws, m.U, error, m.pc);
+		posNext := STK.PushR(m.ws, val1, error, m.pc);
+	| INST_POP_U:  posNext := STK.PopR(m.ws, m.U, error, m.pc);
 	| INST_PUSH_V: 
 		ToValue(val1, m.V);
-		posNext := PushR(m.ws, val1, error, m.pc);
-	| INST_POP_V:  posNext := PopR(m.ws, m.V, error, m.pc);
+		posNext := STK.PushR(m.ws, val1, error, m.pc);
+	| INST_POP_V:  posNext := STK.PopR(m.ws, m.V, error, m.pc);
 	| INST_MOV_UV: m.V := m.U; posNext := TRUE;
 	| INST_MOV_VU: m.U := m.V; posNext := TRUE;
-	| INST_PUSH_X: posNext := Push(m.rs, m.X, error, m.pc);
-	| INST_POP_X:  posNext := Pop(m.rs, m.X, error, m.pc);
+	| INST_PUSH_X: posNext := STK.Push(m.rs, m.X, error, m.pc);
+	| INST_POP_X:  posNext := STK.Pop(m.rs, m.X, error, m.pc);
 	| INST_MOV_XS: m.X := m.S; posNext := TRUE;
 	| INST_MOV_SX: m.S := m.X; posNext := TRUE;
 	| INST_ALLOCB:
-		IF Pop(m.ws, m.R, error, m.pc) THEN
+		IF STK.Pop(m.ws, m.R, error, m.pc) THEN
 			IF m.R > 0 THEN
 				m.S := Arena.Alloc(m.heap, m.R);
-				posNext := PushAll(m.ws, m.S, m.R, KIND_POINTER, 0, error, m.pc);
+				posNext := STK.PushAll(m.ws, m.S, m.R, STK.KIND_POINTER, 0, error, m.pc);
 			ELSE
 				error.code := -1;
 				error.pos := instr.address;
-				GetErrorMessage(-1, error); // TODO: mem allocation error
+				ERR.GetErrorMessage(-1, error); // TODO: mem allocation error
 			END;
 		END;
 	| INST_PTR_WRITE:
-		IF CheckKind(m.ws, KIND_POINTER, -2, error, m.pc) THEN
-			IF CheckKind(m.ws, KIND_INT, -1, error, m.pc) THEN
-				Pop(m.ws, m.R, error, m.pc); // value
-				Pop(m.ws, m.S, error, m.pc); // offset
-				PeekHL(m.ws, m.X, m.T, 0, error, m.pc); // pointer
+		IF STK.CheckKind(m.ws, STK.KIND_POINTER, -2, error, m.pc) THEN
+			IF STK.CheckKind(m.ws, STK.KIND_INT, -1, error, m.pc) THEN
+				STK.Pop(m.ws, m.R, error, m.pc); // value
+				STK.Pop(m.ws, m.S, error, m.pc); // offset
+				STK.PeekHL(m.ws, m.X, m.T, 0, error, m.pc); // pointer
 				m.T := m.T + m.X;
 				m.X := m.X + m.S;
 				IF (m.X + 4) > (m.T) THEN // passing pointer size?
-					error.code := ERR_INVALID_OFFSET;
+					error.code := ERR.INVALID_OFFSET;
 					error.pos := instr.address;
-					GetErrorMessage(ERR_INVALID_OFFSET, error); 
+					ERR.GetErrorMessage(ERR.INVALID_OFFSET, error); 
 				ELSE
 					SYSTEM.PUT32(m.X, m.R);
 					posNext := TRUE;
@@ -1077,42 +672,42 @@ BEGIN
 			END;
 		END;
 	| INST_PTR_READ:
-		IF CheckKind(m.ws, KIND_POINTER, -1, error, m.pc) THEN
-			IF CheckKind(m.ws, KIND_INT, 0, error, m.pc) THEN
-				Pop(m.ws, m.S, error, m.pc); // offset
-				PeekHL(m.ws, m.X, m.T, 0, error, m.pc); // pointer
+		IF STK.CheckKind(m.ws, STK.KIND_POINTER, -1, error, m.pc) THEN
+			IF STK.CheckKind(m.ws, STK.KIND_INT, 0, error, m.pc) THEN
+				STK.Pop(m.ws, m.S, error, m.pc); // offset
+				STK.PeekHL(m.ws, m.X, m.T, 0, error, m.pc); // pointer
 				m.T := m.T + m.X;
 				m.X := m.X + m.S;
 				IF (m.X + 4) > (m.T) THEN // passing pointer size?
-					error.code := ERR_INVALID_OFFSET;
+					error.code := ERR.INVALID_OFFSET;
 					error.pos := instr.address;
-					GetErrorMessage(ERR_INVALID_OFFSET, error);
+					ERR.GetErrorMessage(ERR.INVALID_OFFSET, error);
 				ELSE
 					SYSTEM.GET32(m.X, m.R);
-					posNext := PushAll(m.ws, m.R, 0, KIND_INT, 0, error, m.pc);
+					posNext := STK.PushAll(m.ws, m.R, 0, STK.KIND_INT, 0, error, m.pc);
 				END;
 			END;	
 		END;
 	| INST_DUP:
-		IF PeekHL(m.ws, m.R, m.S, 0, error, m.pc) THEN
-			PeekKind(m.ws, 0, m.T, error, m.pc);
-			posNext := PushAll(m.ws, m.R, m.S, m.T, 0, error, m.pc);
+		IF STK.PeekHL(m.ws, m.R, m.S, 0, error, m.pc) THEN
+			STK.PeekKind(m.ws, 0, m.T, error, m.pc);
+			posNext := STK.PushAll(m.ws, m.R, m.S, m.T, 0, error, m.pc);
 		END;
 	| INST_DROP:
-		posNext := Pop(m.ws, m.R, error, m.pc);
+		posNext := STK.Pop(m.ws, m.R, error, m.pc);
 	| INST_SWAP:
-		posNext := Swap(m.ws, 0, -1, error, m.pc);
+		posNext := STK.Swap(m.ws, 0, -1, error, m.pc);
 	| INST_OVER:
-		IF PeekValue(m.ws, -1, val1, m.R, error, m.pc) THEN
-			posNext := PushAll(m.ws, val1.h, val1.l, m.R, 0, error, m.pc);
+		IF STK.PeekValue(m.ws, -1, val1, m.R, error, m.pc) THEN
+			posNext := STK.PushAll(m.ws, val1.h, val1.l, m.R, 0, error, m.pc);
 		END;
 	| INST_NIP:
-		IF Swap(m.ws, 0, -1, error, m.pc) THEN
-			posNext := Pop(m.ws, m.R, error, m.pc);
+		IF STK.Swap(m.ws, 0, -1, error, m.pc) THEN
+			posNext := STK.Pop(m.ws, m.R, error, m.pc);
 		END;
 	| INST_JUMP_FOR:
 		IF m.I[m.J] = 0 THEN
-			posNext := Pop(m.ws, m.I[m.J], error, m.pc);
+			posNext := STK.Pop(m.ws, m.I[m.J], error, m.pc);
 			m.I[m.J] := ABS(m.I[m.J]);
 		ELSE
 			DEC(m.I[m.J]);
@@ -1124,9 +719,9 @@ BEGIN
 			m.I[m.J - 1] := 0;
 			SetNextCode(m, INST_JUMP_NEXT);
 		ELSE
-			error.code := ERR_FOR_BREAK;
+			error.code := ERR.FOR_BREAK;
 			error.pos := instr.address;
-			GetErrorMessage(ERR_FOR_BREAK, error);
+			ERR.GetErrorMessage(ERR.FOR_BREAK, error);
 		END;
 	| INST_JUMP_NEXT:
 		DEC(m.J);
@@ -1136,7 +731,7 @@ BEGIN
 			m.pc := instr.value.h;
 		END;
 	| INST_FFI_CALL:
-		IF Pop(m.ws, m.R, error, m.pc) THEN
+		IF STK.Pop(m.ws, m.R, error, m.pc) THEN
 			m.X := instr.value.h;
 			ffiFn := SYSTEM.VAL(m.X, Function);
 			m.S := ffiFn(m.ws, m.R);
@@ -1146,7 +741,7 @@ BEGIN
 	| INST_ERR:
 		error.code := instr.value.h;
 		error.pos := instr.address;
-		GetErrorMessage(instr.value.h, error);
+		ERR.GetErrorMessage(instr.value.h, error);
 	|INST_NOP: posNext := TRUE;
 	END;
 	
@@ -1161,9 +756,9 @@ VAR
 	len: INTEGER;
 BEGIN
 	m.pc := entry;
-	error.code := ERR_NONE;
+	error.code := ERR.NONE;
 	len := MAX_INSTRUCTIONS;
-	WHILE (m.pc < len) & (error.code = ERR_NONE) & (~ break) DO
+	WHILE (m.pc < len) & (error.code = ERR.NONE) & (~ break) DO
 		Step(m, block, error, break);
 	END;
 END Execute;
@@ -1231,7 +826,7 @@ VAR
 	len: INTEGER;
 BEGIN
 	ResetMachine(m);
-	error.code := ERR_NONE;
+	error.code := ERR.NONE;
 	len := LEN(block.data);
 	Parse(m, block, len);
 	Execute(m, block, entry, error);
@@ -1244,7 +839,7 @@ VAR
 	instr: Instruction;
 BEGIN
 	ResetMachine(m);
-	error.code := ERR_NONE;
+	error.code := ERR.NONE;
 	len := LEN(block.data);
 	Parse(m, block, len);
 	

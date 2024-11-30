@@ -1,0 +1,55 @@
+MODULE Errors;
+IMPORT Out := Out_sys;
+
+CONST
+	NONE* = 0;
+	UNKNOWN_REF* = 1;
+	UNKNOWN_MACRO* = 2;
+	UNKNOWN_ALIAS* = 3;
+	ALIAS_EXISTS* = 4;
+	T_INT_CONV* = 8;
+	T_REAL_CONV* = 9;
+	ST_UNDERFLOW* = 10;
+	ST_OVERFLOW* = 11;
+	ST_INDEX* = 12;
+	INVALID_KIND* = 13;
+	INVALID_OFFSET* = 14;
+	FOR_NOT_FOUND* = 15;
+	FOR_MAX_NESTED* = 16;
+	FOR_BREAK* = 17;
+	UNKNOWN_FFI* = 18;
+
+
+TYPE
+	Error* = RECORD
+		code*, pos*: INTEGER;
+		msg*: ARRAY 32 OF CHAR
+	END;
+
+
+PROCEDURE GetErrorMessage*(code: INTEGER; VAR error: Error);
+BEGIN
+	CASE code OF
+	| UNKNOWN_REF:    error.msg := "unknown reference";
+	| UNKNOWN_MACRO:  error.msg := "unknown macro";
+	| UNKNOWN_ALIAS:  error.msg := "unknown alias";
+	| ALIAS_EXISTS:   error.msg := "alias exists";
+	| T_INT_CONV:     error.msg := "invalid integer";
+	| T_REAL_CONV:    error.msg := "invalid real";
+	| ST_UNDERFLOW:   error.msg := "stack underflow";
+	| ST_OVERFLOW:    error.msg := "stack overflow";
+	| ST_INDEX:       error.msg := "invalid stack index";
+	| INVALID_KIND:   error.msg := "Invalid kind";
+	| INVALID_OFFSET: error.msg := "Invalid offset";
+	| FOR_NOT_FOUND:  error.msg := "for not found";
+	| FOR_MAX_NESTED: error.msg := "max for nesting: 3";
+	| FOR_BREAK:      error.msg := "not in a loop";
+	| UNKNOWN_FFI:    error.msg := "unknown function";
+	ELSE
+		error.msg := "Unknown error";
+		Out.String("error: "); Out.Int(code, 0); Out.Ln;
+	END;
+END GetErrorMessage;
+	
+
+END Errors.

@@ -8,6 +8,8 @@ IMPORT
 	String IN "./lib/String.ob07",
 	P IN "./lib/Parser.ob07",
 	VM IN "./lib/VM.ob07",
+	STK IN "./lib/Stack.ob07",
+	ERR IN "./lib/Errors.ob07",
 	Out := Out_sys;
 
 CONST
@@ -24,7 +26,7 @@ VAR
 	cursorPos: MUI.Vec2;
 	yOffs: INTEGER;
 	vmm: VM.Machine;
-	error: VM.Error;
+	error: ERR.Error;
 	break: BOOLEAN;
 
 
@@ -70,12 +72,12 @@ BEGIN
 END MainWindow;
 
 
-PROCEDURE LogPanel(ctx: MUI.Context; VAR error: VM.Error; x, y, height: INTEGER);
+PROCEDURE LogPanel(ctx: MUI.Context; VAR error: ERR.Error; x, y, height: INTEGER);
 VAR
 	wr1: MUI.Rect;
 	rowWidth1: ARRAY 1 OF INTEGER;
 	
-	PROCEDURE Toolbar(ctx: MUI.Context; VAR error: VM.Error);
+	PROCEDURE Toolbar(ctx: MUI.Context; VAR error: ERR.Error);
 	VAR
 		rowWidth2: ARRAY 5 OF INTEGER;
 		entry: INTEGER;
@@ -103,17 +105,17 @@ VAR
 			MUI.Label(ctx, "");
 			IF MUI.Button(ctx, "Step") THEN
 				VM.Step(vmm, currentBlock, error, break);
-				break := break OR (error.code # VM.ERR_NONE);
+				break := break OR (error.code # ERR.NONE);
 				UpdateCursorByPC();
 			END;
 		END;
 	END Toolbar;
 	
-	PROCEDURE Error(ctx: MUI.Context; VAR error: VM.Error);
+	PROCEDURE Error(ctx: MUI.Context; VAR error: ERR.Error);
 	VAR
 		 errStr, errStr2: ARRAY 64 OF CHAR;
 	BEGIN
-		IF error.code # VM.ERR_NONE THEN
+		IF error.code # ERR.NONE THEN
 			String.Append(errStr, "Error at [");
 			String.FromInt(error.pos, errStr2);
 			String.Append(errStr, errStr2);
@@ -180,9 +182,9 @@ VAR
 	PROCEDURE GetKindSymbol(kind: BYTE; VAR symbol: ARRAY OF CHAR);
 	BEGIN
 		CASE kind OF 
-		| VM.KIND_INT: COPY("#", symbol);
-		| VM.KIND_REAL: COPY("$", symbol);
-		| VM.KIND_POINTER: COPY("^", symbol);
+		| STK.KIND_INT: COPY("#", symbol);
+		| STK.KIND_REAL: COPY("$", symbol);
+		| STK.KIND_POINTER: COPY("^", symbol);
 		ELSE COPY("?", symbol); END;
 	END;
 
@@ -192,10 +194,10 @@ VAR
 		rval: REAL;
 	BEGIN
 		CASE kind OF
-		| VM.KIND_REAL:
+		| STK.KIND_REAL:
 			rval := SYSTEM.VAL(vmm.ws.data[idx].value, REAL);
 			String.FromReal(rval, 3, valStr);
-		| VM.KIND_INT, VM.KIND_POINTER:
+		| STK.KIND_INT, STK.KIND_POINTER:
 			sval := vmm.ws.data[idx].value.h;
 			String.FromInt(sval, valStr);
 		ELSE
@@ -214,12 +216,12 @@ VAR
 		stackCount: INTEGER;
 	BEGIN
 		MUI.Label(ctx, "Working stack: ");
-		IF ~ VM.IsStackEmpty(vmm.ws) THEN
+		IF ~ STK.IsStackEmpty(vmm.ws) THEN
 			rowWidth1[0] := 30;
 			rowWidth1[1] := 15;
 			rowWidth1[2] := 110;
 			rowWidth1[3] := -1;
-			VM.GetStackCount(vmm.ws, stackCount);
+			STK.GetStackCount(vmm.ws, stackCount);
 			FOR i := stackCount TO 0 BY -1 DO
 				MUI.LayoutRow(ctx, 4, rowWidth1, 0);
 				// stack index
@@ -267,11 +269,11 @@ VAR
 		stackCount: INTEGER;
 	BEGIN
 		MUI.Label(ctx, "Return stack: ");
-		IF ~ VM.IsStackEmpty(vmm.rs) THEN
+		IF ~ STK.IsStackEmpty(vmm.rs) THEN
 			rowWidth1[0] := 30;
 			rowWidth1[1] := 15;
 			rowWidth1[2] := -1;
-			VM.GetStackCount(vmm.rs, stackCount);
+			STK.GetStackCount(vmm.rs, stackCount);
 			FOR i := stackCount TO 0 BY -1 DO
 				MUI.LayoutRow(ctx, 3, rowWidth1, 0);
 				// stack index
@@ -445,12 +447,12 @@ BEGIN
 END BlockWindow;
 
 
-PROCEDURE Hello(VAR ws: VM.Stack; argc: INTEGER): INTEGER;
+PROCEDURE Hello(VAR ws: STK.Stack; argc: INTEGER): INTEGER;
 VAR
-	error: VM.Error;
+	error: ERR.Error;
 BEGIN
 	Out.String("Hello from Oberon: "); Out.Int(argc, 0); Out.Ln;
-	VM.PushInt(ws, 77, error);
+	STK.PushInt(ws, 77, error);
 	RETURN 1
 END Hello;
 
@@ -475,7 +477,7 @@ BEGIN
 	
 	d0currentBlock := 2.0; // test
 	ST.ReadBlock(d0, FLOOR(d0currentBlock) - 1, currentBlock);
-	error.code := VM.ERR_NONE;
+	error.code := ERR.NONE;
 	break := TRUE;
 	
 	VM.InitMachine(vmm, 4096, OnReset);

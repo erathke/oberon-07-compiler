@@ -1,0 +1,382 @@
+MODULE Stack;
+IMPORT SYSTEM, 
+	ERR IN "./Errors.ob07";
+
+CONST
+	STACK_SIZE = 256;
+	
+	KIND_NONE* = 0;
+	KIND_INT* = 1;
+	KIND_REAL* = 2;
+	KIND_CHAR* = 3;
+	KIND_BYTE* = 4;
+	KIND_POINTER* = 5;
+
+TYPE
+	
+	Value* = RECORD
+		h*, l*: INTEGER
+	END;
+	
+	
+	Item* = RECORD
+		value*: Value;
+		alias*: INTEGER;
+		kind*: BYTE
+	END;
+
+	Stack* = RECORD 
+		top*: INTEGER;
+		data*: ARRAY STACK_SIZE OF Item
+	END;
+
+	Error = ERR.Error;
+
+PROCEDURE IsStackEmpty*(stack: Stack): BOOLEAN;
+BEGIN 
+	RETURN stack.top < 0
+END IsStackEmpty;
+
+
+PROCEDURE GetStackCount*(stack: Stack; VAR count: INTEGER);
+BEGIN 
+	count := stack.top;
+END GetStackCount;
+
+
+PROCEDURE PushError(address: INTEGER; VAR error: Error);
+BEGIN
+	error.code := ERR.ST_OVERFLOW;
+	error.pos := address;
+	ERR.GetErrorMessage(ERR.ST_OVERFLOW, error);
+END PushError;
+
+
+PROCEDURE PopError(address: INTEGER; VAR error: Error);
+BEGIN
+	error.code := ERR.ST_UNDERFLOW;
+	error.pos := address;
+	ERR.GetErrorMessage(ERR.ST_UNDERFLOW, error);
+END PopError;
+
+
+PROCEDURE IdxError(address: INTEGER; VAR error: Error);
+BEGIN
+	error.code := ERR.ST_INDEX;
+	error.pos := address;
+	ERR.GetErrorMessage(ERR.ST_INDEX, error);
+END IdxError;
+
+
+PROCEDURE [oberon-] PushAll*(VAR stack: Stack; h, l, kind, alias: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
+VAR
+	success: BOOLEAN;
+BEGIN
+	IF stack.top + 1 < STACK_SIZE THEN
+		INC(stack.top);
+		stack.data[stack.top].value.h := h;
+		stack.data[stack.top].value.l := l;
+		stack.data[stack.top].kind := kind;
+		stack.data[stack.top].alias := alias;
+		success := TRUE;
+	ELSE
+		PushError(address, error);
+		success := FALSE;
+	END;
+	RETURN success
+END PushAll;
+
+
+PROCEDURE [oberon-] Push*(VAR stack: Stack; value: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
+	RETURN PushAll(stack, value, 0, KIND_INT, 0, error, address)
+END Push;
+
+
+PROCEDURE [oberon-] PushR*(VAR stack: Stack; value: Value; VAR error: Error; address: INTEGER): BOOLEAN;
+BEGIN
+	RETURN PushAll(stack, value.h, value.l, KIND_REAL, 0, error, address)
+END PushR;
+
+
+PROCEDURE [oberon-] PushInt*(VAR stack: Stack; value: INTEGER; VAR error: Error): BOOLEAN;
+BEGIN
+	RETURN Push(stack, value, error, -1)
+END;
+
+
+PROCEDURE [oberon-] PopAll*(VAR stack: Stack; VAR h, l: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
+VAR
+	success: BOOLEAN;
+	
+	PROCEDURE ClearItem(VAR item: Item);
+	BEGIN
+		item.value.h := 0;
+		item.value.l := 0;
+		item.alias := 0;
+		item.kind := KIND_NONE;
+	END;
+	
+BEGIN
+	IF stack.top >= 0 THEN
+		h := stack.data[stack.top].value.h;
+		l := stack.data[stack.top].value.l;
+		ClearItem(stack.data[stack.top]);
+		success := TRUE;
+		DEC(stack.top);
+	ELSE
+		PopError(address, error);
+		success := FALSE;
+	END;
+	RETURN success
+END PopAll;
+
+
+PROCEDURE [oberon-] Pop*(VAR stack: Stack; VAR value: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
+VAR
+	l: INTEGER;
+BEGIN
+	RETURN PopAll(stack, value, l, error, address)
+END Pop;
+
+
+PROCEDURE [oberon-] PopR*(VAR stack: Stack; VAR rvalue: REAL; VAR error: Error; address: INTEGER): BOOLEAN;
+TYPE 
+	V = RECORD h, l: INTEGER END;
+VAR
+	val: V;
+	success: BOOLEAN;
+BEGIN
+	success := PopAll(stack, val.h, val.l, error, address);
+	IF success THEN
+		rvalue := SYSTEM.VAL(val, REAL);
+	END;
+	RETURN success
+END PopR;
+
+
+PROCEDURE [oberon-] Peek*(VAR stack: Stack; VAR value: INTEGER; ridx: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
+VAR
+	success: BOOLEAN;
+	idx: INTEGER;
+BEGIN
+	idx := stack.top + ridx;
+
+	IF (idx < 0) OR (idx >= STACK_SIZE) THEN
+		IdxError(address, error);
+	ELSE
+		value := stack.data[idx].value.h;
+		success := TRUE;
+	END;
+		
+	RETURN success
+END Peek;
+
+
+PROCEDURE [oberon-] PeekHL*(VAR stack: Stack; VAR h, l: INTEGER; ridx: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
+VAR
+	success: BOOLEAN;
+	idx: INTEGER;
+BEGIN
+	idx := stack.top + ridx;
+	IF (idx < 0) OR (idx >= STACK_SIZE) THEN
+		IdxError(address, error);
+	ELSE
+		h := stack.data[idx].value.h;
+		l := stack.data[idx].value.l;
+		success := TRUE;
+	END;
+	RETURN success
+END PeekHL;
+
+
+PROCEDURE [oberon-] PeekKind*(stack: Stack; ridx: INTEGER; VAR kind: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
+VAR
+	success: BOOLEAN;
+	idx: INTEGER;
+BEGIN
+	idx := stack.top + ridx;
+	IF (idx < 0) OR (idx >= STACK_SIZE) THEN
+		IdxError(address, error);
+	ELSE
+		kind := stack.data[idx].kind;
+		success := TRUE;
+	END;
+	RETURN success
+	
+END PeekKind;
+
+
+PROCEDURE [oberon-] PeekValue*(stack: Stack; ridx: INTEGER; VAR value: Value; VAR kind: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
+VAR
+	success: BOOLEAN;
+	idx: INTEGER;
+BEGIN
+	idx := stack.top + ridx;
+	IF (idx < 0) OR (idx >= STACK_SIZE) THEN
+		IdxError(address, error);
+	ELSE
+		value := stack.data[idx].value;
+		kind := stack.data[idx].kind;
+		success := TRUE;
+	END;
+	RETURN success
+	
+END PeekValue;
+
+
+PROCEDURE [oberon-] PopValue*(VAR stack: Stack; ridx: INTEGER; VAR value: Value; VAR kind: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
+VAR
+	success: BOOLEAN;
+	
+	PROCEDURE ClearItem(VAR item: Item);
+	BEGIN
+		item.value.h := 0;
+		item.value.l := 0;
+		item.alias := 0;
+		item.kind := KIND_NONE;
+	END;
+	
+BEGIN
+	IF stack.top >= 0 THEN
+		value := stack.data[stack.top].value;
+		kind := stack.data[stack.top].kind;
+		ClearItem(stack.data[stack.top]);
+		success := TRUE;
+		DEC(stack.top);
+	ELSE
+		PopError(address, error);
+		success := FALSE;
+	END;
+	RETURN success
+	
+END PopValue;
+
+
+PROCEDURE CheckKind*(stack: Stack; kind, ridx: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
+VAR
+	idx: INTEGER;
+	match: BOOLEAN;
+BEGIN
+	idx := stack.top + ridx;
+	IF (idx < 0) OR (idx >= STACK_SIZE) THEN
+		IdxError(address, error);
+	ELSE
+		match := stack.data[idx].kind = kind;
+		IF ~ match THEN
+			error.code := ERR.INVALID_KIND;
+			error.pos := address;
+			ERR.GetErrorMessage(ERR.INVALID_KIND, error);
+		END; 
+	END;
+
+	RETURN match
+END CheckKind;
+
+
+PROCEDURE [oberon-] PeekR*(VAR stack: Stack; VAR rvalue: REAL; ridx: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
+TYPE 
+	V = RECORD h, l: INTEGER END;
+VAR
+	success: BOOLEAN;
+	idx: INTEGER;
+	val: V;
+BEGIN
+	idx := stack.top + ridx;
+	IF (idx < 0) OR (idx >= STACK_SIZE) THEN
+		IdxError(address, error);
+	ELSE
+		success := PeekHL(stack, val.h, val.l, ridx, error, address);
+		IF success THEN
+			rvalue := SYSTEM.VAL(stack.data[idx], REAL);
+		END;
+	END;
+	RETURN success
+END PeekR;
+
+
+PROCEDURE [oberon-] Poke*(VAR stack: Stack; value, relidx: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
+VAR
+	success: BOOLEAN;
+	idx: INTEGER;
+BEGIN
+	idx := stack.top + relidx;
+	IF (idx < 0) OR (idx >= STACK_SIZE) THEN
+		IdxError(address, error);
+	ELSE
+		stack.data[idx].value.h := value;
+		success := TRUE;
+	END;
+	RETURN success
+END Poke;
+
+
+PROCEDURE Swap*(VAR stack: Stack; idx1, idx2: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
+VAR
+	temp: Item;
+	success: BOOLEAN;
+BEGIN
+	IF stack.top >= 1 THEN
+		idx1 := stack.top + idx1;
+		idx2 := stack.top + idx2;
+		temp := stack.data[idx1];
+		stack.data[idx1] := stack.data[idx2];
+		stack.data[idx2] := temp;
+		success := TRUE;
+	ELSE
+		PopError(address, error);
+	END;
+	RETURN success
+END Swap;
+
+
+PROCEDURE TagStack*(VAR stack: Stack; tagIdx: INTEGER);
+BEGIN
+	stack.data[stack.top].alias := tagIdx;
+END;
+
+
+PROCEDURE SetTagValue*(VAR stack: Stack; tagIdx, pc: INTEGER; VAR value: INTEGER; VAR error: Error);
+VAR
+	i: INTEGER;
+	idx: INTEGER;
+BEGIN
+	idx := -1;
+	FOR i := stack.top TO 0 BY -1 DO
+		IF tagIdx = stack.data[i].alias THEN
+			idx := i;
+			i := -1;
+		END;
+	END;
+	IF idx # -1 THEN
+		IF Pop(stack, value, error, pc) THEN
+			stack.data[idx].value.h := value;
+		END;
+	END;
+END;
+
+
+PROCEDURE GetTagValue*(VAR stack: Stack; tagIdx, pc: INTEGER; VAR error: Error);
+VAR
+	i: INTEGER;
+	idx: INTEGER;
+	item: Item;
+BEGIN
+	idx := -1;
+	FOR i := stack.top TO 0 BY -1 DO
+		IF tagIdx = stack.data[i].alias THEN
+			idx := i;
+			i := -1;
+			item := stack.data[idx];
+		END;
+	END;
+	IF idx # -1 THEN
+		PushAll(stack, item.value.h, item.value.l, item.kind, 0, error, pc);
+	ELSE
+		error.code := ERR.UNKNOWN_ALIAS;
+		error.pos := pc;
+		ERR.GetErrorMessage(ERR.UNKNOWN_ALIAS, error);
+	END;
+END;
+
+
+END Stack.
