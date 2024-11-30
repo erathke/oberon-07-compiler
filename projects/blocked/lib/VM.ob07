@@ -78,11 +78,13 @@ CONST
 	INST_DUP = 56;
 	INST_DROP = 57;
 	INST_SWAP = 58;
-	INST_JUMP_FOR = 59;
-	INST_JUMP_NEXT = 60;
-	INST_JUMP_BREAK = 61;
+	INST_OVER = 59;
+	INST_NIP = 60;
 	INST_EQUAL = 62;
-	INST_FFI_CALL = 63;
+	INST_JUMP_FOR = 70;
+	INST_JUMP_NEXT = 71;
+	INST_JUMP_BREAK = 72;
+	INST_FFI_CALL = 73;
 	
 	MAX_INSTRUCTIONS = 3960; // TODO: dynamic instruction array
 	MAX_MACRO_FOR = 3;
@@ -446,6 +448,35 @@ BEGIN
 	
 END PeekValue;
 
+
+PROCEDURE [oberon-] PopValue(VAR stack: Stack; ridx: INTEGER; VAR value: Value; VAR kind: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
+VAR
+	success: BOOLEAN;
+	
+	PROCEDURE ClearItem(VAR item: Item);
+	BEGIN
+		item.value.h := 0;
+		item.value.l := 0;
+		item.alias := 0;
+		item.kind := KIND_NONE;
+	END;
+	
+BEGIN
+	IF stack.top >= 0 THEN
+		value := stack.data[stack.top].value;
+		kind := stack.data[stack.top].kind;
+		ClearItem(stack.data[stack.top]);
+		success := TRUE;
+		DEC(stack.top);
+	ELSE
+		PopError(address, error);
+		success := FALSE;
+	END;
+	RETURN success
+	
+END PopValue;
+
+
 PROCEDURE CheckKind(stack: Stack; kind, ridx: INTEGER; VAR error: Error; address: INTEGER): BOOLEAN;
 VAR
 	idx: INTEGER;
@@ -622,7 +653,6 @@ BEGIN
 			ELSE
 				AddInstruction(m, INST_ALIAS_WRITE, k + 1, j);
 			END;
-			
 		| MARK_ALIAS_READ:
 			j := i;
 			i := i + ReadIdent(block, i + 1, len, ref);
@@ -661,6 +691,10 @@ BEGIN
 				AddInstruction(m, INST_DUP, j, j);
 			ELSIF ref = "swap" THEN
 				AddInstruction(m, INST_SWAP, j, j);
+			ELSIF ref = "over" THEN
+				AddInstruction(m, INST_OVER, j, j);
+			ELSIF ref = "nip" THEN
+				AddInstruction(m, INST_NIP, j, j);
 			ELSIF ref = "$" THEN
 				AddInstruction(m, INST_JUMP, j, j);
 			ELSIF ref = "$0" THEN
@@ -952,7 +986,8 @@ BEGIN
 			posNext := TRUE;
 		END;
 	| INST_EQUAL:
-		IF PeekValue(m.ws, 0, val1, m.R, error, m.pc) & PeekValue(m.ws, -1, val2, m.S, error, m.pc) THEN
+		//IF PeekValue(m.ws, 0, val1, m.R, error, m.pc) & PeekValue(m.ws, -1, val2, m.S, error, m.pc) THEN
+		IF PopValue(m.ws, 0, val1, m.R, error, m.pc) & PopValue(m.ws, 0, val2, m.S, error, m.pc) THEN
 			IF IsEqual(val1, val2, m.R, m.S) THEN
 				posNext := Push(m.ws, 1, error, m.pc);
 			ELSE
@@ -1067,6 +1102,14 @@ BEGIN
 		posNext := Pop(m.ws, m.R, error, m.pc);
 	| INST_SWAP:
 		posNext := Swap(m.ws, 0, -1, error, m.pc);
+	| INST_OVER:
+		IF PeekValue(m.ws, -1, val1, m.R, error, m.pc) THEN
+			posNext := PushAll(m.ws, val1.h, val1.l, m.R, 0, error, m.pc);
+		END;
+	| INST_NIP:
+		IF Swap(m.ws, 0, -1, error, m.pc) THEN
+			posNext := Pop(m.ws, m.R, error, m.pc);
+		END;
 	| INST_JUMP_FOR:
 		IF m.I[m.J] = 0 THEN
 			posNext := Pop(m.ws, m.I[m.J], error, m.pc);
