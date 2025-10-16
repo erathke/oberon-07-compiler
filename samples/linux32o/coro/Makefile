@@ -1,7 +1,7 @@
 OBC=../../../compilerX
 FASM=../../../fasm
 LD=ld
-LDFLAGS=-T./linker.ld
+LDFLAGS=-T./strip.ld
 CC=gcc
 CFLAGS=-m32
 DEF=-def API_sys
