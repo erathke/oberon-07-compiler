@@ -31,5 +31,5 @@ clean:
 	
 deps: $(MURL_SRC)
 	$(CC) $(CFLAGS) -c $(MURL_DEP)/src/murl.c -o lib/murl.o -I$(MURL_DEP)/vendor -I./include
-	$(CC) $(CFLAGS) -c $(MURL_DEP)/vendor/microui.c -o lib/microui.o
+#	$(CC) $(CFLAGS) -c $(MURL_DEP)/vendor/microui.c -o lib/microui.o
 	$(AR) $(ARFLAGS) lib/libmurl.a lib/murl.o lib/microui.o

@@ -10,7 +10,7 @@ VAR
 	bgColor: RL.Color;
 	fontSize: INTEGER;
 	ctx: MUI.Context;
-	wr1, wr2: MUI.Rect;
+	wr1, wr2, windowRect: MUI.Rect;
 	font: RL.Font;
 	widths2: ARRAY 1 OF INTEGER;
 	buf2: ARRAY 32 OF CHAR;
@@ -21,6 +21,7 @@ BEGIN
 	fontSize := 16;
 	wr1.x := 20; wr1.y := 20; wr1.w := 200; wr1.h := 150;
 	wr2.x := 300; wr2.y := 20; wr2.w := 200; wr2.h := 200;
+	windowRect.x := 100; windowRect.y := 100; windowRect.w := 200; windowRect.h := 200; 
 	widths2[0] := -1;
 	buf2 := "type here...";
 	svalue1 := 50.0;
@@ -66,6 +67,21 @@ BEGIN
 			
 			MUI.EndWindow(ctx);
 		END;
+		
+		
+		IF MUI.BeginWindow(ctx, "Teste", windowRect) THEN
+			MUI.Label(ctx, "Evandro");
+			MUI.Label(ctx, "Rathke");
+			IF MUI.Button(ctx, "Click!") THEN
+			END;
+			MUI.Label(ctx, "Evandro");
+			MUI.Label(ctx, "Rathke");
+			MUI.Label(ctx, "Evandro");
+			MUI.Label(ctx, "Rathke");
+			MUI.Label(ctx, "Evandro");
+			MUI.Label(ctx, "Rathke");
+			MUI.EndWindow(ctx);
+		END;		
 	
 		MUI.End(ctx);
 		

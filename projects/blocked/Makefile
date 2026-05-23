@@ -23,9 +23,8 @@ lib/%.o: lib/%.c
 lib/%.xo: %.ob07
 	$(OBC) $^ linux32o -out $@ $(DEF) $(OPTS)
 
-hello: lib/Hello.xo
-
 fs:
+	mv $(FS_FILE) $(FS_FILE).bkp
 	dd if=/dev/zero of=$(FS_FILE) count=$(FS_BLOCKS) bs=$(FS_BLOCK_SIZE)
 
 clean:

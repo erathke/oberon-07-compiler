@@ -15,6 +15,10 @@ void _DrawCircle(int x, int y, double r, Color* color) {
 	DrawCircle(x, y, r, *color);
 }
 
+void _DrawCircleLines(int x, int y, double r, Color* color) {
+	DrawCircleLines(x, y, r, *color);
+}
+
 void _DrawLine(int startPosX, int startPosY, int endPosX, int endPosY, Color* color) {
 	DrawLine(startPosX, startPosY, endPosX, endPosY, *color);
 }

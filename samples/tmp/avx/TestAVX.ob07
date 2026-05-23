@@ -1,0 +1,43 @@
+MODULE TestAVX;
+IMPORT SYSTEM, Out := Out_sys;
+
+TYPE
+    ADDRESS = INTEGER;
+
+PROCEDURE [extern, "testAVX"] HasAVX(): BOOLEAN;
+PROCEDURE [extern, "malloc"] malloc(size: INTEGER): ADDRESS;
+PROCEDURE [extern, "free"] free(addr: ADDRESS);
+PROCEDURE [extern, "copy_data_8"] copy_data_8(src, dest: ADDRESS; size: INTEGER);
+
+
+PROCEDURE MoveData();
+CONST
+    BYTES_SIZE = 4 * 1024 * 768;
+VAR
+    src, dest: ADDRESS;
+BEGIN
+    src := malloc(BYTES_SIZE);
+    dest := malloc(BYTES_SIZE);
+
+    //SYSTEM.MOVE(src, dest, BYTES_SIZE);
+    copy_data_8(src, dest, BYTES_SIZE);
+
+    free(src);
+    free(dest);
+END;
+
+
+PROCEDURE Dummy*();
+BEGIN
+    IF HasAVX() THEN
+		Out.String("AVX support is available"); Out.Ln;
+        MoveData();
+	ELSE
+		Out.String("AVX support is not available"); Out.Ln;
+	END;
+END;
+
+
+BEGIN
+    Dummy();
+END TestAVX.

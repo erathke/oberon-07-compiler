@@ -1,0 +1,77 @@
+MODULE Circle;
+IMPORT
+	SYSTEM,
+	
+	RL IN "./lib/Raylib.ob07",
+	Math,
+	Out := Out_sys;
+
+CONST
+	SCREEN_WIDTH = 800;
+	SCREEN_HEIGHT = 600;
+	ME_MAX_COLS = 80;
+
+
+PROCEDURE Loop(L: INTEGER; half_w, half_h: INTEGER);
+CONST
+	RADIUS = 50.0;
+	N = 6;
+VAR
+	i, j, x, y: INTEGER;
+	px, py, angle: REAL;
+	deg: INTEGER;
+	nw, nh : INTEGER;
+	colors: ARRAY 4 OF RL.Color;
+	color: RL.Color;
+BEGIN
+		colors[0] := RL.BLACK;
+		colors[1] := RL.RED;
+		colors[2] := RL.BLUE;
+		colors[3] := RL.YELLOW;
+		
+		RL.DrawCircleLines(half_w, half_h, RADIUS, RL.BLACK);
+		
+		FOR j := 1 TO L DO
+			deg := 360 DIV (N * j);
+			color := colors[j MOD 4];
+			FOR i := 1 TO N * j DO
+				angle := Math.DegToRad(FLT(i * deg));
+				px := Math.cos(angle) * RADIUS * FLT(j);
+				x := FLOOR(px);
+				py := Math.sin(angle) * RADIUS * FLT(j);
+				y := FLOOR(py);
+				nw := half_w + x;
+				nh := half_h + y;
+				
+				RL.DrawCircleLines(nw, nh, RADIUS, color);
+			END;
+		END;
+	
+END Loop;
+
+
+PROCEDURE Main();
+VAR 
+	half_w, half_h, layer: INTEGER;
+	bgColor: RL.Color;
+BEGIN
+	half_w := SCREEN_WIDTH DIV 2;
+	half_h := SCREEN_HEIGHT DIV 2;
+	RL.IntToColor(077777777H, bgColor);
+	RL.SetTargetFPS(60);
+	RL.InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Circle");
+	
+	WHILE ~ RL.WindowShouldClose() DO
+		layer := 3;
+		RL.BeginDrawing();
+			RL.ClearBackground(bgColor);
+			Loop(layer, half_w, half_h);
+		RL.EndDrawing();
+	END;
+	RL.CloseWindow();
+END Main;
+
+
+BEGIN
+	Main()
+END Circle.

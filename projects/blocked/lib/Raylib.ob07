@@ -71,7 +71,7 @@ TYPE
 	END;
 
 VAR
-	WHITE*, YELLOW*, BLUE*, RED*: Color;
+	WHITE*, YELLOW*, BLUE*, RED*, BLACK*: Color;
 	
   
 PROCEDURE [extern, "SetTargetFPS"] SetTargetFPS*(fps: INTEGER);
@@ -87,6 +87,7 @@ PROCEDURE [extern, "IsMouseButtonPressed"] IsMouseButtonPressed*(button: INTEGER
 PROCEDURE [extern, "_InitWindow"] InitWindow*(w, h: INTEGER; title: ARRAY OF CHAR);
 PROCEDURE [extern, "_ClearBackground"] ClearBackground*(color: Color);
 PROCEDURE [extern, "_DrawCircle"] DrawCircle*(cx, cy: INTEGER; r: REAL; color: Color);
+PROCEDURE [extern, "_DrawCircleLines"] DrawCircleLines*(cx, cy: INTEGER; r: REAL; color: Color);
 PROCEDURE [extern, "_DrawRectangle"] DrawRectangle*(x, y, w, h: INTEGER; color: Color);
 PROCEDURE [extern, "_DrawRectangleLines"] DrawRectangleLines*(posX, posY, width, height: INTEGER; color: Color);
 PROCEDURE [extern, "_DrawLine"] DrawLine*(startPosX, startPosY, endPosX, endPosY: INTEGER; color: Color);
@@ -153,4 +154,5 @@ BEGIN
 	IntToColor(0FFFF00FFH, YELLOW);
 	IntToColor(00000FFFFH, BLUE);
 	IntToColor(0FF0000FFH, RED);
+	IntToColor(0000000FFH, BLACK);
 END Raylib.

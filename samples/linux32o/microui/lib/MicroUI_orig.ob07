@@ -18,70 +18,23 @@ CONST
 	OPT_EXPANDED*     = {12};
 
 	SLIDER_FMT* = "%.2f";
-	
-	CONTEXT_SIZE = 300 * 1000; // ~300kb
 
 TYPE
 	ADDRESS = INTEGER;
-	
-	Font* = ADDRESS;
-	
-	Context* = POINTER TO RECORD
-		textWidth*: PROCEDURE(font: Font; str: ARRAY OF CHAR; len: INTEGER): INTEGER;
-		textHeight*: PROCEDURE(font: Font): INTEGER;
-		data: ARRAY CONTEXT_SIZE OF BYTE
-	END;
-	
-	Color* = RECORD
-		r, g, b, a: BYTE
-	END;
+	Context* = ADDRESS;
 	
 	Rect* = RECORD
 		x*, y*, w*, h*: INTEGER
 	END;
 	
-	Vec2* = RECORD 
-		x, y: INTEGER
-	END;
-	
-	BaseCommand = POINTER TO RECORD
-		_type, size: INTEGER
-	END;
-	
-	JumpCommand = POINTER TO RECORD (BaseCommand)
-		dst: ADDRESS
-	END;
-	
-	ClipCommand = POINTER TO RECORD (BaseCommand)
-		rect: Rect
-	END;
-	
-	RectCommand = POINTER TO RECORD (ClipCommand)
-		color: Color
-	END;
-	
-	TextCommand = POINTER TO RECORD (BaseCommand)
-		font: Font; 
-		pos: Vec2;
-		color: Color; 
-		str: ARRAY 1 OF CHAR
-	END;
-	
-	IconCommand = POINTER TO RECORD (ClipCommand)
-		id: INTEGER;
-		color: Color
-	END;
-	
-	Command* = BaseCommand;
-	
-	
+
+PROCEDURE [extern, "_mu_destroy"] Destroy*(ctx: Context);
 PROCEDURE [extern, "mu_begin"] Begin*(ctx: Context);
 PROCEDURE [extern, "mu_end"] End*(ctx: Context);
 PROCEDURE [extern, "mu_end_window"] EndWindow*(ctx: Context);
 PROCEDURE [extern, "mu_end_popup"] EndPopup*(ctx: Context);
-PROCEDURE [extern, "mu_next_command"] _mu_next_command(ctx: Context; cmd: ADDRESS): BOOLEAN;
 
-
+PROCEDURE [extern, "_mu_create_ctx"] _mu_create_ctx(): Context;
 PROCEDURE [extern, "mu_init"] _mu_init(ctx: Context);
 PROCEDURE [extern, "_mu_begin_window_ex"] _mu_begin_window_ex(ctx: Context; title: ADDRESS; rect: ADDRESS; opt: INTEGER): INTEGER;
 PROCEDURE [extern, "mu_button_ex"] _mu_button_ex(ctx: Context; title: ADDRESS; icon, opt: INTEGER): INTEGER;
@@ -94,24 +47,11 @@ PROCEDURE [extern, "mu_layout_row"] _mu_layout_row(ctx: Context; items: INTEGER;
 PROCEDURE [extern, "mu_slider_ex"] _mu_slider_ex(ctx: Context; VAR value: REAL; low, high, step: REAL; fmt: ADDRESS; opt: INTEGER): INTEGER;
 
 
-PROCEDURE NextCommand*(ctx: Context; VAR cmd: Command): BOOLEAN;
-BEGIN
-	RETURN _mu_next_command(ctx, SYSTEM.VAL(cmd, ADDRESS))
-END NextCommand;
-
-
 PROCEDURE Init*(VAR ctx: Context);
 BEGIN
-	NEW(ctx);
+	ctx := _mu_create_ctx();
 	_mu_init(ctx);
 END Init;
-
-
-PROCEDURE Destroy*(VAR ctx: Context);
-BEGIN
-	DISPOSE(ctx);
-END Destroy;
-
 
 PROCEDURE BeginWindowEx*(ctx: Context; title: ARRAY OF CHAR; VAR rect: Rect; opt: SET): BOOLEAN; 
 BEGIN

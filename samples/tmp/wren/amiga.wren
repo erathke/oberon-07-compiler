@@ -110,7 +110,7 @@ class App {
 	}
 }
 
-var app = App.new(480, 320, "Amiga - boing ball")
+var app = App.new(640, 480, "Amiga - boing ball")
 
 var init = Fn.new {
 	app.init()
