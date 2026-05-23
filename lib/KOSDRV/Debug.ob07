@@ -1,5 +1,5 @@
 ﻿(*
-    Copyright 2016, 2018, 2022, 2023 Anton Krotov
+    Copyright 2016, 2018, 2022, 2023, 2025 Anton Krotov
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Lesser General Public License as published by
@@ -282,7 +282,7 @@ VAR info: info_struct; res: INTEGER;
 BEGIN
   info.subfunc := 7;
   info.flags := 0;
-  info.param := sys.SADR(" ");
+  info.param := 0;
   info.rsrvd1 := 0;
   info.rsrvd2 := 0;
   info.fname := "/sys/develop/board";
