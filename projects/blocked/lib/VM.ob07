@@ -733,7 +733,7 @@ BEGIN
 	| INST_FFI_CALL:
 		IF STK.Pop(m.ws, m.R, error, m.pc) THEN
 			m.X := instr.value.h;
-			ffiFn := SYSTEM.VAL(m.X, Function);
+			ffiFn := SYSTEM.VAL(Function, m.X);
 			m.S := ffiFn(m.ws, m.R);
 			posNext := TRUE;
 		END;
@@ -858,7 +858,7 @@ END Debug;
 PROCEDURE Registry*(VAR m: Machine; fn: Function; name: Identifier);
 BEGIN
 	COPY(name, m.ffi[m.ffiCount].name);
-	m.ffi[m.ffiCount].address := SYSTEM.VAL(fn, INTEGER);
+	m.ffi[m.ffiCount].address := SYSTEM.VAL(INTEGER, fn);
 	INC(m.ffiCount);
 END Registry;
 

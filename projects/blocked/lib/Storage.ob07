@@ -66,7 +66,7 @@ BEGIN
 	ASSERT(block # NIL);
 	
 	boffs := BLOCK_SIZE * nth;
-	baddr := SYSTEM.VAL(block, ADDRESS);
+	baddr := SYSTEM.VAL(ADDRESS, block);
 	bsize := Files.Seek(disk.file, boffs, Files.SEEK_BEG);
 	IF Files.ReadAddr(disk.file, baddr, BLOCK_SIZE) <= 0 THEN
 		RAISE(ERR_READBLOCK);
@@ -83,7 +83,7 @@ BEGIN
 	ASSERT(block # NIL);
 	
 	boffs := BLOCK_SIZE * nth;
-	baddr := SYSTEM.VAL(block, ADDRESS);
+	baddr := SYSTEM.VAL(ADDRESS, block);
 	bsize := Files.Seek(disk.file, boffs, Files.SEEK_BEG);
 	IF Files.WriteAddr(disk.file, baddr, BLOCK_SIZE) <= 0 THEN
 		RAISE(ERR_WRITEBLOCK);

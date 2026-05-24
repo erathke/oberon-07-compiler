@@ -194,7 +194,7 @@ VAR
 	BEGIN
 		CASE kind OF
 		| STK.KIND_REAL:
-			rval := SYSTEM.VAL(vmm.ws.data[idx].value, REAL);
+			rval := SYSTEM.VAL(REAL, vmm.ws.data[idx].value);
 			String.FromReal(rval, 3, valStr);
 		| STK.KIND_INT, STK.KIND_POINTER:
 			sval := vmm.ws.data[idx].value.h;

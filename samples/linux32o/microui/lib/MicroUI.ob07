@@ -96,7 +96,7 @@ PROCEDURE [extern, "mu_slider_ex"] _mu_slider_ex(ctx: Context; VAR value: REAL; 
 
 PROCEDURE NextCommand*(ctx: Context; VAR cmd: Command): BOOLEAN;
 BEGIN
-	RETURN _mu_next_command(ctx, SYSTEM.VAL(cmd, ADDRESS))
+	RETURN _mu_next_command(ctx, SYSTEM.VAL(ADDRESS, cmd))
 END NextCommand;
 
 

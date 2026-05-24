@@ -148,7 +148,7 @@ VAR
 BEGIN
 	success := PopAll(stack, val.h, val.l, error, address);
 	IF success THEN
-		rvalue := SYSTEM.VAL(val, REAL);
+		rvalue := SYSTEM.VAL(REAL, val);
 	END;
 	RETURN success
 END PopR;
@@ -287,7 +287,7 @@ BEGIN
 	ELSE
 		success := PeekHL(stack, val.h, val.l, ridx, error, address);
 		IF success THEN
-			rvalue := SYSTEM.VAL(stack.data[idx], REAL);
+			rvalue := SYSTEM.VAL(REAL, stack.data[idx]);
 		END;
 	END;
 	RETURN success

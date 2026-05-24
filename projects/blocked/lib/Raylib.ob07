@@ -136,10 +136,10 @@ PROCEDURE IntToColor*(color: INTEGER; VAR c: Color);
 VAR
 	i: INTEGER;
 BEGIN
-	i := LSR(color, 24); c.r := SYSTEM.VAL(i, BYTE);
-	i := LSR(color, 16); c.g := SYSTEM.VAL(i, BYTE);
-	i := LSR(color, 8);  c.b := SYSTEM.VAL(i, BYTE);
-	i := color; 		 c.a := SYSTEM.VAL(i, BYTE);
+	i := LSR(color, 24); c.r := SYSTEM.VAL(BYTE, i);
+	i := LSR(color, 16); c.g := SYSTEM.VAL(BYTE, i);
+	i := LSR(color, 8);  c.b := SYSTEM.VAL(BYTE, i);
+	i := color; 		 c.a := SYSTEM.VAL(BYTE, i);
 END IntToColor;
 
 
